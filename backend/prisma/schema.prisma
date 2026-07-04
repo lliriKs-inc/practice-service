@@ -30,3 +30,21 @@ model Cohort {
 
   created_at DateTime @default(now())
 }
+
+model CohortRole {
+  id        String @id @default(cuid())
+  cohort_id String
+  name      String
+
+  cohort Cohort @relation(fields: [cohort_id], references: [id])
+}
+
+model TestTask {
+  id        String @id @default(cuid())
+  cohort_id String
+
+  content   String
+  published_at DateTime?
+
+  cohort Cohort @relation(fields: [cohort_id], references: [id])
+}
