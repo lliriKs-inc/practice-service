@@ -48,3 +48,52 @@ model TestTask {
 
   cohort Cohort @relation(fields: [cohort_id], references: [id])
 }
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Application {
+  id         String @id @default(cuid())
+
+  user_id    String
+  cohort_id  String
+
+  status     ApplicationStatus @default(PENDING)
+  review_comment String?
+
+  created_at DateTime @default(now())
+
+  user   User   @relation(fields: [user_id], references: [id])
+  cohort Cohort @relation(fields: [cohort_id], references: [id])
+
+  answers ApplicationAnswer[]
+
+  @@unique([user_id, cohort_id])
+}
+
+model ApplicationAnswer {
+  id             String @id @default(cuid())
+
+  application_id String
+  field_id       String
+
+  value          String
+
+  application Application @relation(fields: [application_id], references: [id])
+  field       SurveyField @relation(fields: [field_id], references: [id])
+}
+
+model SurveyField {
+  id        String @id @default(cuid())
+  cohort_id String
+
+  label     String
+  type      String
+  options   String?
+  order     Int
+
+  cohort Cohort @relation(fields: [cohort_id], references: [id])
+}
