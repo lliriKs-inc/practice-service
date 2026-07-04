@@ -12,10 +12,12 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  password_hash String
-  created_at    DateTime @default(now())
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  password_hash        String
+  created_at           DateTime              @default(now())
+  applications         Application[]
+  studentDocumentDatas StudentDocumentData[]
 }
 
 model Cohort {
@@ -28,7 +30,12 @@ model Cohort {
   practice_start DateTime
   practice_end   DateTime
 
-  created_at DateTime @default(now())
+  created_at           DateTime              @default(now())
+  cohortRoles          CohortRole[]
+  testTasks            TestTask[]
+  applications         Application[]
+  surveyFields         SurveyField[]
+  studentDocumentDatas StudentDocumentData[]
 }
 
 model CohortRole {
@@ -43,7 +50,7 @@ model TestTask {
   id        String @id @default(cuid())
   cohort_id String
 
-  content   String
+  content      String
   published_at DateTime?
 
   cohort Cohort @relation(fields: [cohort_id], references: [id])
@@ -56,12 +63,12 @@ enum ApplicationStatus {
 }
 
 model Application {
-  id         String @id @default(cuid())
+  id String @id @default(cuid())
 
-  user_id    String
-  cohort_id  String
+  user_id   String
+  cohort_id String
 
-  status     ApplicationStatus @default(PENDING)
+  status         ApplicationStatus @default(PENDING)
   review_comment String?
 
   created_at DateTime @default(now())
@@ -75,12 +82,12 @@ model Application {
 }
 
 model ApplicationAnswer {
-  id             String @id @default(cuid())
+  id String @id @default(cuid())
 
   application_id String
   field_id       String
 
-  value          String
+  value String
 
   application Application @relation(fields: [application_id], references: [id])
   field       SurveyField @relation(fields: [field_id], references: [id])
@@ -90,10 +97,45 @@ model SurveyField {
   id        String @id @default(cuid())
   cohort_id String
 
-  label     String
-  type      String
-  options   String?
-  order     Int
+  label   String
+  type    String
+  options String?
+  order   Int
 
+  cohort             Cohort              @relation(fields: [cohort_id], references: [id])
+  applicationAnswers ApplicationAnswer[]
+}
+
+model StudentDocumentData {
+  id String @id @default(cuid())
+
+  user_id   String
+  cohort_id String
+
+  student_fio String?
+  group       String?
+
+  direction_code String?
+  direction_name String?
+  program_name   String?
+  specialty      String?
+  practice_topic String?
+
+  main_stage_tasks String?
+
+  review_activities       String?
+  review_characteristic   String?
+  review_employed         String?
+  review_next_practice    String?
+  review_employment_offer String?
+  review_suggestions      String?
+  review_grade            String?
+
+  report_file_url       String?
+  report_admin_approved Boolean @default(false)
+
+  user   User   @relation(fields: [user_id], references: [id])
   cohort Cohort @relation(fields: [cohort_id], references: [id])
+
+  @@unique([user_id, cohort_id])
 }
