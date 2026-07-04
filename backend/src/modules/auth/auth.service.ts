@@ -25,7 +25,12 @@ export class AuthService {
       },
     });
 
-    return user;
+    return {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        created_at: user.created_at,
+        };
   }
 
   static async login(email: string, password: string) {
