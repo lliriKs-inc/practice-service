@@ -30,7 +30,7 @@ export class AuthService {
         email: user.email,
         role: user.role,
         created_at: user.created_at,
-        };
+    };
   }
 
   static async login(email: string, password: string) {
@@ -52,5 +52,22 @@ export class AuthService {
     });
 
     return { token };
+  }
+  static async getMe(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        created_at: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    return user;
   }
 }
