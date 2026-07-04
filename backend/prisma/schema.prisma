@@ -11,12 +11,18 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  STUDENT
+  ADMIN
+}
+
 model User {
   id                   String                @id @default(cuid())
   email                String                @unique
   password_hash        String
   created_at           DateTime              @default(now())
   applications         Application[]
+  role                 UserRole              @default(STUDENT)
   studentDocumentDatas StudentDocumentData[]
   taskCards            TaskCard[]
 }
@@ -41,11 +47,13 @@ model Cohort {
 }
 
 model CohortRole {
-  id        String @id @default(cuid())
-  cohort_id String
-  name      String
+  id           String        @id @default(cuid())
+  cohort_id    String
+  name         String
+  cohort       Cohort        @relation(fields: [cohort_id], references: [id])
+  applications Application[]
 
-  cohort Cohort @relation(fields: [cohort_id], references: [id])
+  @@unique([cohort_id, name])
 }
 
 model TestTask {
@@ -69,14 +77,16 @@ model Application {
 
   user_id   String
   cohort_id String
+  role_id   String?
 
   status         ApplicationStatus @default(PENDING)
   review_comment String?
 
   created_at DateTime @default(now())
 
-  user   User   @relation(fields: [user_id], references: [id])
-  cohort Cohort @relation(fields: [cohort_id], references: [id])
+  user   User        @relation(fields: [user_id], references: [id])
+  cohort Cohort      @relation(fields: [cohort_id], references: [id])
+  role   CohortRole? @relation(fields: [role_id], references: [id])
 
   answers ApplicationAnswer[]
 
@@ -93,6 +103,15 @@ model ApplicationAnswer {
 
   application Application @relation(fields: [application_id], references: [id])
   field       SurveyField @relation(fields: [field_id], references: [id])
+
+  @@unique([application_id, field_id])
+}
+
+enum FieldType {
+  TEXT
+  TEXTAREA
+  SELECT
+  RADIO
 }
 
 model SurveyField {
@@ -100,8 +119,8 @@ model SurveyField {
   cohort_id String
 
   label   String
-  type    String
-  options String?
+  type    FieldType
+  options Json?
   order   Int
 
   cohort             Cohort              @relation(fields: [cohort_id], references: [id])
