@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import { useAuth } from '@/hooks/useAuth'
+import { logout } from '@/services/api/auth'
 
 type Tab = 'applications' | 'documents' | 'tasks'
-
-const WEEK_DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт']
 
 const mockTasks: Record<string, { title: string; status: 'done' | 'review' | 'empty' }> = {
     '2026-07-06': { title: 'Настройка окружения, изучение кодовой базы', status: 'done' },
@@ -25,6 +25,8 @@ const docFields = [
 ]
 
 export default function DashboardPage() {
+    const { user, loading } = useAuth()
+
     const [tab, setTab] = useState<Tab>('applications')
     const [taskPopup, setTaskPopup] = useState<string | null>(null)
     const [taskText, setTaskText] = useState('')
@@ -36,6 +38,12 @@ export default function DashboardPage() {
         setTaskPopup(null)
         setTaskText('')
     }
+
+    if (loading) return (
+        <div className="min-h-screen flex items-center justify-center bg-[#F5F4FD]">
+            <p className="text-sm text-[#6B6880]">Загрузка…</p>
+        </div>
+    )
 
     return (
         <div className="min-h-screen bg-[#F5F4FD] flex flex-col">
@@ -58,7 +66,7 @@ export default function DashboardPage() {
                         <span className="text-xs font-semibold text-[#4A42D4]">Backend · Поток 2026</span>
                     </div>
                     <div className="w-8 h-8 rounded-full bg-[#6C63FF] text-white text-sm font-bold flex items-center justify-center">
-                        И
+                        {user?.fio?.[0] ?? 'И'}
                     </div>
                 </div>
             </header>
@@ -86,7 +94,10 @@ export default function DashboardPage() {
                     ))}
 
                     <div className="mt-auto pt-4 border-t border-[#E4E2F4]">
-                        <button className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] w-full text-left">
+                        <button
+                            onClick={logout}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] w-full text-left"
+                        >
                             <span>🚪</span> Выйти
                         </button>
                     </div>
@@ -103,7 +114,6 @@ export default function DashboardPage() {
                                 <p className="text-sm text-[#6B6880]">История всех твоих заявок на практику.</p>
                             </div>
 
-                            {/* current */}
                             <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                                 <div className="px-7 py-5 border-b border-[#E4E2F4] flex items-center justify-between">
                                     <div>
@@ -129,7 +139,6 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
-                            {/* archive */}
                             <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                                 <div className="px-7 py-5 border-b border-[#E4E2F4]">
                                     <p className="text-xs font-bold tracking-widest uppercase text-[#A9A7BB] mb-1">Архив</p>
@@ -161,7 +170,6 @@ export default function DashboardPage() {
                                 <p className="text-sm text-[#6B6880]">Заполни поля — документы сформируются автоматически.</p>
                             </div>
 
-                            {/* fields card */}
                             <div className="bg-white rounded-2xl shadow-sm p-7">
                                 <p className="text-[10px] font-bold tracking-widest uppercase text-[#6C63FF] mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-[#E4E2F4]">
                                     Данные для документов
@@ -198,7 +206,6 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
-                            {/* docs list */}
                             <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                                 <div className="px-7 py-5 border-b border-[#E4E2F4]">
                                     <p className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB] mb-1">Готовые документы</p>
@@ -259,7 +266,6 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
-                            {/* week table */}
                             <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                                 <div className="grid grid-cols-5 border-b border-[#E4E2F4]">
                                     {['Пн 6.07', 'Вт 7.07', 'Ср 8.07', 'Чт 9.07', 'Пт 10.07'].map((d, i) => (
@@ -271,10 +277,7 @@ export default function DashboardPage() {
 
                                 <div className="grid grid-cols-5 divide-x divide-[#E4E2F4] min-h-[240px]">
                                     {Object.entries(mockTasks).map(([date, task]) => (
-                                        <div
-                                            key={date}
-                                            className="p-4 flex flex-col gap-3 relative group"
-                                        >
+                                        <div key={date} className="p-4 flex flex-col gap-3 relative group">
                                             {task.status !== 'empty' ? (
                                                 <>
                                                     <div className={`inline-flex self-start items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full
@@ -302,7 +305,6 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
-                            {/* legend */}
                             <div className="flex items-center gap-4">
                                 {[
                                     { color: 'bg-[#2CB87A]', label: 'Выполнено' },
