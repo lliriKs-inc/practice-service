@@ -27,4 +27,18 @@ router.get(
   controller.getById
 );
 
+router.post(
+  "/:id/activate",
+  authMiddleware,
+  requireRole("ADMIN"),
+  controller.activate
+);
+
+router.get(
+  "/active/me",
+  authMiddleware,
+  requireRole("ADMIN"),
+  controller.getActive
+);
+
 export default router;
