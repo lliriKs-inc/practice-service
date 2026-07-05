@@ -5,6 +5,7 @@ import cohortRoutes from "./modules/cohort/cohort.routes";
 import { authMiddleware } from "./middlewares/auth.middleware";
 import { cohortContextMiddleware } from "./middlewares/cohortContext.middleware";
 import cohortRoleRoutes from "./modules/cohort-role/cohortRole.routes";
+import documentsRoutes from "./modules/documents/documents.routes";
 
 const app = express();
 
@@ -16,6 +17,8 @@ app.use(authMiddleware);
 app.use(cohortContextMiddleware);
 app.use("/cohorts", cohortRoleRoutes);
 app.use("/cohorts", cohortRoutes);
+app.use("/documents", documentsRoutes);
+
 app.get("/", (_, res) => {
     res.send("Server works!");
 });
