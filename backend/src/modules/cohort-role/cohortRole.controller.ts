@@ -8,19 +8,26 @@ export class CohortRoleController {
     if (!req.user) {
         return res.status(401).json({ message: "Unauthorized" });
     }
+
+    if (!req.cohortId) {
+        return res.status(400).json({ message: "No active cohort selected" });
+    }
+
     const role = await service.create(
-      req.user.id,
-      req.body.name
+        req.cohortId,
+        req.body.name
     );
 
-    res.json(role);
-  }
+    return res.json(role);
+ }
 
   async getAll(req: Request, res: Response) {
-    if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+    const cohortId = req.cohortId;
+    if (!req.cohortId) {
+    return res.status(400).json({ message: "No active cohort selected" });
     }
-    const roles = await service.findAll(req.user.id);
+
+    const roles = await service.findAll(req.cohortId);
 
     res.json(roles);
   }

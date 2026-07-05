@@ -1,29 +1,18 @@
 import { prisma } from "../../shared/prisma";
-import { getActiveCohort } from "../../state/activeCohort";
 
 export class CohortRoleService {
-  async create(userId: string, name: string) {
-    const cohortId = getActiveCohort(userId);
-
-    if (!cohortId) {
-      throw new Error("No active cohort selected");
-    }
-
+  async create(cohortId: string, name: string) {
     return prisma.cohortRole.create({
-      data: {
+        data: {
         cohort_id: cohortId,
         name,
-      },
+        },
     });
-  }
+ }
 
-  async findAll(userId: string) {
-    const cohortId = getActiveCohort(userId);
-
+  async findAll(cohortId: string) {
     return prisma.cohortRole.findMany({
-      where: {
-        cohort_id: cohortId,
-      },
+        where: { cohort_id: cohortId },
     });
   }
 }

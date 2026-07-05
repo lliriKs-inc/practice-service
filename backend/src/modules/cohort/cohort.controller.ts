@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { CohortService } from "./cohort.service";
 import { setActiveCohort, getActiveCohort } from "../../state/activeCohort";
+import { prisma } from "../../shared/prisma";
 
 const service = new CohortService();
 
@@ -36,7 +37,16 @@ export class CohortController {
 
     const userId = req.user.id;
     const cohortId = req.params.id;
+    const cohort = await prisma.cohort.findUnique({
+        where: { id: cohortId },
+    });
 
+    if (!cohort) {
+        return res.status(404).json({
+        message: "Cohort not found",
+        });
+    }
+    
     setActiveCohort(userId, cohortId);
 
     return res.json({

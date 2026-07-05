@@ -21,6 +21,13 @@ router.get(
 );
 
 router.get(
+  "/active/me",
+  authMiddleware,
+  requireRole("ADMIN"),
+  controller.getActive
+);
+
+router.get(
   "/:id",
   authMiddleware,
   requireRole("ADMIN"),
@@ -32,13 +39,6 @@ router.post(
   authMiddleware,
   requireRole("ADMIN"),
   controller.activate
-);
-
-router.get(
-  "/active/me",
-  authMiddleware,
-  requireRole("ADMIN"),
-  controller.getActive
 );
 
 router.patch(
