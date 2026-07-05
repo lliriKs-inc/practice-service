@@ -6,12 +6,14 @@ import { authMiddleware } from "./middlewares/auth.middleware";
 import { cohortContextMiddleware } from "./middlewares/cohortContext.middleware";
 import cohortRoleRoutes from "./modules/cohort-role/cohortRole.routes";
 import documentsRoutes from "./modules/documents/documents.routes";
+import { uploadDir } from "./shared/upload";
 
 const app = express();
 
 const PORT = 3000;
 
 app.use(express.json());
+app.use("/uploads", express.static(uploadDir));
 app.use("/auth", authRoutes);
 app.use(authMiddleware);
 app.use(cohortContextMiddleware);
