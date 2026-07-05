@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import cors from 'cors';
 import authRoutes from "./modules/auth/auth.routes";
 import cohortRoutes from "./modules/cohort/cohort.routes";
 import { authMiddleware } from "./middlewares/auth.middleware";
@@ -12,6 +13,7 @@ const app = express();
 
 const PORT = 3000;
 
+app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static(uploadDir));
 app.use("/auth", authRoutes);
