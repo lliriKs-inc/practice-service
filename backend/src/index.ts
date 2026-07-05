@@ -1,5 +1,7 @@
 import "dotenv/config";
 import express from "express";
+import cors from 'cors';
+import { errorHandler } from './middlewares/error.middleware';
 import authRoutes from "./modules/auth/auth.routes";
 import cohortRoutes from "./modules/cohort/cohort.routes";
 import { authMiddleware } from "./middlewares/auth.middleware";
@@ -12,6 +14,7 @@ const app = express();
 
 const PORT = 3000;
 
+app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static(uploadDir));
 app.use("/auth", authRoutes);
@@ -24,6 +27,8 @@ app.use("/documents", documentsRoutes);
 app.get("/", (_, res) => {
     res.send("Server works!");
 });
+
+app.use(errorHandler);
 
 app.listen(PORT, () => {
     console.log(`Server started on ${PORT}`);
