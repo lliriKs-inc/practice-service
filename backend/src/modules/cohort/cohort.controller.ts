@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import { CohortService } from "./cohort.service";
-import { setActiveCohort, getActiveCohort } from "../../state/activeCohort";
 import { prisma } from "../../shared/prisma";
 
 const service = new CohortService();
@@ -47,7 +46,10 @@ export class CohortController {
         });
     }
     
-    setActiveCohort(userId, cohortId);
+    await prisma.user.update({
+        where: { id: userId },
+        data: { active_cohort_id: cohortId },
+    });
 
     return res.json({
         message: "active cohort set",
@@ -60,7 +62,12 @@ export class CohortController {
     }
     const userId = req.user.id;
 
-    const cohortId = getActiveCohort(userId);
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { active_cohort_id: true },
+    });
+
+    const cohortId = user?.active_cohort_id ?? null;
 
     return res.json({
         activeCohortId: cohortId || null,

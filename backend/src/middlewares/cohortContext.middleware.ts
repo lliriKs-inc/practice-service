@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { getActiveCohort } from "../state/activeCohort";
+import { prisma } from "../shared/prisma";
 
-export function cohortContextMiddleware(
+export async function cohortContextMiddleware(
   req: Request,
   res: Response,
   next: NextFunction
@@ -10,9 +10,12 @@ export function cohortContextMiddleware(
 
   if (!userId) return next();
 
-  const cohortId = getActiveCohort(userId);
+  const user = await prisma.user.findUnique({
+  where: { id: userId },
+  select: { active_cohort_id: true },
+  });
 
-  req.cohortId = cohortId || null;
+  req.cohortId = user?.active_cohort_id ?? null;
 
   next();
 }
