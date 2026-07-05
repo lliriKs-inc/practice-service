@@ -5,7 +5,7 @@ import { requireRole } from "../../middlewares/role.middleware";
 
 const router = Router();
 const controller = new DocumentsController();
-
+router.get("/readiness", controller.getReadiness.bind(controller));
 router.get("/", controller.getMyDocuments.bind(controller));
 router.post("/", controller.create.bind(controller));
 router.patch("/", controller.update.bind(controller));

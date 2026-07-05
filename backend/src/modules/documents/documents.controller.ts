@@ -133,4 +133,21 @@ export class DocumentsController {
       return res.status(400).json({ message: (error as Error).message });
     }
   }
+  async getReadiness(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      if (!req.cohortId) {
+        return res.status(400).json({ message: "No active cohort selected" });
+      }
+
+      const readiness = await service.getReadiness(req.user.id, req.cohortId);
+
+      return res.json(readiness);
+    } catch (error) {
+      return res.status(403).json({ message: (error as Error).message });
+    }
+  }
 }
