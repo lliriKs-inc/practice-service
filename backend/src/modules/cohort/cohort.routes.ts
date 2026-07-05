@@ -41,4 +41,11 @@ router.get(
   controller.getActive
 );
 
+router.patch(
+  "/:id",
+  authMiddleware,
+  requireRole("ADMIN"),
+  controller.update
+);
+
 export default router;

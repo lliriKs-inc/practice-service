@@ -10,6 +10,15 @@ export class CohortController {
     return res.json(cohort);
   }
 
+  async update(req: Request<{ id: string }>, res: Response) {
+    const updated = await service.update(
+        req.params.id,
+        req.body
+    );
+
+    res.json(updated);
+  }
+
   async getAll(req: Request, res: Response) {
     const cohorts = await service.findAll();
     return res.json(cohorts);
