@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { DocumentsService } from "./documents.service";
+import { DocumentTemplate } from "./documentGenerator.service";
 
 const service = new DocumentsService();
 
@@ -148,6 +149,48 @@ export class DocumentsController {
       return res.json(readiness);
     } catch (error) {
       return res.status(403).json({ message: (error as Error).message });
+    }
+  }
+
+  async generate(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      if (!req.cohortId) {
+        return res.status(400).json({ message: "No active cohort selected" });
+      }
+
+      const type = req.params.type as DocumentTemplate;
+      const allowedTypes: DocumentTemplate[] = [
+        "individual-task",
+        "review",
+        "title-page",
+      ];
+
+      if (!allowedTypes.includes(type)) {
+        return res.status(400).json({ message: "Invalid document type" });
+      }
+
+      const buffer = await service.generateDocument(
+        req.user.id,
+        req.cohortId,
+        type
+      );
+
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${type}.docx"`
+      );
+
+      return res.send(buffer);
+    } catch (error) {
+      return res.status(400).json({ message: (error as Error).message });
     }
   }
 }
