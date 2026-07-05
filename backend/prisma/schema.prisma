@@ -23,6 +23,8 @@ model User {
   created_at           DateTime              @default(now())
   applications         Application[]
   role                 UserRole              @default(STUDENT)
+  active_cohort_id     String?
+  activeCohort         Cohort?               @relation("UserActiveCohort", fields: [active_cohort_id], references: [id])
   studentDocumentDatas StudentDocumentData[]
   taskCards            TaskCard[]
 }
@@ -38,6 +40,7 @@ model Cohort {
   practice_end   DateTime
 
   created_at           DateTime              @default(now())
+  activeForUsers       User[]                @relation("UserActiveCohort")
   cohortRoles          CohortRole[]
   testTasks            TestTask[]
   applications         Application[]
