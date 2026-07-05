@@ -11,9 +11,170 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  STUDENT
+  ADMIN
+}
+
 model User {
-  id            Int      @id @default(autoincrement())
-  email         String   @unique
-  password_hash String
-  created_at    DateTime @default(now())
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  password_hash        String
+  created_at           DateTime              @default(now())
+  applications         Application[]
+  role                 UserRole              @default(STUDENT)
+  studentDocumentDatas StudentDocumentData[]
+  taskCards            TaskCard[]
+}
+
+model Cohort {
+  id   String @id @default(cuid())
+  name String @unique
+
+  application_start DateTime
+  application_end   DateTime
+
+  practice_start DateTime
+  practice_end   DateTime
+
+  created_at           DateTime              @default(now())
+  cohortRoles          CohortRole[]
+  testTasks            TestTask[]
+  applications         Application[]
+  surveyFields         SurveyField[]
+  studentDocumentDatas StudentDocumentData[]
+  taskCards            TaskCard[]
+}
+
+model CohortRole {
+  id           String        @id @default(cuid())
+  cohort_id    String
+  name         String
+  cohort       Cohort        @relation(fields: [cohort_id], references: [id])
+  applications Application[]
+
+  @@unique([cohort_id, name])
+}
+
+model TestTask {
+  id        String @id @default(cuid())
+  cohort_id String
+
+  content      String
+  published_at DateTime?
+
+  cohort Cohort @relation(fields: [cohort_id], references: [id])
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Application {
+  id String @id @default(cuid())
+
+  user_id   String
+  cohort_id String
+  role_id   String?
+
+  status         ApplicationStatus @default(PENDING)
+  review_comment String?
+
+  created_at DateTime @default(now())
+
+  user   User        @relation(fields: [user_id], references: [id])
+  cohort Cohort      @relation(fields: [cohort_id], references: [id])
+  role   CohortRole? @relation(fields: [role_id], references: [id])
+
+  answers ApplicationAnswer[]
+
+  @@unique([user_id, cohort_id])
+}
+
+model ApplicationAnswer {
+  id String @id @default(cuid())
+
+  application_id String
+  field_id       String
+
+  value String
+
+  application Application @relation(fields: [application_id], references: [id])
+  field       SurveyField @relation(fields: [field_id], references: [id])
+
+  @@unique([application_id, field_id])
+}
+
+enum FieldType {
+  TEXT
+  TEXTAREA
+  SELECT
+  RADIO
+}
+
+model SurveyField {
+  id        String @id @default(cuid())
+  cohort_id String
+
+  label   String
+  type    FieldType
+  options Json?
+  order   Int
+
+  cohort             Cohort              @relation(fields: [cohort_id], references: [id])
+  applicationAnswers ApplicationAnswer[]
+}
+
+model StudentDocumentData {
+  id String @id @default(cuid())
+
+  user_id   String
+  cohort_id String
+
+  student_fio String?
+  group       String?
+
+  direction_code String?
+  direction_name String?
+  program_name   String?
+  specialty      String?
+  practice_topic String?
+
+  main_stage_tasks String?
+
+  review_activities       String?
+  review_characteristic   String?
+  review_employed         String?
+  review_next_practice    String?
+  review_employment_offer String?
+  review_suggestions      String?
+  review_grade            String?
+
+  report_file_url       String?
+  report_admin_approved Boolean @default(false)
+
+  user   User   @relation(fields: [user_id], references: [id])
+  cohort Cohort @relation(fields: [cohort_id], references: [id])
+
+  @@unique([user_id, cohort_id])
+}
+
+model TaskCard {
+  id String @id @default(cuid())
+
+  user_id   String
+  cohort_id String
+
+  date DateTime
+
+  title         String
+  description   String
+  artifact_link String?
+
+  updated_at DateTime @updatedAt
+
+  user   User   @relation(fields: [user_id], references: [id])
+  cohort Cohort @relation(fields: [cohort_id], references: [id])
 }
