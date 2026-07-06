@@ -1,3 +1,4 @@
+// backend/src/middlewares/cohortContext.middleware.ts
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../shared/prisma";
 
@@ -10,12 +11,21 @@ export async function cohortContextMiddleware(
 
   if (!userId) return next();
 
-  const user = await prisma.user.findUnique({
-  where: { id: userId },
-  select: { active_cohort_id: true },
-  });
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { active_cohort_id: true },
+    });
 
-  req.cohortId = user?.active_cohort_id ?? null;
+    req.cohortId = user?.active_cohort_id ?? null;
+    
+    next();
+  } catch (error) {
+    console.error("[Database Error] Ошибка в cohortContextMiddleware при чтении БД:", error);
 
-  next();
+    return res.status(500).json({
+      success: false,
+      message: "Внутренняя ошибка сервера при обработке контекста когорты",
+    });
+  }
 }
