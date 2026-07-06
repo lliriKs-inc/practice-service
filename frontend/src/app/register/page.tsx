@@ -4,25 +4,34 @@ import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { login } from '@/services/api/auth'
+import { register } from '@/services/api/auth'
 
-export default function LoginPage() {
+export default function RegisterPage() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [passwordConfirm, setPasswordConfirm] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
         setError('')
+
+        if (password !== passwordConfirm) {
+            setError('Пароли не совпадают')
+            return
+        }
+        if (password.length < 8) {
+            setError('Пароль должен быть не менее 8 символов')
+            return
+        }
+
         setLoading(true)
         try {
-            const { getUser } = await import('@/services/api/auth')
-            await login({ email, password })
-            const user = getUser()
-            window.location.href = user?.role === 'ADMIN' ? '/admin' : '/dashboard'
+            await register({ email, password })
+            window.location.href = '/login'
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Ошибка входа')
+            setError(err instanceof Error ? err.message : 'Ошибка регистрации')
             setLoading(false)
         }
     }
@@ -32,40 +41,22 @@ export default function LoginPage() {
             className="min-h-screen flex items-center justify-center relative overflow-hidden"
             style={{ background: 'linear-gradient(145deg, #EEEAFF 0%, #F5F4FD 50%, #E8F4FF 100%)' }}
         >
-            {/* decorative blobs */}
-            <div
-                className="absolute pointer-events-none"
-                style={{
-                    width: 520,
-                    height: 520,
-                    borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(108,99,255,0.13) 0%, transparent 70%)',
-                    top: -140,
-                    left: -140,
-                }}
-            />
-            <div
-                className="absolute pointer-events-none"
-                style={{
-                    width: 400,
-                    height: 400,
-                    borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(108,99,255,0.10) 0%, transparent 70%)',
-                    bottom: -100,
-                    right: -80,
-                }}
-            />
-            <div
-                className="absolute pointer-events-none"
-                style={{
-                    width: 200,
-                    height: 200,
-                    borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(184,240,224,0.35) 0%, transparent 70%)',
-                    top: '40%',
-                    right: '10%',
-                }}
-            />
+            {/* blobs */}
+            <div style={{
+                position: 'absolute', width: 520, height: 520, borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(108,99,255,0.13) 0%, transparent 70%)',
+                top: -140, left: -140, pointerEvents: 'none',
+            }} />
+            <div style={{
+                position: 'absolute', width: 400, height: 400, borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(108,99,255,0.10) 0%, transparent 70%)',
+                bottom: -100, right: -80, pointerEvents: 'none',
+            }} />
+            <div style={{
+                position: 'absolute', width: 200, height: 200, borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(184,240,224,0.35) 0%, transparent 70%)',
+                top: '40%', right: '10%', pointerEvents: 'none',
+            }} />
 
             {/* card */}
             <div className="relative z-10 w-full max-w-md px-6 flex flex-col items-center">
@@ -84,15 +75,16 @@ export default function LoginPage() {
                 </div>
 
                 {/* form card */}
-                <div className="w-full bg-white rounded-2xl shadow-lg p-8"
+                <div
+                    className="w-full bg-white rounded-2xl p-8"
                     style={{ boxShadow: '0 8px 40px rgba(108,99,255,0.12)' }}
                 >
                     <div className="mb-7">
                         <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1.5">
-                            Добро пожаловать
+                            Создать аккаунт
                         </h1>
                         <p className="text-sm text-[#6B6880]">
-                            Войди в личный кабинет практиканта
+                            После регистрации заполни анкету для подачи заявки
                         </p>
                     </div>
 
@@ -108,21 +100,30 @@ export default function LoginPage() {
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                             />
+                            <span className="text-xs text-[#A9A7BB]">Используется для входа в систему</span>
                         </div>
 
                         <div className="flex flex-col gap-1.5">
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="password">Пароль</Label>
-                                <a href="#" className="text-xs text-[#6C63FF] hover:underline font-medium">
-                                    Забыл пароль?
-                                </a>
-                            </div>
+                            <Label htmlFor="password">Пароль</Label>
                             <Input
                                 id="password"
                                 type="password"
                                 placeholder="••••••••"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
+                                required
+                            />
+                            <span className="text-xs text-[#A9A7BB]">Минимум 8 символов</span>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="passwordConfirm">Повторите пароль</Label>
+                            <Input
+                                id="passwordConfirm"
+                                type="password"
+                                placeholder="••••••••"
+                                value={passwordConfirm}
+                                onChange={(e) => setPasswordConfirm(e.target.value)}
                                 required
                             />
                         </div>
@@ -140,7 +141,7 @@ export default function LoginPage() {
                             className="w-full text-white font-semibold py-5 rounded-lg shadow-md mt-1"
                             style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}
                         >
-                            {loading ? 'Входим…' : 'Войти →'}
+                            {loading ? 'Создаём аккаунт…' : 'Зарегистрироваться →'}
                         </Button>
 
                     </form>
@@ -148,26 +149,10 @@ export default function LoginPage() {
 
                 {/* bottom hint */}
                 <div className="flex items-center gap-2 mt-6 text-sm text-[#6B6880]">
-                    <span>Ещё нет аккаунта?</span>
-                    <a href="/register" className="text-[#6C63FF] font-semibold hover:underline">
-                        Зарегистрироваться →
+                    <span>Уже есть аккаунт?</span>
+                    <a href="/login" className="text-[#6C63FF] font-semibold hover:underline">
+                        Войти →
                     </a>
-                </div>
-
-                {/* feature pills */}
-                <div className="flex flex-wrap justify-center gap-2 mt-8">
-                    {[
-                        '📋 Статус заявки',
-                        '📄 Документы',
-                        '✅ Дневник задач',
-                    ].map(item => (
-                        <span
-                            key={item}
-                            className="text-xs font-medium px-3 py-1.5 rounded-full border-[1.5px] border-[#E4E2F4] bg-white text-[#6B6880]"
-                        >
-                            {item}
-                        </span>
-                    ))}
                 </div>
 
             </div>

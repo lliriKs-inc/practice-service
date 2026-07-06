@@ -1,0 +1,35 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { getToken, getUser, type User } from '@/services/api/auth'  // ← импортируем User отсюда
+
+export function useAuth(requiredRole?: 'ADMIN' | 'STUDENT') {
+    const router = useRouter()
+    const [user, setUser] = useState<User | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        const token = getToken()
+        const userData = getUser()
+
+        if (!token || !userData) {
+            router.replace('/login')
+            return
+        }
+
+        if (requiredRole && userData.role !== requiredRole) {
+            router.replace('/login')
+            return
+        }
+
+        const timer = setTimeout(() => {
+            setUser(userData)
+            setLoading(false)
+        }, 0)
+
+        return () => clearTimeout(timer)
+    }, [router, requiredRole])
+
+    return { user, loading }
+}
