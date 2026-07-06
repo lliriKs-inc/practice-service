@@ -135,4 +135,24 @@ export class TasksController {
       next(error);
     }
   }
+
+  async getAllWeek(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.cohortId) {
+        throw new AppError("No active cohort selected", 400);
+      }
+
+      const weekStart = req.query.weekStart;
+
+      if (typeof weekStart !== "string") {
+        throw new AppError("weekStart is required", 400);
+      }
+
+      const tasks = await service.findAllWeek(req.cohortId, weekStart);
+
+      return res.json(tasks);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

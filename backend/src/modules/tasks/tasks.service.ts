@@ -84,10 +84,12 @@ export class TasksService {
       throw new AppError("Invalid weekStart", 400);
     }
 
+    const cohort = await this.getCohort(cohortId);
+
     const end = new Date(start);
     end.setDate(end.getDate() + 7);
 
-    return prisma.taskCard.findMany({
+    const tasks = await prisma.taskCard.findMany({
       where: {
         user_id: userId,
         cohort_id: cohortId,
@@ -100,6 +102,57 @@ export class TasksService {
         date: "asc",
       },
     });
+
+    return {
+      weekStart: start,
+      weekEnd: end,
+      practiceStart: cohort.practice_start,
+      practiceEnd: cohort.practice_end,
+      tasks,
+    };
+  }
+
+  async findAllWeek(cohortId: string, weekStart: string) {
+    const start = new Date(weekStart);
+
+    if (Number.isNaN(start.getTime())) {
+      throw new AppError("Invalid weekStart", 400);
+    }
+
+    const cohort = await this.getCohort(cohortId);
+
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+
+    const tasks = await prisma.taskCard.findMany({
+      where: {
+        cohort_id: cohortId,
+        date: {
+          gte: start,
+          lt: end,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: [
+        { date: "asc" },
+        { updated_at: "desc" },
+      ],
+    });
+
+    return {
+      weekStart: start,
+      weekEnd: end,
+      practiceStart: cohort.practice_start,
+      practiceEnd: cohort.practice_end,
+      tasks,
+    };
   }
 
   async update(userId: string, cohortId: string, taskId: string, data: UpdateTaskDto) {

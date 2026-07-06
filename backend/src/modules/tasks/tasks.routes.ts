@@ -6,6 +6,7 @@ const router = Router();
 const controller = new TasksController();
 
 router.get("/week", controller.getWeek.bind(controller));
+router.get("/all/week", requireRole("ADMIN"), controller.getAllWeek.bind(controller));
 router.get("/all", requireRole("ADMIN"), controller.getAll.bind(controller));
 router.get("/", controller.getMine.bind(controller));
 router.post("/", controller.create.bind(controller));
