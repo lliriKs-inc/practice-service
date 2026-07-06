@@ -1,54 +1,55 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
+import { AppError } from "../../middlewares/error.middleware";
 import { DocumentsService } from "./documents.service";
 import { DocumentTemplate } from "./documentGenerator.service";
 
 const service = new DocumentsService();
 
 export class DocumentsController {
-  async getMyDocuments(req: Request, res: Response) {
+  async getMyDocuments(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        throw new AppError("Unauthorized", 401);
       }
 
       if (!req.cohortId) {
-        return res.status(400).json({ message: "No active cohort selected" });
+        throw new AppError("No active cohort selected", 400);
       }
 
       const documents = await service.getByUser(req.user.id, req.cohortId);
 
       return res.json(documents);
     } catch (error) {
-      return res.status(403).json({ message: (error as Error).message });
+      next(error);
     }
   }
 
-  async create(req: Request, res: Response) {
+  async create(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        throw new AppError("Unauthorized", 401);
       }
 
       if (!req.cohortId) {
-        return res.status(400).json({ message: "No active cohort selected" });
+        throw new AppError("No active cohort selected", 400);
       }
 
       const documents = await service.create(req.user.id, req.cohortId);
 
       return res.status(201).json(documents);
     } catch (error) {
-      return res.status(403).json({ message: (error as Error).message });
+      next(error);
     }
   }
 
-  async update(req: Request, res: Response) {
+  async update(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        throw new AppError("Unauthorized", 401);
       }
 
       if (!req.cohortId) {
-        return res.status(400).json({ message: "No active cohort selected" });
+        throw new AppError("No active cohort selected", 400);
       }
 
       const documents = await service.update(
@@ -59,22 +60,22 @@ export class DocumentsController {
 
       return res.json(documents);
     } catch (error) {
-      return res.status(403).json({ message: (error as Error).message });
+      next(error);
     }
   }
 
-  async uploadReport(req: Request, res: Response) {
+  async uploadReport(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        throw new AppError("Unauthorized", 401);
       }
 
       if (!req.cohortId) {
-        return res.status(400).json({ message: "No active cohort selected" });
+        throw new AppError("No active cohort selected", 400);
       }
 
       if (!req.file) {
-        return res.status(400).json({ message: "Report file is required" });
+        throw new AppError("Report file is required", 400);
       }
 
       const reportFileUrl = `/uploads/${req.file.filename}`;
@@ -87,79 +88,79 @@ export class DocumentsController {
 
       return res.json(documents);
     } catch (error) {
-      return res.status(403).json({ message: (error as Error).message });
+      next(error);
     }
   }
 
-  async updateReview(req: Request, res: Response) {
+  async updateReview(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.cohortId) {
-        return res.status(400).json({ message: "No active cohort selected" });
+        throw new AppError("No active cohort selected", 400);
       }
 
       const { userId, ...data } = req.body;
 
       if (!userId) {
-        return res.status(400).json({ message: "userId is required" });
+        throw new AppError("userId is required", 400);
       }
 
       const documents = await service.updateReview(userId, req.cohortId, data);
 
       return res.json(documents);
     } catch (error) {
-      return res.status(400).json({ message: (error as Error).message });
+      next(error);
     }
   }
 
-  async approveReport(req: Request, res: Response) {
+  async approveReport(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.cohortId) {
-        return res.status(400).json({ message: "No active cohort selected" });
+        throw new AppError("No active cohort selected", 400);
       }
 
       const { userId } = req.body;
 
       if (!userId) {
-        return res.status(400).json({ message: "userId is required" });
+        throw new AppError("userId is required", 400);
       }
 
       const result = await service.approveReport(userId, req.cohortId);
 
       if (result.count === 0) {
-        return res.status(404).json({ message: "Documents not found" });
+        throw new AppError("Documents not found", 404);
       }
 
       return res.json({ message: "Report approved" });
     } catch (error) {
-      return res.status(400).json({ message: (error as Error).message });
+      next(error);
     }
   }
-  async getReadiness(req: Request, res: Response) {
+  async getReadiness(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        throw new AppError("Unauthorized", 401);
       }
 
       if (!req.cohortId) {
-        return res.status(400).json({ message: "No active cohort selected" });
+        throw new AppError("No active cohort selected", 400);
       }
 
       const readiness = await service.getReadiness(req.user.id, req.cohortId);
 
       return res.json(readiness);
     } catch (error) {
-      return res.status(403).json({ message: (error as Error).message });
+      next(error);
     }
   }
 
-  async generate(req: Request, res: Response) {
+  async generate(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        throw new AppError("Unauthorized", 401);
       }
 
       if (!req.cohortId) {
-        return res.status(400).json({ message: "No active cohort selected" });
+        throw new AppError("No active cohort selected", 400);
       }
 
       const type = req.params.type as DocumentTemplate;
@@ -170,7 +171,7 @@ export class DocumentsController {
       ];
 
       if (!allowedTypes.includes(type)) {
-        return res.status(400).json({ message: "Invalid document type" });
+        throw new AppError("Invalid document type", 400);
       }
 
       const buffer = await service.generateDocument(
@@ -190,7 +191,7 @@ export class DocumentsController {
 
       return res.send(buffer);
     } catch (error) {
-      return res.status(400).json({ message: (error as Error).message });
+      next(error);
     }
   }
 }
