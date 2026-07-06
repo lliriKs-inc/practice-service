@@ -8,6 +8,7 @@ import { authMiddleware } from "./middlewares/auth.middleware";
 import { cohortContextMiddleware } from "./middlewares/cohortContext.middleware";
 import cohortRoleRoutes from "./modules/cohort-role/cohortRole.routes";
 import documentsRoutes from "./modules/documents/documents.routes";
+import tasksRoutes from "./modules/tasks/tasks.routes";
 import { uploadDir } from "./shared/upload";
 
 const app = express();
@@ -23,6 +24,7 @@ app.use(cohortContextMiddleware);
 app.use("/cohorts", cohortRoleRoutes);
 app.use("/cohorts", cohortRoutes);
 app.use("/documents", documentsRoutes);
+app.use("/tasks", tasksRoutes);
 
 app.get("/", (_, res) => {
     res.send("Server works!");
