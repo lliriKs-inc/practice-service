@@ -30,52 +30,56 @@
 
 Регистрация нового пользователя.
 
-* **Авторизация:** не требуется  
-* **Body:**  
-  {  
-    "email": "user@example.com",  
-    "password": "strongpassword123"  
-  }  
-* **Response (210 Created):**  
-  {  
-    "id": "uuid-строка",  
-    "email": "user@example.com"  
-  }  
-* **Ошибки:**  
-  * 400 Bad Request — { "message": "Невалидный email или слишком короткий пароль" }  
-  * 409 Conflict — { "message": "Пользователь с таким email уже существует" }
+* **Авторизация:** не требуется
+* **Body:**
+  {
+    "email": "user@example.com",
+    "password": "strongpassword123"
+  }
+* **Response (201 Created):**
+  {
+    "id": "uuid-строка",
+    "email": "user@example.com",
+    "role": "STUDENT",
+    "created_at": "2026-07-06T00:00:00.000Z"
+  }
+* **Ошибки:**
+  * 400 Bad Request — { "message": "Validation failed", "errors": [...] } (если не прошла zod-валидация registerSchema)
+  * 409 Conflict — { "message": "User already exists" }
 
 ### **POST /auth/login**
 
 Получить JWT.
 
-* **Авторизация:** не требуется  
-* **Body:**  
-  {  
-    "email": "admin@test.com",  
-    "password": "123456"  
-  }  
-* **Response (200 OK):**  
-  {  
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."  
-  }  
-* **Ошибки:**  
-  * 401 Unauthorized — { "message": "Неверный email или пароль" }
+* **Авторизация:** не требуется
+* **Body:**
+  {
+    "email": "admin@test.com",
+    "password": "123456"
+  }
+* **Response (200 OK):**
+  {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+* **Ошибки:**
+  * 400 Bad Request — { "message": "Validation failed", "errors": [...] } (если не прошла zod-валидация loginSchema)
+  * 401 Unauthorized — { "message": "Invalid credentials" }
 
 ### **GET /auth/me**
 
 Получить текущего пользователя по токену.
 
-* **Авторизация:** требуется  
-* **Response (200 OK):**  
-  {  
-    "id": "uuid-строка",  
-    "email": "user@test.com",  
-    "role": "USER",  
-    "active\_cohort\_id": "uuid-когорты-или-null"  
-  }  
-* **Ошибки:**  
-  * 401 Unauthorized — { "message": "Токен отсутствует или невалиден" }
+* **Авторизация:** требуется
+* **Response (200 OK):**
+  {
+    "id": "uuid-строка",
+    "email": "user@test.com",
+    "role": "STUDENT",
+    "created_at": "2026-07-06T00:00:00.000Z"
+  }
+* **Ошибки:**
+  * 401 Unauthorized — токен отсутствует/невалиден (перехватывается authMiddleware до контроллера)
+  * 400 Bad Request — { "message": "User not found" } (если пользователь удалён из базы, но токен ещё валиден — контроллер сейчас не различает типы ошибок и отдаёт 400 на любое исключение из getMe)
 
 ## **Cohorts**
 
