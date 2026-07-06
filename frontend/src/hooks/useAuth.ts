@@ -1,18 +1,8 @@
-// hooks/useAuth.ts
-// Хук для проверки авторизации и редиректа
-
 'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getToken, getUser } from '@/services/api/auth'
-
-interface User {
-    id: string
-    email: string
-    fio: string
-    role: 'ADMIN' | 'STUDENT'
-}
+import { getToken, getUser, type User } from '@/services/api/auth'  // ← импортируем User отсюда
 
 export function useAuth(requiredRole?: 'ADMIN' | 'STUDENT') {
     const router = useRouter()
@@ -33,7 +23,6 @@ export function useAuth(requiredRole?: 'ADMIN' | 'STUDENT') {
             return
         }
 
-        // откладываем setUser чтобы не вызвать каскад рендеров
         const timer = setTimeout(() => {
             setUser(userData)
             setLoading(false)

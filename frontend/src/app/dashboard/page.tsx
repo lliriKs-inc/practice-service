@@ -63,10 +63,12 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-[#EBE9FF] rounded-full">
                         <div className="w-2 h-2 rounded-full bg-[#6C63FF]" />
-                        <span className="text-xs font-semibold text-[#4A42D4]">Backend · Поток 2026</span>
+                        <span className="text-xs font-semibold text-[#4A42D4]">
+                            {user?.email ?? '…'}
+                        </span>
                     </div>
                     <div className="w-8 h-8 rounded-full bg-[#6C63FF] text-white text-sm font-bold flex items-center justify-center">
-                        {user?.fio?.[0] ?? 'И'}
+                        {user?.email?.[0]?.toUpperCase() ?? '?'}
                     </div>
                 </div>
             </header>

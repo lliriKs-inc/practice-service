@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { register } from '@/services/api/auth'
 
 export default function RegisterPage() {
-    const [fio, setFio] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [passwordConfirm, setPasswordConfirm] = useState('')
@@ -29,8 +28,8 @@ export default function RegisterPage() {
 
         setLoading(true)
         try {
-            await register({ fio, email, password })
-            window.location.href = '/apply'
+            await register({ email, password })
+            window.location.href = '/login'
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Ошибка регистрации')
             setLoading(false)
@@ -90,18 +89,6 @@ export default function RegisterPage() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-
-                        <div className="flex flex-col gap-1.5">
-                            <Label htmlFor="fio">ФИО</Label>
-                            <Input
-                                id="fio"
-                                type="text"
-                                placeholder="Иванов Иван Иванович"
-                                value={fio}
-                                onChange={(e) => setFio(e.target.value)}
-                                required
-                            />
-                        </div>
 
                         <div className="flex flex-col gap-1.5">
                             <Label htmlFor="email">E-mail</Label>

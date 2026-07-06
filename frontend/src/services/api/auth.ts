@@ -1,7 +1,6 @@
 // services/api/auth.ts
-// Все запросы связанные с авторизацией
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 export interface LoginDto {
     email: string
@@ -9,98 +8,102 @@ export interface LoginDto {
 }
 
 export interface RegisterDto {
-    fio: string
     email: string
     password: string
 }
 
-export interface AuthResponse {
-    token: string
-    user: {
-        id: string
-        email: string
-        fio: string
-        role: 'ADMIN' | 'STUDENT'
-    }
+export interface User {
+    id: string
+    email: string
+    role: 'ADMIN' | 'STUDENT'
+    created_at: string
 }
 
-// Сохранить токен
+// ── localStorage helpers ──────────────────────
+
 export function saveToken(token: string) {
     localStorage.setItem('jwt', token)
 }
 
-// Получить токен
 export function getToken(): string | null {
     return localStorage.getItem('jwt')
 }
 
-// Удалить токен (выход)
+export function saveUser(user: User) {
+    localStorage.setItem('user', JSON.stringify(user))
+}
+
+export function getUser(): User | null {
+    const raw = localStorage.getItem('user')
+    if (!raw) return null
+    try { return JSON.parse(raw) } catch { return null }
+}
+
+export function isAuthenticated(): boolean {
+    return !!getToken()
+}
+
 export function removeToken() {
     localStorage.removeItem('jwt')
     localStorage.removeItem('user')
 }
 
-// Сохранить данные пользователя
-export function saveUser(user: AuthResponse['user']) {
-    localStorage.setItem('user', JSON.stringify(user))
+export function logout() {
+    removeToken()
+    window.location.href = '/login'
 }
 
-// Получить данные пользователя
-export function getUser(): AuthResponse['user'] | null {
-    const raw = localStorage.getItem('user')
-    if (!raw) return null
-    try {
-        return JSON.parse(raw)
-    } catch {
-        return null
+// ── API helpers ───────────────────────────────
+
+function authHeaders() {
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${getToken()}`,
     }
 }
 
-// Проверить авторизован ли пользователь
-export function isAuthenticated(): boolean {
-    return !!getToken()
-}
+// ── Endpoints ────────────────────────────────
 
-// Войти
-export async function login(dto: LoginDto): Promise<AuthResponse> {
-    const res = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dto),
-    })
-
-    if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message || 'Ошибка входа')
-    }
-
-    const data: AuthResponse = await res.json()
-    saveToken(data.token)
-    saveUser(data.user)
-    return data
-}
-
-// Зарегистрироваться
-export async function register(dto: RegisterDto): Promise<AuthResponse> {
+// POST /auth/register
+export async function register(dto: RegisterDto): Promise<User> {
     const res = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dto),
     })
-
     if (!res.ok) {
         const err = await res.json()
         throw new Error(err.message || 'Ошибка регистрации')
     }
-
-    const data: AuthResponse = await res.json()
-    saveToken(data.token)
-    saveUser(data.user)
-    return data
+    return res.json()
 }
 
-// Выйти
-export function logout() {
-    removeToken()
-    window.location.href = '/login'
+// POST /auth/login
+export async function login(dto: LoginDto): Promise<void> {
+    const res = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dto),
+    })
+    if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.message || 'Неверный email или пароль')
+    }
+    const data = await res.json()
+    saveToken(data.token)
+
+    // получаем данные юзера отдельным запросом
+    const user = await getMe()
+    saveUser(user)
+}
+
+// GET /auth/me
+export async function getMe(): Promise<User> {
+    const res = await fetch(`${API_URL}/auth/me`, {
+        headers: authHeaders(),
+    })
+    if (!res.ok) {
+        throw new Error('Не удалось получить данные пользователя')
+    }
+    return res.json()
 }

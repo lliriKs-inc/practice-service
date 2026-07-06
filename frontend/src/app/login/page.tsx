@@ -17,8 +17,10 @@ export default function LoginPage() {
         setError('')
         setLoading(true)
         try {
+            const { getUser } = await import('@/services/api/auth')
             await login({ email, password })
-            window.location.href = '/dashboard'
+            const user = getUser()
+            window.location.href = user?.role === 'ADMIN' ? '/admin' : '/dashboard'
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Ошибка входа')
             setLoading(false)
@@ -147,8 +149,8 @@ export default function LoginPage() {
                 {/* bottom hint */}
                 <div className="flex items-center gap-2 mt-6 text-sm text-[#6B6880]">
                     <span>Ещё нет аккаунта?</span>
-                    <a href="/apply" className="text-[#6C63FF] font-semibold hover:underline">
-                        Подать заявку →
+                    <a href="/register" className="text-[#6C63FF] font-semibold hover:underline">
+                        Зарегистрироваться →
                     </a>
                 </div>
 
