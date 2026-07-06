@@ -2,6 +2,7 @@ import { prisma } from "../../shared/prisma";
 import { UpdateDocumentDto } from "./dto/update-document.dto";
 import { UpdateReviewDto } from "./dto/update-review.dto";
 import { DocumentGeneratorService, DocumentTemplate } from "./documentGenerator.service";
+import { AppError } from "../../middlewares/error.middleware";
 
 const generator = new DocumentGeneratorService();
 
@@ -16,7 +17,7 @@ export class DocumentsService {
     });
 
     if (!application) {
-      throw new Error("Application not approved");
+      throw new AppError("Application not approved", 403);
     }
   }
 
@@ -213,7 +214,7 @@ export class DocumentsService {
     });
 
     if (!documents) {
-      throw new Error("Documents data not found");
+      throw new AppError("Documents data not found", 404);
     }
 
     const cohort = await prisma.cohort.findUnique({
@@ -221,21 +222,21 @@ export class DocumentsService {
     });
 
     if (!cohort) {
-      throw new Error("Cohort not found");
+      throw new AppError("Cohort not found", 404);
     }
 
     const readiness = await this.getReadiness(userId, cohortId);
 
     if (type === "individual-task" && !readiness.individual_task.ready) {
-      throw new Error("Individual task document is not ready");
+      throw new AppError("Individual task document is not ready", 400);
     }
 
     if (type === "review" && !readiness.review.ready) {
-      throw new Error("Review document is not ready");
+      throw new AppError("Review document is not ready", 400);
     }
 
     if (type === "title-page" && !readiness.title_page.ready) {
-      throw new Error("Title page document is not ready");
+      throw new AppError("Title page document is not ready", 400);
     }
 
     const year = cohort.practice_start.getFullYear();
