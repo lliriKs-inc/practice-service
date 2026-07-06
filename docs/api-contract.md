@@ -532,12 +532,165 @@ _Статус: реализовано (Этап 9)_
 
 _Владелец: Backend Developer №2_
 
-_Статус: не реализовано (Этап 10, 0%)_
+_Статус: реализовано (Этап 10)_
 
-Все эндпоинты требуют роль ADMIN и фильтрацию по активной когорте.
+Все эндпоинты требуют `Authorization: Bearer <JWT>`, роль `ADMIN` и активную когорту (`req.cohortId`). Все данные фильтруются по активной когорте.
 
-- GET /admin/students — список одобренных студентов
-- GET /admin/stats — общая статистика по когорте
+### **GET /admin/students**
+
+Получить список студентов с одобренной заявкой в активной когорте.
+
+- **Роль:** ADMIN
+- **Response (200 OK):**
+  [
+  {
+  "id": "application-id",
+  "status": "APPROVED",
+  "created_at": "2026-07-06T00:00:00.000Z",
+  "review_comment": null,
+  "user_id": "user-id",
+  "cohort_id": "cohort-id",
+  "role_id": "role-id",
+  "user": {
+  "id": "user-id",
+  "email": "student@example.com"
+  },
+  "role": {
+  "id": "role-id",
+  "name": "Backend"
+  }
+  }
+  ]
+
+### **GET /admin/documents**
+
+Получить список одобренных студентов активной когорты с документными данными и readiness по документам.
+
+- **Роль:** ADMIN
+- **Response (200 OK):**
+  [
+  {
+  "application_id": "application-id",
+  "user_id": "user-id",
+  "user": {
+  "id": "user-id",
+  "email": "student@example.com"
+  },
+  "role": {
+  "id": "role-id",
+  "name": "Backend"
+  },
+  "documents": null,
+  "readiness": {
+  "individual_task": {
+  "ready": false,
+  "missingFields": ["student_fio", "group"]
+  },
+  "review": {
+  "ready": false,
+  "missingFields": ["review_activities"]
+  },
+  "title_page": {
+  "ready": false,
+  "missingFields": ["report_admin_approved"]
+  }
+  }
+  }
+  ]
+
+### **GET /admin/documents/:userId**
+
+Получить документы конкретного одобренного студента в активной когорте.
+
+- **Роль:** ADMIN
+- **Params:**
+  - `userId` — id студента
+- **Response (200 OK):**
+  {
+  "application_id": "application-id",
+  "user_id": "user-id",
+  "user": {
+  "id": "user-id",
+  "email": "student@example.com"
+  },
+  "role": {
+  "id": "role-id",
+  "name": "Backend"
+  },
+  "documents": null,
+  "readiness": {
+  "individual_task": {
+  "ready": false,
+  "missingFields": ["student_fio", "group"]
+  },
+  "review": {
+  "ready": false,
+  "missingFields": ["review_activities"]
+  },
+  "title_page": {
+  "ready": false,
+  "missingFields": ["report_admin_approved"]
+  }
+  }
+  }
+- **Ошибки:**
+  - 404 Not Found — { "message": "Approved student not found" }
+
+### **GET /admin/tasks**
+
+Получить задачи всех одобренных студентов активной когорты.
+
+- **Роль:** ADMIN
+- **Response (200 OK):**
+  [
+  {
+  "application_id": "application-id",
+  "user_id": "user-id",
+  "user": {
+  "id": "user-id",
+  "email": "student@example.com"
+  },
+  "role": {
+  "id": "role-id",
+  "name": "Backend"
+  },
+  "tasks": [
+  {
+  "id": "task-id",
+  "user_id": "user-id",
+  "cohort_id": "cohort-id",
+  "date": "2026-08-03T00:00:00.000Z",
+  "title": "Разработка модуля",
+  "description": "Описание работы",
+  "artifact_link": "https://github.com/example/pr",
+  "updated_at": "2026-08-03T12:00:00.000Z"
+  }
+  ]
+  }
+  ]
+
+### **GET /admin/stats**
+
+Получить общую статистику активной когорты.
+
+- **Роль:** ADMIN
+- **Response (200 OK):**
+  {
+  "applications": {
+  "total": 10,
+  "pending": 2,
+  "approved": 7,
+  "rejected": 1
+  },
+  "documents": {
+  "totalRecords": 7,
+  "uploadedReports": 4,
+  "approvedReports": 3
+  },
+  "tasks": {
+  "total": 25
+  }
+  }
 
 ## **Шаблон для нового эндпоинта**
 
