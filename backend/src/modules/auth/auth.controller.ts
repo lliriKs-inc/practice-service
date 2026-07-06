@@ -8,28 +8,25 @@ export class AuthController {
   static async register(req: Request, res: Response) {
     const result = registerSchema.safeParse(req.body);
     if (!result.success) {
-      return res.status(400).json({ 
-        message: "Validation failed", 
-        errors: result.error.issues 
-      });
+      return res.status(400).json({ message: "Validation failed", errors: result.error.issues });
     }
 
     try {
       const { email, password } = result.data;
       const user = await AuthService.register(email, password);
-      res.json(user);
+      res.status(201).json(user);
     } catch (e: any) {
+      if (e.message.toLowerCase().includes("exists")) {
+        return res.status(409).json({ message: "User already exists" });
+      }
       res.status(400).json({ message: e.message });
     }
   }
 
   static async login(req: Request, res: Response) {
-    const result = loginSchema.safeParse(req.body);
+  const result = loginSchema.safeParse(req.body);
     if (!result.success) {
-      return res.status(400).json({ 
-        message: "Validation failed", 
-        errors: result.error.issues 
-      });
+      return res.status(400).json({ message: "Validation failed", errors: result.error.issues });
     }
 
     try {
@@ -37,7 +34,7 @@ export class AuthController {
       const resultData = await AuthService.login(email, password);
       res.json(resultData);
     } catch (e: any) {
-      res.status(400).json({ message: e.message });
+      res.status(401).json({ message: "Invalid credentials" });
     }
   }
 
