@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { CohortController } from "./cohort.controller";
 import { requireRole } from "../../middlewares/role.middleware";
+import { validateCreateCohort, validateUpdateCohort } from "../../middlewares/cohortValidation.middleware";
 
 const router = Router();
 const controller = new CohortController();
@@ -8,6 +9,7 @@ const controller = new CohortController();
 router.post(
   "/",
   requireRole("ADMIN"),
+  validateCreateCohort,
   controller.create
 );
 
@@ -38,6 +40,7 @@ router.post(
 router.patch(
   "/:id",
   requireRole("ADMIN"),
+  validateUpdateCohort,
   controller.update
 );
 
