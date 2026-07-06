@@ -9,6 +9,7 @@ import { cohortContextMiddleware } from "./middlewares/cohortContext.middleware"
 import cohortRoleRoutes from "./modules/cohort-role/cohortRole.routes";
 import documentsRoutes from "./modules/documents/documents.routes";
 import tasksRoutes from "./modules/tasks/tasks.routes";
+import adminRoutes from "./modules/admin/admin.routes";
 import { uploadDir } from "./shared/upload";
 
 const app = express();
@@ -25,6 +26,7 @@ app.use("/cohorts", cohortRoleRoutes);
 app.use("/cohorts", cohortRoutes);
 app.use("/documents", documentsRoutes);
 app.use("/tasks", tasksRoutes);
+app.use("/admin", adminRoutes);
 
 app.get("/", (_, res) => {
     res.send("Server works!");
