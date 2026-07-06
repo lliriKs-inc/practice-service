@@ -11,17 +11,23 @@ import documentsRoutes from "./modules/documents/documents.routes";
 import tasksRoutes from "./modules/tasks/tasks.routes";
 import adminRoutes from "./modules/admin/admin.routes";
 import { uploadDir } from "./shared/upload";
+import { CohortController } from "./modules/cohort/cohort.controller";
 
 const app = express();
-
 const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static(uploadDir));
+
 app.use("/auth", authRoutes);
+
+const cohortController = new CohortController();
+app.get("/cohorts/public/current", cohortController.getPublicCurrent);
+
 app.use(authMiddleware);
 app.use(cohortContextMiddleware);
+
 app.use("/cohorts", cohortRoleRoutes);
 app.use("/cohorts", cohortRoutes);
 app.use("/documents", documentsRoutes);
