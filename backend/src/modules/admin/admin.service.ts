@@ -203,4 +203,130 @@ export class AdminService {
       ),
     };
   }
+
+  async getTasks(cohortId: string) {
+    const applications = await prisma.application.findMany({
+      where: {
+        cohort_id: cohortId,
+        status: "APPROVED",
+      },
+      select: {
+        id: true,
+        user_id: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            taskCards: {
+              where: {
+                cohort_id: cohortId,
+              },
+              orderBy: [
+                { date: "asc" },
+                { updated_at: "desc" },
+              ],
+            },
+          },
+        },
+      },
+      orderBy: {
+        created_at: "desc",
+      },
+    });
+
+    return applications.map((application) => ({
+      application_id: application.id,
+      user_id: application.user_id,
+      user: {
+        id: application.user.id,
+        email: application.user.email,
+      },
+      role: application.role,
+      tasks: application.user.taskCards,
+    }));
+  }
+
+  async getStats(cohortId: string) {
+    const [
+      totalApplications,
+      pendingApplications,
+      approvedApplications,
+      rejectedApplications,
+      documentsCount,
+      uploadedReports,
+      approvedReports,
+      tasksCount,
+    ] = await Promise.all([
+      prisma.application.count({
+        where: {
+          cohort_id: cohortId,
+        },
+      }),
+      prisma.application.count({
+        where: {
+          cohort_id: cohortId,
+          status: "PENDING",
+        },
+      }),
+      prisma.application.count({
+        where: {
+          cohort_id: cohortId,
+          status: "APPROVED",
+        },
+      }),
+      prisma.application.count({
+        where: {
+          cohort_id: cohortId,
+          status: "REJECTED",
+        },
+      }),
+      prisma.studentDocumentData.count({
+        where: {
+          cohort_id: cohortId,
+        },
+      }),
+      prisma.studentDocumentData.count({
+        where: {
+          cohort_id: cohortId,
+          report_file_url: {
+            not: null,
+          },
+        },
+      }),
+      prisma.studentDocumentData.count({
+        where: {
+          cohort_id: cohortId,
+          report_admin_approved: true,
+        },
+      }),
+      prisma.taskCard.count({
+        where: {
+          cohort_id: cohortId,
+        },
+      }),
+    ]);
+
+    return {
+      applications: {
+        total: totalApplications,
+        pending: pendingApplications,
+        approved: approvedApplications,
+        rejected: rejectedApplications,
+      },
+      documents: {
+        totalRecords: documentsCount,
+        uploadedReports,
+        approvedReports,
+      },
+      tasks: {
+        total: tasksCount,
+      },
+    };
+  }
 }
