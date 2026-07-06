@@ -1,17 +1,22 @@
 import { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import { AuthRequest } from "../../middlewares/auth.middleware";
+import { registerSchema } from "./dto/register.dto";
+import { loginSchema } from "./dto/login.dto";
 
 export class AuthController {
   static async register(req: Request, res: Response) {
+    const result = registerSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ 
+        message: "Validation failed", 
+        errors: result.error.issues 
+      });
+    }
+
     try {
-      const { email, password } = req.body;
-
-      if (!email || !password) {
-        return res.status(400).json({ message: "Email and password are required" });
-    }        
+      const { email, password } = result.data;
       const user = await AuthService.register(email, password);
-
       res.json(user);
     } catch (e: any) {
       res.status(400).json({ message: e.message });
@@ -19,14 +24,18 @@ export class AuthController {
   }
 
   static async login(req: Request, res: Response) {
-    try {
-      const { email, password } = req.body;
-      if (!email || !password) {
-        return res.status(400).json({ message: "Email and password are required" });
-        }   
-      const result = await AuthService.login(email, password);
+    const result = loginSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ 
+        message: "Validation failed", 
+        errors: result.error.issues 
+      });
+    }
 
-      res.json(result);
+    try {
+      const { email, password } = result.data;
+      const resultData = await AuthService.login(email, password);
+      res.json(resultData);
     } catch (e: any) {
       res.status(400).json({ message: e.message });
     }
@@ -41,7 +50,6 @@ export class AuthController {
       }
 
       const user = await AuthService.getMe(userId);
-
       res.json(user);
     } catch (e: any) {
       res.status(400).json({ message: e.message });
