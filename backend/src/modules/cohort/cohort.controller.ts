@@ -24,6 +24,37 @@ export class CohortController {
     return res.json(cohorts);
   }
 
+  async getPublicCurrent(req: Request, res: Response) {
+    try {
+      const now = new Date();
+
+      const currentCohort = await prisma.cohort.findFirst({
+        where: {
+          application_start: { lte: now },
+          application_end: { gte: now },
+        },
+      });
+
+      if (!currentCohort) {
+        return res.status(404).json({
+          success: false,
+          message: "В данный момент нет активных когорт, открытых для регистрации студентов.",
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: currentCohort,
+      });
+    } catch (error) {
+      console.error("⚠️ [Error] Ошибка при поиске текущей публичной когорты:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Внутренняя ошибка сервера при определении актуальной когорты.",
+      });
+    }
+  }
+
   async getById(req: Request<{ id: string }>, res: Response) {
     const cohort = await service.findById(req.params.id);
     return res.json(cohort);
@@ -56,6 +87,7 @@ export class CohortController {
         cohortId,
     });
   }
+
   async getActive(req: Request, res: Response) {
     if (!req.user) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -72,5 +104,5 @@ export class CohortController {
     return res.json({
         activeCohortId: cohortId || null,
     });
-    }
+  }
 }
