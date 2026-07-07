@@ -26,7 +26,22 @@ export class ApplicationService {
   }
 
   async getMyApplication(userId: string, cohortId: string) {
-    return null; // Будет реализовано в следующей задаче
+    return prisma.application.findUnique({
+      where: {
+        user_id_cohort_id: {
+          user_id: userId,
+          cohort_id: cohortId,
+        },
+      },
+      include: {
+        role: true,
+        answers: {
+          include: {
+            field: true,
+          },
+        },
+      },
+    });
   }
 
   async getApplicationById(id: string, cohortId: string) {

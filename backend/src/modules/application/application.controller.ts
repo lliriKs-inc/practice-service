@@ -40,19 +40,20 @@ export class ApplicationController {
       const cohortId = req.cohortId;
 
       if (!userId) {
-        return res.status(401).json({ success: false, message: 'Пользователь не авторизован' });
+        return res.status(401).json({ success: false, errors: ['Пользователь не авторизован'] });
       }
 
       if (!cohortId) {
-        return res.status(400).json({ success: false, message: 'Активная когорта не найдена' });
+        return res.status(400).json({ success: false, errors: ['Активная когорта не найдена в текущем контексте'] });
       }
 
       const application = await applicationService.getMyApplication(userId, cohortId);
+      
       if (!application) {
-        return res.status(404).json({ success: false, message: 'Заявка в текущей когорте еще не подана' });
+        return res.status(404).json({ success: false, errors: ['Заявка в текущей когорте еще не подана'] });
       }
 
-      return res.json(application);
+      return res.json({ success: true, data: application });
     } catch (error) {
       next(error);
     }
