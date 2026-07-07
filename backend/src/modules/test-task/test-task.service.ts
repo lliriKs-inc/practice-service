@@ -1,5 +1,6 @@
 import { prisma } from '../../shared/prisma'; 
 import { CreateTestTaskDto } from './dto/create-test-task.dto';
+import { UpdateTestTaskDto } from './dto/update-test-task.dto';
 
 export class TestTaskService {
   async createTestTask(cohortId: string, dto: CreateTestTaskDto) {
@@ -21,10 +22,7 @@ export class TestTaskService {
     }
 
     const hasApplication = await prisma.application.findFirst({
-      where: {
-        user_id: userId,
-        cohort_id: cohortId
-      }
+      where: { user_id: userId, cohort_id: cohortId }
     });
 
     if (!hasApplication) {
@@ -42,14 +40,44 @@ export class TestTaskService {
           id: task.id,
           cohort_id: task.cohort_id,
           published_at: null,
-          content: null, // Скрываем текст, на фронте покажем заглушку "появится позже"
+          content: null,
           is_published: false
         };
       }
-      return {
-        ...task,
-        is_published: true
-      };
+      return { ...task, is_published: true };
+    });
+  }
+
+  async updateTestTask(id: string, cohortId: string, dto: UpdateTestTaskDto) {
+    const exists = await prisma.testTask.findFirst({
+      where: { id, cohort_id: cohortId },
+    });
+
+    if (!exists) return null;
+
+    return prisma.testTask.update({
+      where: { id },
+      data: {
+        content: dto.content,
+      },
+    });
+  }
+
+  async publishTestTask(id: string, cohortId: string) {
+    const exists = await prisma.testTask.findFirst({
+      where: { id, cohort_id: cohortId },
+    });
+
+    if (!exists) return null;
+    if (exists.published_at !== null) {
+      throw new Error('ALREADY_PUBLISHED');
+    }
+
+    return prisma.testTask.update({
+      where: { id },
+      data: {
+        published_at: new Date(),
+      },
     });
   }
 }

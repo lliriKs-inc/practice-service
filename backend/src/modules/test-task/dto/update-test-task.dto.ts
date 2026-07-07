@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { CreateTestTaskSchema } from "./create-test-task.dto";
 
-export const UpdateTestTaskSchema = CreateTestTaskSchema.partial();
+export const UpdateTestTaskSchema = z.object({
+  content: z.string().min(1, "Содержимое задания не может быть пустым"),
+});
 
 export type UpdateTestTaskDto = z.infer<typeof UpdateTestTaskSchema>;

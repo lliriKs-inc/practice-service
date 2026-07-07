@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { TestTaskService } from './test-task.service';
+import { CreateSurveyFieldSchema } from '../survey/dto/survey.dto'; // для примера, если нужно
 import { CreateTestTaskSchema } from './dto/create-test-task.dto';
+import { UpdateTestTaskSchema } from './dto/update-test-task.dto';
 
 const testTaskService = new TestTaskService();
 
@@ -41,6 +43,54 @@ export class TestTaskController {
         return res.status(403).json({ 
           error: 'Тестовое задание станет доступно только после отправки анкеты' 
         });
+      }
+      next(error);
+    }
+  }
+
+  async update(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      if (typeof id !== 'string') {
+        return res.status(400).json({ error: 'Некорректный формат идентификатора задания' });
+      }
+
+      const cohortId = req.cohortId;
+      if (!cohortId) return res.status(400).json({ error: 'Идентификатор когорты не найден' });
+
+      const validatedBody = UpdateTestTaskSchema.parse(req.body);
+      const updatedTask = await testTaskService.updateTestTask(id, cohortId, validatedBody);
+
+      if (!updatedTask) {
+        return res.status(404).json({ error: 'Задание не найдено или у вас нет прав на его изменение' });
+      }
+
+      return res.json(updatedTask);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async publish(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      if (typeof id !== 'string') {
+        return res.status(400).json({ error: 'Некорректный формат идентификатора задания' });
+      }
+
+      const cohortId = req.cohortId;
+      if (!cohortId) return res.status(400).json({ error: 'Идентификатор когорты не найден' });
+
+      const publishedTask = await testTaskService.publishTestTask(id, cohortId);
+
+      if (!publishedTask) {
+        return res.status(404).json({ error: 'Задание не найдено или у вас нет прав на его изменение' });
+      }
+
+      return res.json(publishedTask);
+    } catch (error: any) {
+      if (error.message === 'ALREADY_PUBLISHED') {
+        return res.status(400).json({ error: 'Тестовое задание уже опубликовано' });
       }
       next(error);
     }
