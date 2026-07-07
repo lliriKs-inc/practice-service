@@ -9,22 +9,27 @@ export class ApplicationController {
   async create(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
-      const cohortId = req.cohortId; // Из глобального глобального расширения/контекста
+      const cohortId = req.cohortId;
 
       if (!userId) {
-        return res.status(401).json({ success: false, message: 'Пользователь не авторизован' });
+        return res.status(401).json({ success: false, errors: ['Пользователь не авторизован'] });
       }
 
       if (!cohortId) {
-        return res.status(400).json({ success: false, message: 'Активная когорта не найдена в текущем контексте' });
+        return res.status(400).json({ success: false, errors: ['Активная когорта не найдена в текущем контексте'] });
       }
 
-      // Валидация входных данных через Zod
       const validatedBody = CreateApplicationSchema.parse(req.body);
 
       const result = await applicationService.createApplication(userId, cohortId, validatedBody);
       return res.status(201).json(result);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        return res.status(409).json({
+          success: false,
+          errors: ['Вы уже подали заявку в текущую когорту'],
+        });
+      }
       next(error);
     }
   }

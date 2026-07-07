@@ -1,19 +1,35 @@
 import { prisma } from '../../shared/prisma';
 import { CreateApplicationDto } from './dto/application.dto';
+import { ApplicationAnswerService } from './applicationAnswer.service';
+
+const answerService = new ApplicationAnswerService();
 
 export class ApplicationService {
   async createApplication(userId: string, cohortId: string, dto: CreateApplicationDto) {
-    // Логика транзакции и сохранения будет реализована в следующих шагах
-    return { message: "Заявка успешно принята (заглушка)", userId, cohortId, answersCount: dto.answers.length };
+    return prisma.$transaction(async (tx) => {
+      const application = await tx.application.create({
+        data: {
+          user_id: userId,
+          cohort_id: cohortId,
+        },
+      });
+
+      await answerService.createAnswersBulk(tx, application.id, dto.answers);
+
+      return tx.application.findUnique({
+        where: { id: application.id },
+        include: {
+          answers: true,
+        },
+      });
+    });
   }
 
   async getMyApplication(userId: string, cohortId: string) {
-    // Логика получения заявки текущего пользователя
-    return null;
+    return null; // Будет реализовано в следующей задаче
   }
 
   async getApplicationById(id: string, cohortId: string) {
-    // Логика получения конкретной заявки по ID
-    return null;
+    return null; // Будет реализовано далее
   }
 }
