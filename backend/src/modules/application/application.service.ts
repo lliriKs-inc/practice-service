@@ -5,24 +5,87 @@ import { ApplicationAnswerService } from './applicationAnswer.service';
 const answerService = new ApplicationAnswerService();
 
 export class ApplicationService {
-  async createApplication(userId: string, cohortId: string, dto: CreateApplicationDto) {
-    return prisma.$transaction(async (tx) => {
-      const application = await tx.application.create({
-        data: {
-          user_id: userId,
-          cohort_id: cohortId,
-        },
-      });
+  async createOrUpdateApplication(userId: string, cohortId: string, dto: CreateApplicationDto) {
+    const existingApplication = await prisma.application.findFirst({
+      where: {
+        user_id: userId,
+        cohort_id: cohortId,
+      },
+    });
 
-      await answerService.createAnswersBulk(tx, application.id, dto.answers);
+    if (existingApplication?.status === 'APPROVED') {
+      const error = new Error('Редактирование одобренной заявки запрещено');
+      (error as any).statusCode = 403;
+      throw error;
+    }
+
+    return prisma.$transaction(async (tx) => {
+      let applicationId = existingApplication?.id;
+
+      if (existingApplication) {
+        await tx.application.update({
+          where: { id: applicationId },
+          data: {
+            status: 'PENDING',
+            review_comment: null,
+          },
+        });
+        await answerService.deleteAnswersByApplicationId(tx, applicationId!);
+      } else {
+        const newApp = await tx.application.create({
+          data: {
+            user_id: userId,
+            cohort_id: cohortId,
+          },
+        });
+        applicationId = newApp.id;
+      }
+
+      await answerService.createAnswersBulk(tx, applicationId!, dto.answers);
 
       return tx.application.findUnique({
-        where: { id: application.id },
+        where: { id: applicationId },
         include: {
           answers: true,
         },
       });
     });
+  }
+
+  async getRegistrationForm(userId: string, cohortId: string) {
+    const fields = await prisma.surveyField.findMany({
+      where: { cohort_id: cohortId },
+      orderBy: { order: 'asc' },
+    });
+
+    const application = await prisma.application.findFirst({
+      where: {
+        user_id: userId,
+        cohort_id: cohortId,
+      },
+      include: {
+        answers: true,
+      },
+    });
+
+    const fieldsWithAnswers = fields.map(field => {
+      const savedAnswer = application?.answers.find(ans => ans.field_id === field.id);
+      return {
+        id: field.id,
+        label: field.label,
+        type: field.type,
+        options: field.options,
+        order: field.order,
+        existingAnswer: savedAnswer ? savedAnswer.value : null,
+      };
+    });
+
+    return {
+      application_id: application?.id || null,
+      status: application?.status || null,
+      review_comment: application?.review_comment || null,
+      fields: fieldsWithAnswers,
+    };
   }
 
   async getMyApplication(userId: string, cohortId: string) {
