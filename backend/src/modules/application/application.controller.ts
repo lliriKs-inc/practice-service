@@ -65,19 +65,20 @@ export class ApplicationController {
       const cohortId = req.cohortId;
 
       if (typeof id !== 'string') {
-        return res.status(400).json({ success: false, message: 'Некорректный формат идентификатора заявки' });
+        return res.status(400).json({ success: false, errors: ['Некорректный формат идентификатора заявки'] });
       }
-      
+
       if (!cohortId) {
-        return res.status(400).json({ success: false, message: 'Активная когорта не найдена' });
+        return res.status(400).json({ success: false, errors: ['Активная когорта не найдена в текущем контексте'] });
       }
 
       const application = await applicationService.getApplicationById(id, cohortId);
+      
       if (!application) {
-        return res.status(404).json({ success: false, message: 'Заявка не найдена' });
+        return res.status(404).json({ success: false, errors: ['Заявка не найдена'] });
       }
 
-      return res.json(application);
+      return res.json({ success: true, data: application });
     } catch (error) {
       next(error);
     }

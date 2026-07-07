@@ -45,6 +45,25 @@ export class ApplicationService {
   }
 
   async getApplicationById(id: string, cohortId: string) {
-    return null; // Будет реализовано далее
+    return prisma.application.findFirst({
+      where: {
+        id: id,
+        cohort_id: cohortId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            created_at: true,
+          },
+        },
+        answers: {
+          include: {
+            field: true,
+          },
+        },
+      },
+    });
   }
 }
