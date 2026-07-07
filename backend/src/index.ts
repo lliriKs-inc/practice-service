@@ -10,6 +10,8 @@ import cohortRoleRoutes from "./modules/cohort-role/cohortRole.routes";
 import documentsRoutes from "./modules/documents/documents.routes";
 import tasksRoutes from "./modules/tasks/tasks.routes";
 import adminRoutes from "./modules/admin/admin.routes";
+import surveyRoutes from "./modules/survey/survey.routes";
+import applicationRouter from './modules/application/application.routes';
 import { uploadDir } from "./shared/upload";
 import { CohortController } from "./modules/cohort/cohort.controller";
 
@@ -27,6 +29,9 @@ app.get("/cohorts/public/current", cohortController.getPublicCurrent);
 
 app.use(authMiddleware);
 app.use(cohortContextMiddleware);
+
+app.use(surveyRoutes);
+app.use(applicationRouter);
 
 app.use("/cohorts", cohortRoleRoutes);
 app.use("/cohorts", cohortRoutes);
