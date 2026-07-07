@@ -11,4 +11,9 @@ router.post(
   controller.create
 );
 
+router.get(
+  "/",
+  controller.getAll
+);
+
 export default router;
