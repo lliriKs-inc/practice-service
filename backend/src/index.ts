@@ -4,6 +4,7 @@ import cors from 'cors';
 import { errorHandler } from './middlewares/error.middleware';
 import authRoutes from "./modules/auth/auth.routes";
 import cohortRoutes from "./modules/cohort/cohort.routes";
+import testTaskRoutes from './modules/test-task/test-task.routes';
 import { authMiddleware } from "./middlewares/auth.middleware";
 import { cohortContextMiddleware } from "./middlewares/cohortContext.middleware";
 import cohortRoleRoutes from "./modules/cohort-role/cohortRole.routes";
@@ -32,6 +33,7 @@ app.use(cohortContextMiddleware);
 
 app.use(surveyRoutes);
 app.use(applicationRouter);
+app.use('/test-task', authMiddleware, cohortContextMiddleware, testTaskRoutes);
 
 app.use("/cohorts", cohortRoleRoutes);
 app.use("/cohorts", cohortRoutes);
