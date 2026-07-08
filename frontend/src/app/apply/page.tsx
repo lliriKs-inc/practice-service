@@ -1,42 +1,100 @@
 'use client'
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { useState, useEffect } from 'react'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-
-const ROLES = ['Backend', 'Frontend', 'ML', 'Аналитика', 'Дизайн', 'Fullstack', 'Проджект']
+import { getSurveyFields, type SurveyField } from '@/services/api/survey'
+import { submitApplication } from '@/services/api/applications'
+import { register, login } from '@/services/api/auth'
 
 export default function ApplyPage() {
-    const [selectedRoles, setSelectedRoles] = useState<string[]>([])
+    const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
+
+    const [surveyFields, setSurveyFields] = useState<SurveyField[]>([])
+    const [answers, setAnswers] = useState<Record<string, string>>({})
+    const [fieldsLoading, setFieldsLoading] = useState(true)
+    const [fieldsError, setFieldsError] = useState('')
+
     const [consent, setConsent] = useState(false)
+    const [submitting, setSubmitting] = useState(false)
+    const [submitError, setSubmitError] = useState('')
     const [submitted, setSubmitted] = useState(false)
-    const [progress, setProgress] = useState(0)
-    const [course, setCourse] = useState('')
 
-    function toggleRole(role: string) {
-        setSelectedRoles(prev => {
-            const next = prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
-            calcProgress(next, consent)
-            return next
-        })
+    useEffect(() => {
+        getSurveyFields()
+            .then(fields => setSurveyFields(fields))
+            .catch(() => setFieldsError('Не удалось загрузить поля анкеты'))
+            .finally(() => setFieldsLoading(false))
+    }, [])
+
+    function setAnswer(fieldId: string, value: string) {
+        setAnswers(prev => ({ ...prev, [fieldId]: value }))
     }
 
-    function calcProgress(roles = selectedRoles, con = consent, cur = course) {
-        const fields = ['fio', 'email', 'password', 'group', 'direction', 'stack', 'motivation']
-        const filled = fields.filter(id => {
-            const el = document.getElementById(id) as HTMLInputElement
-            return el && el.value.trim() !== ''
-        }).length
-        const total = fields.length + 3
-        setProgress(Math.round((filled + (roles.length > 0 ? 1 : 0) + (con ? 1 : 0) + (cur !== '' ? 1 : 0)) / total * 100))
-    }
-
-    function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
-        setSubmitted(true)
+        if (!consent) {
+            setSubmitError('Необходимо дать согласие на обработку персональных данных')
+            return
+        }
+        if (password.length < 8) {
+            setSubmitError('Пароль должен быть не менее 8 символов')
+            return
+        }
+
+        setSubmitting(true)
+        setSubmitError('')
+
+        try {
+            // 1. Регистрация
+            await register({ email, password })
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : ''
+            // Если пользователь уже существует — пробуем залогиниться
+            if (!msg.toLowerCase().includes('already') && !msg.includes('409')) {
+                setSubmitError(msg || 'Ошибка регистрации')
+                setSubmitting(false)
+                return
+            }
+        }
+
+        try {
+            // 2. Авторизация
+            await login({ email, password })
+
+            // 3. Подача заявки (только если есть поля анкеты)
+            if (surveyFields.length > 0) {
+                const answersArray = surveyFields
+                    .filter(f => answers[f.id]?.trim())
+                    .map(f => ({ field_id: f.id, value: answers[f.id] }))
+                await submitApplication(answersArray)
+            }
+
+            setSubmitted(true)
+            // Переходим на страницу тестового задания
+            setTimeout(() => {
+                window.location.href = '/test-task'
+            }, 1500)
+        } catch (err: unknown) {
+            setSubmitError(err instanceof Error ? err.message : 'Ошибка при отправке заявки')
+            setSubmitting(false)
+        }
+    }
+
+    // ── Успешная отправка ──────────────────────────────────────────
+    if (submitted) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-[#F5F4FD]">
+                <div className="bg-white rounded-2xl shadow-lg p-12 flex flex-col items-center text-center max-w-md">
+                    <div className="w-16 h-16 rounded-full bg-[#EDFBF4] flex items-center justify-center text-3xl mb-5">✅</div>
+                    <h2 className="font-extrabold text-2xl text-[#1C1A3A] mb-2">Заявка отправлена!</h2>
+                    <p className="text-sm text-[#6B6880]">Переходим к тестовому заданию…</p>
+                </div>
+            </div>
+        )
     }
 
     return (
@@ -69,7 +127,7 @@ export default function ApplyPage() {
                         ].map(step => (
                             <div key={step.n} className={`flex items-center gap-4 ${step.active ? 'opacity-100' : 'opacity-50'}`}>
                                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 flex-shrink-0
-                  ${step.active
+                                    ${step.active
                                         ? 'bg-white text-[#6C63FF] border-white'
                                         : 'border-white/40 bg-white/10'}`}>
                                     {step.n}
@@ -92,131 +150,97 @@ export default function ApplyPage() {
 
                     <div className="mb-7">
                         <h1 className="font-extrabold text-3xl tracking-tight text-[#1C1A3A] mb-2">Заявка на практику</h1>
-                        <p className="text-sm text-[#6B6880]">Все поля обязательны, если не указано иное.</p>
-                    </div>
-
-                    {/* Progress bar */}
-                    <div className="w-full h-1 bg-[#E4E2F4] rounded-full mb-7 overflow-hidden">
-                        <div
-                            className="h-full bg-[#6C63FF] rounded-full transition-all duration-300"
-                            style={{ width: `${progress}%` }}
-                        />
+                        <p className="text-sm text-[#6B6880]">Заполни форму — мы пришлём тестовое задание на e-mail.</p>
                     </div>
 
                     <div className="bg-white rounded-2xl shadow-sm p-9">
                         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
 
-                            {/* ЛИЧНЫЕ ДАННЫЕ */}
+                            {/* АККАУНТ */}
                             <div>
                                 <p className="text-[10px] font-bold tracking-widest uppercase text-[#6C63FF] mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-[#E4E2F4]">
-                                    Личные данные
+                                    Данные аккаунта
                                 </p>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="col-span-2 flex flex-col gap-1.5">
-                                        <Label htmlFor="fio">ФИО <span className="text-[#6C63FF]">*</span></Label>
-                                        <Input id="fio" placeholder="Иванов Иван Иванович" onChange={() => calcProgress()} required />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
                                         <Label htmlFor="email">E-mail <span className="text-[#6C63FF]">*</span></Label>
-                                        <Input id="email" type="email" placeholder="ivan@urfu.ru" onChange={() => calcProgress()} required />
-                                        <span className="text-xs text-[#A9A7BB]">Используется для входа в систему</span>                                   
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            placeholder="ivan@urfu.ru"
+                                            value={email}
+                                            onChange={e => setEmail(e.target.value)}
+                                            required
+                                        />
+                                        <span className="text-xs text-[#A9A7BB]">Используется для входа и получения тестового задания</span>
                                     </div>
-                                    <div className="flex flex-col gap-1.5">
+                                    <div className="col-span-2 flex flex-col gap-1.5">
                                         <Label htmlFor="password">Пароль <span className="text-[#6C63FF]">*</span></Label>
-                                        <Input id="password" type="password" placeholder="••••••••" onChange={() => calcProgress()} required />
+                                        <Input
+                                            id="password"
+                                            type="password"
+                                            placeholder="••••••••"
+                                            value={password}
+                                            onChange={e => setPassword(e.target.value)}
+                                            required
+                                        />
                                         <span className="text-xs text-[#A9A7BB]">Минимум 8 символов</span>
                                     </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <Label htmlFor="phone">Телефон</Label>
-                                        <Input id="phone" type="tel" placeholder="+7 (900) 000-00-00" />
-                                        <span className="text-xs text-[#A9A7BB]">Необязательно</span>
-                                    </div>
                                 </div>
                             </div>
 
-                            {/* УЧЁБА */}
-                            <div>
-                                <p className="text-[10px] font-bold tracking-widest uppercase text-[#6C63FF] mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-[#E4E2F4]">
-                                    Учёба
-                                </p>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="flex flex-col gap-1.5">
-                                        <Label htmlFor="group">Группа <span className="text-[#6C63FF]">*</span></Label>
-                                        <Input id="group" placeholder="РИ-330948" onChange={() => calcProgress()} required />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <Label>Курс <span className="text-[#6C63FF]">*</span></Label>
-                                        <Select required onValueChange={(val: string | null) => { const v = val ?? ''; setCourse(v); calcProgress(selectedRoles, consent, v) }}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Выберите курс" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="2">2 курс</SelectItem>
-                                                <SelectItem value="3">3 курс</SelectItem>
-                                                <SelectItem value="4">4 курс</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="col-span-2 flex flex-col gap-1.5">
-                                        <Label htmlFor="direction">Направление подготовки <span className="text-[#6C63FF]">*</span></Label>
-                                        <Input id="direction" placeholder="09.03.04 Программная инженерия" onChange={() => calcProgress()} required />
+                            {/* ДИНАМИЧЕСКИЕ ПОЛЯ АНКЕТЫ */}
+                            {fieldsLoading && (
+                                <div className="flex items-center gap-3 py-4">
+                                    <div className="w-4 h-4 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
+                                    <span className="text-sm text-[#6B6880]">Загружаем поля анкеты…</span>
+                                </div>
+                            )}
+
+                            {fieldsError && (
+                                <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
+                                    <p className="text-sm text-[#D94F4F]">⚠️ {fieldsError}</p>
+                                </div>
+                            )}
+
+                            {!fieldsLoading && !fieldsError && surveyFields.length > 0 && (
+                                <div>
+                                    <p className="text-[10px] font-bold tracking-widest uppercase text-[#6C63FF] mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-[#E4E2F4]">
+                                        Анкета
+                                    </p>
+                                    <div className="flex flex-col gap-4">
+                                        {surveyFields.map(field => (
+                                            <SurveyFieldInput
+                                                key={field.id}
+                                                field={field}
+                                                value={answers[field.id] ?? ''}
+                                                onChange={val => setAnswer(field.id, val)}
+                                            />
+                                        ))}
                                     </div>
                                 </div>
-                            </div>
+                            )}
 
-                            {/* РОЛЬ И СТЕК */}
-                            <div>
-                                <p className="text-[10px] font-bold tracking-widest uppercase text-[#6C63FF] mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-[#E4E2F4]">
-                                    Роль и стек
-                                </p>
-                                <div className="flex flex-col gap-4">
-                                    <div className="flex flex-col gap-2">
-                                        <Label>Желаемое направление <span className="text-[#6C63FF]">*</span></Label>
-                                        <div className="flex flex-wrap gap-2">
-                                            {ROLES.map(role => (
-                                                <button
-                                                    key={role}
-                                                    type="button"
-                                                    onClick={() => toggleRole(role)}
-                                                    className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border-[1.5px] transition-all
-                            ${selectedRoles.includes(role)
-                                                            ? 'border-[#6C63FF] bg-[#EBE9FF] text-[#4A42D4]'
-                                                            : 'border-[#E4E2F4] bg-[#F5F4FD] text-[#6B6880]'}`}>
-                                                    <span className={`w-1.5 h-1.5 rounded-full transition-colors
-                            ${selectedRoles.includes(role) ? 'bg-[#6C63FF]' : 'bg-[#A9A7BB]'}`} />
-                                                    {role}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="col-span-2 flex flex-col gap-1.5">
-                                            <Label htmlFor="stack">Стек / инструменты <span className="text-[#6C63FF]">*</span></Label>
-                                            <Input id="stack" placeholder="React, TypeScript, Node.js…" onChange={() => calcProgress()} required />
-                                            <span className="text-xs text-[#A9A7BB]">Перечислите через запятую</span>
-                                        </div>
-                                        <div className="flex flex-col gap-1.5">
-                                            <Label htmlFor="experience">Опыт / проекты</Label>
-                                            <Textarea id="experience" placeholder="Пет-проекты, стажировки…" className="resize-none h-28" />
-                                            <span className="text-xs text-[#A9A7BB]">Необязательно</span>
-                                        </div>
-                                        <div className="flex flex-col gap-1.5">
-                                            <Label htmlFor="motivation">Мотивация <span className="text-[#6C63FF]">*</span></Label>
-                                            <Textarea id="motivation" placeholder="Почему хочешь пройти практику здесь?" className="resize-none h-28" onChange={() => calcProgress()} required />
-                                        </div>
-                                    </div>
+                            {!fieldsLoading && !fieldsError && surveyFields.length === 0 && (
+                                <div className="flex items-start gap-3 p-4 bg-[#EBE9FF] rounded-xl border-l-4 border-[#6C63FF]">
+                                    <span className="text-lg">ℹ️</span>
+                                    <p className="text-sm text-[#6B6880] leading-relaxed">
+                                        Поля анкеты ещё не настроены организатором. Ты можешь создать аккаунт и зайти позже.
+                                    </p>
                                 </div>
-                            </div>
+                            )}
 
                             {/* СОГЛАСИЕ */}
                             <div>
                                 <p className="text-[10px] font-bold tracking-widest uppercase text-[#6C63FF] mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-[#E4E2F4]">
                                     Согласие
                                 </p>
-                                <div className="flex items-start gap-3 cursor-pointer" onClick={() => { const next = !consent; setConsent(next); calcProgress(selectedRoles, next) }}>
+                                <div
+                                    className="flex items-start gap-3 cursor-pointer"
+                                    onClick={() => setConsent(prev => !prev)}
+                                >
                                     <div className={`w-[18px] h-[18px] min-w-[18px] rounded-md border-[1.5px] flex items-center justify-center mt-0.5 transition-colors
-                    ${consent ? 'bg-[#6C63FF] border-[#6C63FF]' : 'border-[#E4E2F4] bg-[#F5F4FD]'}`}>
+                                        ${consent ? 'bg-[#6C63FF] border-[#6C63FF]' : 'border-[#E4E2F4] bg-[#F5F4FD]'}`}>
                                         {consent && (
                                             <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
                                                 <path d="M1 4L3.8 7L9 1" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -225,20 +249,29 @@ export default function ApplyPage() {
                                     </div>
                                     <p className="text-sm text-[#6B6880] leading-relaxed">
                                         Я согласен(-на) на{' '}
-                                        <span className="text-[#6C63FF] font-medium cursor-pointer">обработку персональных данных</span>
+                                        <span className="text-[#6C63FF] font-medium">обработку персональных данных</span>
                                         {' '}в соответствии с Политикой конфиденциальности УрФУ.
                                     </p>
                                 </div>
                             </div>
 
-                            {/* ACTIONS */}
-                            <div className="flex justify-between items-center pt-2">
-                                <button type="button" className="text-sm text-[#6B6880] px-8 py-3 rounded-lg hover:bg-[#E4E2F4] transition-colors">
-                                    Очистить форму
-                                </button>
-                                <Button type="submit" disabled={submitted}
-                                    className="bg-[#6C63FF] hover:bg-[#4A42D4] text-white px-8 py-5 rounded-lg font-semibold shadow-md">
-                                    {submitted ? '✓ Заявка отправлена!' : 'Отправить заявку →'}
+                            {/* ОШИБКА */}
+                            {submitError && (
+                                <div className="flex items-center gap-2 bg-[#FFF5F5] border-[1.5px] border-[#F0BABA] rounded-xl px-4 py-3">
+                                    <span className="text-sm">⚠️</span>
+                                    <p className="text-sm text-[#D94F4F]">{submitError}</p>
+                                </div>
+                            )}
+
+                            {/* КНОПКИ */}
+                            <div className="flex justify-end items-center pt-2">
+                                <Button
+                                    type="submit"
+                                    disabled={submitting || !email || !password || !consent}
+                                    className="text-white px-8 py-5 rounded-lg font-semibold shadow-md"
+                                    style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}
+                                >
+                                    {submitting ? 'Отправляем…' : 'Отправить заявку →'}
                                 </Button>
                             </div>
 
@@ -254,6 +287,113 @@ export default function ApplyPage() {
 
                 </div>
             </main>
+        </div>
+    )
+}
+
+// ── Компонент одного поля анкеты ─────────────────────────────────
+function SurveyFieldInput({
+    field,
+    value,
+    onChange,
+}: {
+    field: SurveyField
+    value: string
+    onChange: (v: string) => void
+}) {
+    const label = (
+        <label className="text-sm font-medium text-[#1C1A3A]">
+            {field.label}
+            {field.required && <span className="text-[#6C63FF] ml-0.5">*</span>}
+        </label>
+    )
+
+    if (field.type === 'TEXTAREA') {
+        return (
+            <div className="flex flex-col gap-1.5">
+                {label}
+                <Textarea
+                    value={value}
+                    onChange={e => onChange(e.target.value)}
+                    placeholder={`Введите ${field.label.toLowerCase()}`}
+                    rows={3}
+                    required={field.required}
+                    className="resize-none"
+                />
+            </div>
+        )
+    }
+
+    if (field.type === 'SELECT' && field.options) {
+        return (
+            <div className="flex flex-col gap-1.5">
+                {label}
+                <div className="flex flex-wrap gap-2">
+                    {field.options.map(opt => (
+                        <button
+                            key={opt}
+                            type="button"
+                            onClick={() => onChange(value === opt ? '' : opt)}
+                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border-[1.5px] transition-all
+                                ${value === opt
+                                    ? 'border-[#6C63FF] bg-[#EBE9FF] text-[#4A42D4]'
+                                    : 'border-[#E4E2F4] bg-[#F5F4FD] text-[#6B6880]'}`}
+                        >
+                            <span className={`w-1.5 h-1.5 rounded-full transition-colors
+                                ${value === opt ? 'bg-[#6C63FF]' : 'bg-[#A9A7BB]'}`} />
+                            {opt}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        )
+    }
+
+    if (field.type === 'CHECKBOX' && field.options) {
+        const selected = value ? value.split(',').map(s => s.trim()).filter(Boolean) : []
+        function toggleOption(opt: string) {
+            const next = selected.includes(opt)
+                ? selected.filter(s => s !== opt)
+                : [...selected, opt]
+            onChange(next.join(', '))
+        }
+        return (
+            <div className="flex flex-col gap-1.5">
+                {label}
+                <div className="flex flex-col gap-2">
+                    {field.options.map(opt => (
+                        <div
+                            key={opt}
+                            className="flex items-center gap-3 cursor-pointer"
+                            onClick={() => toggleOption(opt)}
+                        >
+                            <div className={`w-[18px] h-[18px] min-w-[18px] rounded-md border-[1.5px] flex items-center justify-center transition-colors
+                                ${selected.includes(opt) ? 'bg-[#6C63FF] border-[#6C63FF]' : 'border-[#E4E2F4] bg-[#F5F4FD]'}`}>
+                                {selected.includes(opt) && (
+                                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                                        <path d="M1 4L3.8 7L9 1" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                )}
+                            </div>
+                            <span className="text-sm text-[#6B6880]">{opt}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )
+    }
+
+    // TEXT (default)
+    return (
+        <div className="flex flex-col gap-1.5">
+            {label}
+            <Input
+                type="text"
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                placeholder={`Введите ${field.label.toLowerCase()}`}
+                required={field.required}
+            />
         </div>
     )
 }

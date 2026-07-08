@@ -1,33 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { logout } from '@/services/api/auth'
+import {
+    getWeekTasks,
+    createTask,
+    updateTask,
+    deleteTask,
+    type Task,
+    type WeekTasksResponse,
+} from '@/services/api/tasks'
 
 type Tab = 'applications' | 'documents' | 'tasks'
-type TaskStatus = 'done' | 'review' | 'empty'
 
-interface TaskItem {
-    title: string
-    status: TaskStatus
-    hours: number
-    artifact: string
-}
-
-const initialTasks: Record<string, TaskItem> = {
-    '2026-07-06': { title: 'Настройка окружения, изучение кодовой базы', status: 'done', hours: 6, artifact: 'https://github.com/' },
-    '2026-07-07': { title: 'Реализация эндпоинта авторизации', status: 'review', hours: 8, artifact: '' },
-    '2026-07-08': { title: '', status: 'empty', hours: 0, artifact: '' },
-    '2026-07-09': { title: '', status: 'empty', hours: 0, artifact: '' },
-    '2026-07-10': { title: '', status: 'empty', hours: 0, artifact: '' },
-}
-
-const mockAuditTrail = [
-    { id: 1, date: '06.07.2026 14:15', user: 'Игорь Родионов (Студент)', action: 'Создал задачу и описал выполненную работу' },
-    { id: 2, date: '07.07.2026 11:30', user: 'Езуб А.С. (Руководитель)', action: 'Перевёл задачу на статус "На ревью", оставил комментарий: "Проверь обработку ошибок"' },
-]
-
-const initialDocFields = [
+// ── Документы: моковые данные (пока не подключены) ────────────────
+const docFields = [
     { id: 'fio', label: 'ФИО студента', value: 'Иванов Иван Иванович', filled: true },
     { id: 'group', label: 'Группа', value: 'РИ-330948', filled: true },
     { id: 'direction_code', label: 'Код направления', value: '09.03.04', filled: true },
@@ -37,117 +25,208 @@ const initialDocFields = [
     { id: 'main_stage_tasks', label: 'Перечень работ основного этапа', value: '', filled: false },
 ]
 
+// ── Утилиты дат ───────────────────────────────────────────────────
+function getMondayOfWeek(date: Date): Date {
+    const d = new Date(date)
+    d.setHours(0, 0, 0, 0)
+    const day = d.getDay()
+    const diff = day === 0 ? -6 : 1 - day
+    d.setDate(d.getDate() + diff)
+    return d
+}
+
+function toISODate(date: Date): string {
+    return date.toISOString().split('T')[0]
+}
+
+function addDays(date: Date, n: number): Date {
+    const d = new Date(date)
+    d.setDate(d.getDate() + n)
+    return d
+}
+
+function sameDate(a: string, b: string): boolean {
+    return a.slice(0, 10) === b.slice(0, 10)
+}
+
+function formatWeekLabel(weekStart: string, weekEnd: string): string {
+    const s = new Date(weekStart)
+    const e = new Date(weekEnd)
+    const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
+    if (s.getMonth() === e.getMonth()) {
+        return `${s.getDate()}–${e.getDate()} ${months[s.getMonth()]} ${s.getFullYear()}`
+    }
+    return `${s.getDate()} ${months[s.getMonth()]} – ${e.getDate()} ${months[e.getMonth()]}`
+}
+
+const DAYS_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт']
+
 export default function DashboardPage() {
-    const { user, loading: authLoading } = useAuth()
+    const { user, loading } = useAuth()
 
-    // Основные стейты
     const [tab, setTab] = useState<Tab>('applications')
-    const [tasks, setTasks] = useState<Record<string, TaskItem>>(initialTasks)
-    const [fields, setFields] = useState(initialDocFields)
-    const [uploadedReport, setUploadedReport] = useState<string | null>(null)
 
-    // Стейты для попапа редактирования задачи
-    const [taskPopup, setTaskPopup] = useState<string | null>(null)
-    const [editTitle, setEditTitle] = useState('')
-    const [editHours, setEditHours] = useState(0)
-    const [editArtifact, setEditArtifact] = useState('')
-    const [urlError, setUrlError] = useState(false)
+    // ── Задачи: состояние ──────────────────────────────────────────
+    const [weekStart, setWeekStart] = useState<string>(() =>
+        toISODate(getMondayOfWeek(new Date()))
+    )
+    const [weekData, setWeekData] = useState<WeekTasksResponse | null>(null)
+    const [tasksLoading, setTasksLoading] = useState(false)
+    const [tasksError, setTasksError] = useState('')
 
-    // Инициализация из localStorage
+    // Попап создания/редактирования задачи
+    const [popup, setPopup] = useState<{
+        mode: 'create' | 'edit'
+        date: string
+        task?: Task
+    } | null>(null)
+    const [popupTitle, setPopupTitle] = useState('')
+    const [popupDesc, setPopupDesc] = useState('')
+    const [popupLink, setPopupLink] = useState('')
+    const [popupSaving, setPopupSaving] = useState(false)
+    const [popupError, setPopupError] = useState('')
+
+    // Документы: состояние (мок)
+    const [fields, setFields] = useState(docFields)
+    const allDocFilled = fields.every(f => f.filled)
+
+    // ── Загрузка задач недели ──────────────────────────────────────
+    const loadWeek = useCallback(async () => {
+        setTasksLoading(true)
+        setTasksError('')
+        try {
+            const data = await getWeekTasks(weekStart)
+            setWeekData(data)
+        } catch (err: unknown) {
+            setTasksError(err instanceof Error ? err.message : 'Ошибка загрузки задач')
+        } finally {
+            setTasksLoading(false)
+        }
+    }, [weekStart])
+
     useEffect(() => {
-        setTimeout(() => {
-            const savedTasks = localStorage.getItem('student_tasks')
-            const savedFields = localStorage.getItem('student_fields')
-            const savedReport = localStorage.getItem('student_report')
-            
-            if (savedTasks) setTasks(JSON.parse(savedTasks))
-            if (savedFields) setFields(JSON.parse(savedFields))
-            if (savedReport) setUploadedReport(savedReport)
-        }, 0)
-    }, [])
+        ( async () => {
+        if (tab === 'tasks' && !loading) await loadWeek()
+    })();}, [tab, weekStart, loading, loadWeek])
 
-    // Расчет прогресса заполнения документов
-    const filledCount = fields.filter(f => f.filled).length
-    const progressPercent = Math.round((filledCount / fields.length) * 100)
-    const allDocFilled = filledCount === fields.length
-
-    function openTaskPopup(date: string) {
-        const currentTask = tasks[date]
-        setTaskPopup(date)
-        setEditTitle(currentTask?.title || '')
-        setEditHours(currentTask?.hours || 0)
-        setEditArtifact(currentTask?.artifact || '')
-        setUrlError(false)
+    // ── Навигация по неделям ──────────────────────────────────────
+    function canGoPrev(): boolean {
+        if (!weekData) return true
+        const practiceMonday = toISODate(getMondayOfWeek(new Date(weekData.practiceStart)))
+        return weekStart > practiceMonday
     }
 
-    function handleSaveTask() {
-        if (!taskPopup) return
+    function canGoNext(): boolean {
+        if (!weekData) return true
+        const practiceLastMonday = toISODate(getMondayOfWeek(new Date(weekData.practiceEnd)))
+        return weekStart < practiceLastMonday
+    }
 
-        if (editArtifact.trim() !== '') {
-            const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\/\w .-]*)*\/?$/
-            if (!urlPattern.test(editArtifact)) {
-                setUrlError(true)
-                return
+    function goPrevWeek() {
+        setWeekStart(prev => toISODate(addDays(new Date(prev), -7)))
+    }
+
+    function goNextWeek() {
+        setWeekStart(prev => toISODate(addDays(new Date(prev), 7)))
+    }
+
+    // ── Попап: открыть создание ────────────────────────────────────
+    function openCreate(date: string) {
+        setPopup({ mode: 'create', date })
+        setPopupTitle('')
+        setPopupDesc('')
+        setPopupLink('')
+        setPopupError('')
+    }
+
+    // ── Попап: открыть редактирование ─────────────────────────────
+    function openEdit(task: Task) {
+        setPopup({ mode: 'edit', date: task.date, task })
+        setPopupTitle(task.title)
+        setPopupDesc(task.description)
+        setPopupLink(task.artifact_link ?? '')
+        setPopupError('')
+    }
+
+    function closePopup() {
+        setPopup(null)
+        setPopupSaving(false)
+        setPopupError('')
+    }
+
+    // ── Сохранить задачу (create / update) ────────────────────────
+    async function handleSave() {
+        if (!popupTitle.trim() || !popupDesc.trim()) {
+            setPopupError('Заполни название и описание')
+            return
+        }
+        if (!popup) return
+        setPopupSaving(true)
+        setPopupError('')
+        try {
+            if (popup.mode === 'create') {
+                await createTask({
+                    date: new Date(popup.date).toISOString(),
+                    title: popupTitle.trim(),
+                    description: popupDesc.trim(),
+                    artifact_link: popupLink.trim() || null,
+                })
+            } else if (popup.task) {
+                await updateTask(popup.task.id, {
+                    title: popupTitle.trim(),
+                    description: popupDesc.trim(),
+                    artifact_link: popupLink.trim() || null,
+                })
             }
+            closePopup()
+            loadWeek()
+        } catch (err: unknown) {
+            setPopupError(err instanceof Error ? err.message : 'Ошибка сохранения')
+            setPopupSaving(false)
         }
+    }
 
-        // Вычисляем статус отдельно, чтобы TypeScript понял, что это TaskStatus
-        const newStatus: TaskStatus = editTitle.trim() === '' 
-            ? 'empty' 
-            : (tasks[taskPopup]?.status === 'empty' ? 'review' : tasks[taskPopup].status)
+    // ── Удалить задачу ────────────────────────────────────────────
+    async function handleDelete() {
+        if (!popup?.task) return
+        setPopupSaving(true)
+        try {
+            await deleteTask(popup.task.id)
+            closePopup()
+            loadWeek()
+        } catch (err: unknown) {
+            setPopupError(err instanceof Error ? err.message : 'Ошибка удаления')
+            setPopupSaving(false)
+        }
+    }
 
-        const updatedTasks: Record<string, TaskItem> = {
-            ...tasks,
-            [taskPopup]: {
-                title: editTitle,
-                hours: editHours,
-                artifact: editArtifact,
-                status: newStatus
+    // ── Ячейки сетки ──────────────────────────────────────────────
+    function buildGridDays(): { date: string; dayLabel: string; shortDate: string }[] {
+        const monday = new Date(weekStart)
+        return Array.from({ length: 5 }, (_, i) => {
+            const d = addDays(monday, i)
+            const day = d.getDate()
+            const month = d.getMonth() + 1
+            return {
+                date: toISODate(d),
+                dayLabel: DAYS_RU[i],
+                shortDate: `${day}.${String(month).padStart(2, '0')}`,
             }
-        }
-
-        setTasks(updatedTasks)
-        localStorage.setItem('student_tasks', JSON.stringify(updatedTasks))
-        setTaskPopup(null)
+        })
     }
 
-    function handleFieldChange(id: string, value: string) {
-        const updatedFields = fields.map(f => 
-            f.id === id ? { ...f, value, filled: value.trim() !== '' } : f
-        )
-        setFields(updatedFields)
-        localStorage.setItem('student_fields', JSON.stringify(updatedFields))
+    function getTaskForDate(date: string): Task | undefined {
+        return weekData?.tasks.find(t => sameDate(t.date, date))
     }
 
-    function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-        if (e.target.files && e.target.files[0]) {
-            const fileName = e.target.files[0].name
-            setUploadedReport(fileName)
-            localStorage.setItem('student_report', fileName)
-        }
-    }
-
-    // СКЕЛЕTON ЗАГРУЗКИ
-    if (authLoading) return (
-        <div className="min-h-screen bg-[#F5F4FD] flex flex-col animate-pulse">
-            <header className="bg-white border-b border-[#E4E2F4] px-8 py-5 flex justify-between items-center">
-                <div className="w-32 h-6 bg-slate-200 rounded-lg" />
-                <div className="w-40 h-8 bg-slate-200 rounded-full" />
-            </header>
-            <div className="flex flex-1">
-                <aside className="w-56 bg-white border-r border-[#E4E2F4] p-4 space-y-3">
-                    <div className="w-full h-10 bg-slate-100 rounded-xl" />
-                    <div className="w-full h-10 bg-slate-100 rounded-xl" />
-                    <div className="w-full h-10 bg-slate-100 rounded-xl" />
-                </aside>
-                <main className="flex-1 p-8 space-y-6">
-                    <div className="w-48 h-8 bg-slate-200 rounded-lg" />
-                    <div className="w-full h-32 bg-white rounded-2xl border border-[#E4E2F4]" />
-                    <div className="w-full h-48 bg-white rounded-2xl border border-[#E4E2F4]" />
-                </main>
-            </div>
+    // ── Рендер ────────────────────────────────────────────────────
+    if (loading) return (
+        <div className="min-h-screen flex items-center justify-center bg-[#F5F4FD]">
+            <p className="text-sm text-[#6B6880]">Загрузка…</p>
         </div>
     )
+
+    const gridDays = buildGridDays()
 
     return (
         <div className="min-h-screen bg-[#F5F4FD] flex flex-col">
@@ -155,7 +234,12 @@ export default function DashboardPage() {
             {/* NAVBAR */}
             <header className="bg-white border-b border-[#E4E2F4] px-8 py-4 flex items-center justify-between sticky top-0 z-20">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base" style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>🎓</div>
+                    <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-base"
+                        style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}
+                    >
+                        🎓
+                    </div>
                     <span className="font-extrabold text-base text-[#1C1A3A] tracking-tight">Практика УрФУ</span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -182,13 +266,19 @@ export default function DashboardPage() {
                             key={item.id}
                             onClick={() => setTab(item.id as Tab)}
                             className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left
-                                ${tab === item.id ? 'bg-[#EBE9FF] text-[#4A42D4]' : 'text-[#6B6880] hover:bg-[#F5F4FD]'}`}
+                                ${tab === item.id
+                                    ? 'bg-[#EBE9FF] text-[#4A42D4]'
+                                    : 'text-[#6B6880] hover:bg-[#F5F4FD]'}`}
                         >
-                            <span>{item.icon}</span> {item.label}
+                            <span>{item.icon}</span>
+                            {item.label}
                         </button>
                     ))}
                     <div className="mt-auto pt-4 border-t border-[#E4E2F4]">
-                        <button onClick={logout} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] w-full text-left">
+                        <button
+                            onClick={logout}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] w-full text-left"
+                        >
                             <span>🚪</span> Выйти
                         </button>
                     </div>
@@ -197,7 +287,7 @@ export default function DashboardPage() {
                 {/* MAIN */}
                 <main className="flex-1 p-8 flex flex-col gap-6">
 
-                    {/* ── ЗАЯВКИ (Вернули как было!) ── */}
+                    {/* ── ЗАЯВКИ (мок) ── */}
                     {tab === 'applications' && (
                         <div className="flex flex-col gap-6">
                             <div>
@@ -205,7 +295,7 @@ export default function DashboardPage() {
                                 <p className="text-sm text-[#6B6880]">История всех твоих заявок на практику.</p>
                             </div>
 
-                            <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#E4E2F4]">
+                            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                                 <div className="px-7 py-5 border-b border-[#E4E2F4] flex items-center justify-between">
                                     <div>
                                         <p className="text-xs font-bold tracking-widest uppercase text-[#A9A7BB] mb-1">Текущая заявка</p>
@@ -229,50 +319,21 @@ export default function DashboardPage() {
                                     ))}
                                 </div>
                             </div>
-
-                            <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#E4E2F4]">
-                                <div className="px-7 py-5 border-b border-[#E4E2F4]">
-                                    <p className="text-xs font-bold tracking-widest uppercase text-[#A9A7BB] mb-1">Архив</p>
-                                    <h2 className="font-bold text-lg text-[#1C1A3A]">Прошлые заявки</h2>
-                                </div>
-                                {[
-                                    { year: 'Поток 2025', role: 'Frontend-разработчик', status: 'Одобрена', color: 'text-[#1A7A5A] bg-[#EDFBF4] border-[#7EE8B8]' },
-                                    { year: 'Поток 2024', role: 'Дизайнер', status: 'Отклонена', color: 'text-[#D94F4F] bg-[#FFF5F5] border-[#F0BABA]' },
-                                ].map((item, i) => (
-                                    <div key={i} className="px-7 py-4 border-b border-[#E4E2F4] last:border-b-0 flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-semibold text-[#1C1A3A]">{item.year}</p>
-                                            <p className="text-xs text-[#6B6880]">{item.role}</p>
-                                        </div>
-                                        <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${item.color}`}>
-                                            {item.status}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
                         </div>
                     )}
 
-                    {/* ── ДОКУМЕНТЫ (Прогресс-бар и драг-н-дроп) ── */}
+                    {/* ── ДОКУМЕНТЫ (мок) ── */}
                     {tab === 'documents' && (
                         <div className="flex flex-col gap-6">
                             <div>
                                 <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1">Документы</h1>
-                                <p className="text-sm text-[#6B6880]">Заполнение информации для автогенерации документов.</p>
+                                <p className="text-sm text-[#6B6880]">Заполни поля — документы сформируются автоматически.</p>
                             </div>
 
-                            <div className="bg-white rounded-2xl shadow-sm p-6 border border-[#E4E2F4] flex flex-col gap-3">
-                                <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-[#1C1A3A]">
-                                    <span>Прогресс заполнения карточки</span>
-                                    <span className="text-[#6C63FF]">{progressPercent}%</span>
-                                </div>
-                                <div className="w-full bg-[#F5F4FD] h-2.5 rounded-full overflow-hidden">
-                                    <div className="bg-gradient-to-r from-[#6C63FF] to-[#9B8FFF] h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }} />
-                                </div>
-                            </div>
-
-                            <div className="bg-white rounded-2xl shadow-sm p-7 border border-[#E4E2F4]">
-                                <p className="text-[10px] font-bold tracking-widest uppercase text-[#6C63FF] mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-[#E4E2F4]"> Данные для документов </p>
+                            <div className="bg-white rounded-2xl shadow-sm p-7">
+                                <p className="text-[10px] font-bold tracking-widest uppercase text-[#6C63FF] mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-[#E4E2F4]">
+                                    Данные для документов
+                                </p>
                                 <div className="grid grid-cols-2 gap-4">
                                     {fields.map(f => (
                                         <div key={f.id} className={`flex flex-col gap-1.5 ${f.id === 'main_stage_tasks' ? 'col-span-2' : ''}`}>
@@ -280,220 +341,282 @@ export default function DashboardPage() {
                                             <div className="relative">
                                                 {f.id === 'main_stage_tasks' ? (
                                                     <textarea
-                                                        value={f.value}
+                                                        defaultValue={f.value}
                                                         placeholder="Перечислите задачи через точку с запятой"
                                                         rows={3}
-                                                        onChange={e => handleFieldChange(f.id, e.target.value)}
-                                                        className="w-full text-sm rounded-xl border-[#E4E2F4] focus:border-[#6C63FF] focus:ring-1 focus:ring-[#6C63FF]"
+                                                        onChange={e => setFields(prev => prev.map(x => x.id === f.id ? { ...x, value: e.target.value, filled: e.target.value.trim() !== '' } : x))}
+                                                        className="w-full text-sm"
                                                         style={{ resize: 'vertical' }}
                                                     />
                                                 ) : (
                                                     <input
                                                         type="text"
-                                                        value={f.value}
+                                                        defaultValue={f.value}
                                                         placeholder={`Введите ${f.label.toLowerCase()}`}
-                                                        onChange={e => handleFieldChange(f.id, e.target.value)}
-                                                        className="w-full text-sm rounded-xl border-[#E4E2F4] focus:border-[#6C63FF] focus:ring-1 focus:ring-[#6C63FF]"
+                                                        onChange={e => setFields(prev => prev.map(x => x.id === f.id ? { ...x, value: e.target.value, filled: e.target.value.trim() !== '' } : x))}
+                                                        className="w-full text-sm"
                                                     />
                                                 )}
-                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm">{f.filled ? '✅' : ''}</span>
+                                                {f.filled && (
+                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm">✅</span>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
-                            <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#E4E2F4]">
+                            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                                 <div className="px-7 py-5 border-b border-[#E4E2F4]">
-                                    <p className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB] mb-1">Генерация документов</p>
-                                    <h2 className="font-bold text-lg text-[#1C1A3A]">Скачать готовые формы</h2>
+                                    <p className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB] mb-1">Готовые документы</p>
+                                    <h2 className="font-bold text-lg text-[#1C1A3A]">Сформировать и скачать</h2>
                                 </div>
-                                <div className="px-7 py-5 border-b border-[#E4E2F4] flex items-center justify-between gap-4">
-                                    <div>
-                                        <p className="text-sm font-semibold text-[#1C1A3A] mb-0.5">Индивидуальное задание</p>
-                                        <p className="text-xs text-[#A9A7BB]">Формируется автоматически после заполнения всех полей выше.</p>
-                                    </div>
-                                    <button disabled={!allDocFilled} className={`text-sm font-semibold px-5 py-2 rounded-lg transition-all ${allDocFilled ? 'bg-[#6C63FF] text-white shadow-md hover:bg-[#4A42D4]' : 'bg-[#F5F4FD] text-[#A9A7BB] border border-[#E4E2F4] cursor-not-allowed'}`}>
-                                        {allDocFilled ? '⬇ Скачать DOCX' : 'Заполните поля'}
-                                    </button>
-                                </div>
-
-                                <div className="p-7 bg-slate-50/50 border-t border-[#E4E2F4]">
-                                    <p className="text-xs font-bold uppercase tracking-wider text-[#A9A7BB] mb-3">📁 Сдача итогового отчета по практике</p>
-                                    <label className="border-2 border-dashed border-[#E4E2F4] hover:border-[#6C63FF] bg-white rounded-xl p-6 text-center flex flex-col items-center justify-center cursor-pointer transition-colors group">
-                                        <input type="file" accept=".pdf,.docx" className="hidden" onChange={handleFileUpload} />
-                                        <span className="text-2xl mb-1 group-hover:scale-110 transition-transform">📤</span>
-                                        <span className="text-xs font-semibold text-[#1C1A3A]">{uploadedReport ? `Загружено: ${uploadedReport}` : 'Перетащите отчет сюда или нажмите для выбора'}</span>
-                                        <span className="text-[10px] text-[#A9A7BB] mt-1">Доступные форматы: PDF, DOCX (макс. 15мб)</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ── ЗАДАЧИ (Сетка с сохранением и часами) ── */}
-                    {tab === 'tasks' && (
-                        <div className="flex flex-col gap-6">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div>
-                                    <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1">Дневник задач</h1>
-                                    <p className="text-sm text-[#6B6880]">Неделя 1 · 6 — 10 июля 2026</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button className="px-4 py-2 text-sm font-medium border border-[#E4E2F4] rounded-lg bg-white text-[#6B6880] hover:bg-[#F5F4FD]">← Пред.</button>
-                                    <button className="px-4 py-2 text-sm font-medium border border-[#E4E2F4] rounded-lg bg-white text-[#6B6880] hover:bg-[#F5F4FD]">След. →</button>
-                                </div>
-                            </div>
-
-                            <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#E4E2F4]">
-                                <div className="grid grid-cols-5 border-b border-[#E4E2F4]">
-                                    {['Пн 6.07', 'Вт 7.07', 'Ср 8.07', 'Чт 9.07', 'Пт 10.07'].map((d, i) => (
-                                        <div key={i} className="px-5 py-3 border-r border-[#E4E2F4] last:border-r-0">
-                                            <span className="text-xs font-bold text-[#A9A7BB] uppercase tracking-wide">{d}</span>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="grid grid-cols-5 divide-x divide-[#E4E2F4] min-h-[240px]">
-                                    {Object.entries(tasks).map(([date, task]) => (
-                                        <div 
-                                            key={date} 
-                                            onClick={() => openTaskPopup(date)}
-                                            className="p-4 flex flex-col justify-between relative group cursor-pointer hover:bg-[#F5F4FD]/50 transition-colors"
-                                        >
-                                            <div className="flex flex-col gap-2">
-                                                <div className={`inline-flex self-start items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full
-                                                    ${task.status === 'done' ? 'bg-[#EDFBF4] text-[#1A7A5A]' : task.status === 'review' ? 'bg-[#FFF8ED] text-[#7A5C1A]' : 'bg-slate-100 text-slate-400'}`}
-                                                >
-                                                    <div className={`w-1.5 h-1.5 rounded-full ${task.status === 'done' ? 'bg-[#2CB87A]' : task.status === 'review' ? 'bg-[#F59E0B]' : 'bg-slate-300'}`} />
-                                                    {task.status === 'done' ? 'Выполнено' : task.status === 'review' ? 'На ревью' : 'Пусто'}
-                                                </div>
-                                                <p className="text-xs text-[#6B6880] leading-relaxed line-clamp-4">{task.title || 'Нажмите, чтобы добавить описание работы...'}</p>
-                                            </div>
-                                            {task.hours > 0 && (
-                                                <div className="mt-3 pt-2 border-t border-slate-100/70 text-right text-[10px] font-semibold text-[#A9A7BB]">
-                                                    ⏱ {task.hours} ч.
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-4">
                                 {[
-                                    { color: 'bg-[#2CB87A]', label: 'Выполнено' },
-                                    { color: 'bg-[#F59E0B]', label: 'На ревью' },
-                                    { color: 'bg-[#E4E2F4]', label: 'Не заполнено' },
-                                ].map(item => (
-                                    <div key={item.label} className="flex items-center gap-2">
-                                        <div className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
-                                        <span className="text-xs text-[#6B6880]">{item.label}</span>
+                                    { title: 'Индивидуальное задание', desc: 'Формируется автоматически после заполнения всех полей', ready: allDocFilled },
+                                    { title: 'Отзыв руководителя', desc: 'Доступен после того как руководитель заполнит отзыв', ready: false },
+                                    { title: 'Титульный лист отчёта', desc: 'Доступен после загрузки отчёта и одобрения руководителем', ready: false },
+                                ].map((doc, i) => (
+                                    <div key={i} className="px-7 py-5 border-b border-[#E4E2F4] last:border-b-0 flex items-center justify-between gap-4">
+                                        <div>
+                                            <p className="text-sm font-semibold text-[#1C1A3A] mb-0.5">{doc.title}</p>
+                                            <p className="text-xs text-[#A9A7BB]">{doc.desc}</p>
+                                        </div>
+                                        <button
+                                            disabled={!doc.ready}
+                                            className={`text-sm font-semibold px-5 py-2 rounded-lg flex-shrink-0 transition-all
+                                                ${doc.ready
+                                                    ? 'bg-[#6C63FF] text-white shadow-md hover:bg-[#4A42D4]'
+                                                    : 'bg-[#F5F4FD] text-[#A9A7BB] border border-[#E4E2F4] cursor-not-allowed'}`}
+                                        >
+                                            {doc.ready ? '⬇ Скачать' : 'Не готов'}
+                                        </button>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     )}
 
+                    {/* ── ЗАДАЧИ (реальный API) ── */}
+                    {tab === 'tasks' && (
+                        <div className="flex flex-col gap-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1">Дневник задач</h1>
+                                    {weekData && (
+                                        <p className="text-sm text-[#6B6880]">
+                                            {formatWeekLabel(weekData.weekStart, weekData.weekEnd)}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={goPrevWeek}
+                                        disabled={!canGoPrev() || tasksLoading}
+                                        className="px-4 py-2 text-sm font-medium border border-[#E4E2F4] rounded-lg bg-white text-[#6B6880] hover:bg-[#F5F4FD] disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        ← Пред.
+                                    </button>
+                                    <button
+                                        onClick={goNextWeek}
+                                        disabled={!canGoNext() || tasksLoading}
+                                        className="px-4 py-2 text-sm font-medium border border-[#E4E2F4] rounded-lg bg-white text-[#6B6880] hover:bg-[#F5F4FD] disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        След. →
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Ошибка */}
+                            {tasksError && (
+                                <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
+                                    <p className="text-sm text-[#D94F4F]">⚠️ {tasksError}</p>
+                                </div>
+                            )}
+
+                            {/* Сетка */}
+                            <div className={`bg-white rounded-2xl shadow-sm overflow-hidden transition-opacity ${tasksLoading ? 'opacity-50' : ''}`}>
+                                {/* Заголовок */}
+                                <div className="grid grid-cols-5 border-b border-[#E4E2F4]">
+                                    {gridDays.map(({ dayLabel, shortDate }, i) => (
+                                        <div key={i} className="px-5 py-3 border-r border-[#E4E2F4] last:border-r-0">
+                                            <span className="text-xs font-bold text-[#A9A7BB] uppercase tracking-wide">
+                                                {dayLabel} {shortDate}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Ячейки */}
+                                <div className="grid grid-cols-5 divide-x divide-[#E4E2F4] min-h-[240px]">
+                                    {gridDays.map(({ date }) => {
+                                        const task = getTaskForDate(date)
+                                        return (
+                                            <div key={date} className="p-4 flex flex-col gap-3 relative group">
+                                                {task ? (
+                                                    // Задача есть — кликабельная карточка
+                                                    <button
+                                                        onClick={() => openEdit(task)}
+                                                        className="flex flex-col gap-2 text-left w-full"
+                                                    >
+                                                        <div className="inline-flex self-start items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#EBE9FF] text-[#4A42D4]">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-[#6C63FF]" />
+                                                            Заполнено
+                                                        </div>
+                                                        <p className="text-xs font-semibold text-[#1C1A3A] leading-snug line-clamp-2">
+                                                            {task.title}
+                                                        </p>
+                                                        {task.description && (
+                                                            <p className="text-xs text-[#6B6880] leading-relaxed line-clamp-2">
+                                                                {task.description}
+                                                            </p>
+                                                        )}
+                                                        {task.artifact_link && (
+                                                            <span className="text-[10px] text-[#6C63FF] truncate max-w-full">
+                                                                🔗 Артефакт
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                ) : (
+                                                    // Пустая ячейка — кнопка добавить
+                                                    <button
+                                                        onClick={() => openCreate(date)}
+                                                        className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        <div className="w-8 h-8 rounded-full bg-[#EBE9FF] border-[1.5px] border-[#6C63FF] text-[#6C63FF] text-lg flex items-center justify-center">
+                                                            +
+                                                        </div>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Загрузка */}
+                            {tasksLoading && (
+                                <div className="flex items-center gap-2 text-sm text-[#6B6880]">
+                                    <div className="w-4 h-4 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
+                                    Загрузка задач…
+                                </div>
+                            )}
+
+                            {/* Легенда */}
+                            {weekData && (
+                                <p className="text-xs text-[#A9A7BB]">
+                                    Период практики: {new Date(weekData.practiceStart).toLocaleDateString('ru')} — {new Date(weekData.practiceEnd).toLocaleDateString('ru')}
+                                    {' '}· Нажми на пустую ячейку чтобы добавить задачу, на заполненную — чтобы изменить
+                                </p>
+                            )}
+                        </div>
+                    )}
+
                 </main>
             </div>
 
-            {/* ПОП-АП С АНИМАЦИЕЙ, ЧАСАМИ, ПОДТВЕРЖДЕНИЕМ ССЫЛОК И АУДИТОМ */}
-            {taskPopup && (
-                <div 
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-                    onClick={() => setTaskPopup(null)}
+            {/* ── ПОПАП ЗАДАЧИ ── */}
+            {popup && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+                    onClick={closePopup}
                 >
-                    <div 
-                        className="bg-white rounded-2xl shadow-xl p-7 w-full max-w-lg mx-4 max-h-[95vh] flex flex-col overflow-hidden transform scale-in-animation"
+                    <div
+                        className="bg-white rounded-2xl shadow-xl p-7 w-full max-w-md mx-4"
                         onClick={e => e.stopPropagation()}
                     >
-                        <div className="flex items-center justify-between mb-5 flex-shrink-0">
+                        <div className="flex items-center justify-between mb-5">
                             <div>
-                                <h3 className="font-bold text-lg text-[#1C1A3A]">Редактирование карточки дня</h3>
-                                <p className="text-xs font-bold text-[#6C63FF] uppercase mt-0.5">{taskPopup}</p>
+                                <h3 className="font-bold text-lg text-[#1C1A3A]">
+                                    {popup.mode === 'create' ? 'Новая задача' : 'Редактировать задачу'}
+                                </h3>
+                                <p className="text-xs text-[#A9A7BB]">
+                                    {new Date(popup.date).toLocaleDateString('ru', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                </p>
                             </div>
-                            <button onClick={() => setTaskPopup(null)} className="text-[#A9A7BB] hover:text-[#1C1A3A] text-xl leading-none">✕</button>
+                            <button
+                                onClick={closePopup}
+                                className="text-[#A9A7BB] hover:text-[#1C1A3A] text-xl leading-none"
+                            >
+                                ×
+                            </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+                        <div className="flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-bold uppercase text-[#A9A7BB]">Что сделано сегодня</label>
-                                <textarea
-                                    value={editTitle}
-                                    onChange={e => setEditTitle(e.target.value)}
-                                    placeholder="Опиши выполненную работу детально..."
-                                    rows={3}
-                                    className="w-full text-sm rounded-xl border-[#E4E2F4] focus:border-[#6C63FF] focus:ring-1 focus:ring-[#6C63FF]"
-                                />
-                            </div>
-
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-bold uppercase text-[#A9A7BB]">Затрачено времени (в часах)</label>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    max={24}
-                                    value={editHours}
-                                    onChange={e => setEditHours(Number(e.target.value))}
-                                    className="w-full text-sm rounded-xl border-[#E4E2F4] focus:border-[#6C63FF] focus:ring-1 focus:ring-[#6C63FF]"
-                                />
-                            </div>
-
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-bold uppercase text-[#A9A7BB]">Ссылка на артефакт</label>
+                                <label className="text-sm font-medium text-[#1C1A3A]">Название задачи <span className="text-[#6C63FF]">*</span></label>
                                 <input
                                     type="text"
-                                    placeholder="GitHub, Figma, Google Drive..."
-                                    value={editArtifact}
-                                    onChange={e => { setEditArtifact(e.target.value); setUrlError(false); }}
-                                    className={`w-full text-sm rounded-xl focus:ring-1 ${urlError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-[#E4E2F4] focus:border-[#6C63FF] focus:ring-[#6C63FF]'}`}
+                                    value={popupTitle}
+                                    onChange={e => setPopupTitle(e.target.value)}
+                                    placeholder="Что делал сегодня?"
+                                    className="w-full text-sm"
                                 />
-                                {urlError ? (
-                                    <span className="text-[10px] text-red-500 font-semibold">⚠️ Введите корректный URL-адрес (например, https://github.com)</span>
-                                ) : (
-                                    <span className="text-[10px] text-[#A9A7BB]">Необязательно. Ссылка на коммит, репозиторий или макет.</span>
-                                )}
                             </div>
 
-                            {tasks[taskPopup]?.title && (
-                                <div className="pt-4 border-t border-[#E4E2F4]">
-                                    <label className="text-xs font-bold uppercase tracking-wider text-[#A9A7BB] block mb-3">⏱ История изменений</label>
-                                    <div className="relative border-l-[1.5px] border-[#E4E2F4] ml-2 pl-4 space-y-3">
-                                        {mockAuditTrail.map(log => (
-                                            <div key={log.id} className="text-xs relative">
-                                                <div className="absolute -left-[21.5px] top-1 w-2.5 h-2.5 bg-white border border-[#A9A7BB] rounded-full" />
-                                                <div className="flex items-center gap-2 text-[#6B6880] mb-0.5">
-                                                    <span className="font-mono text-[10px]">{log.date}</span>
-                                                    <span className="font-bold text-[#1C1A3A] text-[11px]">{log.user}</span>
-                                                </div>
-                                                <p className="text-[#6B6880] bg-[#F5F4FD]/70 p-2 rounded-lg border border-[#E4E2F4]/50">{log.action}</p>
-                                            </div>
-                                        ))}
-                                    </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-[#1C1A3A]">Описание <span className="text-[#6C63FF]">*</span></label>
+                                <textarea
+                                    value={popupDesc}
+                                    onChange={e => setPopupDesc(e.target.value)}
+                                    placeholder="Опиши выполненную работу подробнее…"
+                                    rows={4}
+                                    className="w-full text-sm"
+                                    style={{ resize: 'none' }}
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-[#1C1A3A]">Ссылка на артефакт</label>
+                                <input
+                                    type="text"
+                                    value={popupLink}
+                                    onChange={e => setPopupLink(e.target.value)}
+                                    placeholder="GitHub, Figma, Google Drive…"
+                                    className="w-full text-sm"
+                                />
+                                <span className="text-xs text-[#A9A7BB]">Необязательно</span>
+                            </div>
+
+                            {popupError && (
+                                <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
+                                    <p className="text-sm text-[#D94F4F]">⚠️ {popupError}</p>
                                 </div>
                             )}
-                        </div>
 
-                        <div className="flex justify-end gap-3 mt-4 pt-3 border-t border-[#E4E2F4] flex-shrink-0">
-                            <button onClick={() => setTaskPopup(null)} className="px-5 py-2 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-lg">Отмена</button>
-                            <button onClick={handleSaveTask} className="px-5 py-2 text-sm font-semibold text-white rounded-lg shadow-md" style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
-                                Сохранить
-                            </button>
+                            <div className="flex justify-between items-center mt-2">
+                                {popup.mode === 'edit' ? (
+                                    <button
+                                        onClick={handleDelete}
+                                        disabled={popupSaving}
+                                        className="px-4 py-2 text-sm font-medium text-[#D94F4F] hover:bg-[#FFF5F5] rounded-lg disabled:opacity-50"
+                                    >
+                                        🗑 Удалить
+                                    </button>
+                                ) : (
+                                    <span />
+                                )}
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={closePopup}
+                                        className="px-5 py-2 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-lg"
+                                    >
+                                        Отмена
+                                    </button>
+                                    <button
+                                        onClick={handleSave}
+                                        disabled={popupSaving}
+                                        className="px-5 py-2 text-sm font-semibold text-white rounded-lg shadow-md disabled:opacity-60"
+                                        style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}
+                                    >
+                                        {popupSaving ? 'Сохраняем…' : 'Сохранить'}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            <style jsx global>{`
-                @keyframes scaleIn {
-                    from { transform: scale(0.95); opacity: 0; }
-                    to { transform: scale(1); opacity: 1; }
-                }
-                .scale-in-animation {
-                    animation: scaleIn 0.2s ease-out forwards;
-                }
-            `}</style>
         </div>
     )
 }
