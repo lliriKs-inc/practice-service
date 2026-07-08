@@ -80,4 +80,16 @@ export class TestTaskService {
       },
     });
   }
+
+  async deleteTestTask(id: string, cohortId: string) {
+    const exists = await prisma.testTask.findFirst({
+      where: { id, cohort_id: cohortId },
+    });
+
+    if (!exists) return null;
+
+    return prisma.testTask.delete({
+      where: { id },
+    });
+  }
 }

@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import { TestTaskService } from './test-task.service';
-import { CreateSurveyFieldSchema } from '../survey/dto/survey.dto'; // для примера, если нужно
 import { CreateTestTaskSchema } from './dto/create-test-task.dto';
 import { UpdateTestTaskSchema } from './dto/update-test-task.dto';
 
@@ -92,6 +91,28 @@ export class TestTaskController {
       if (error.message === 'ALREADY_PUBLISHED') {
         return res.status(400).json({ error: 'Тестовое задание уже опубликовано' });
       }
+      next(error);
+    }
+  }
+
+  async delete(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      if (typeof id !== 'string') {
+        return res.status(400).json({ error: 'Некорректный формат идентификатора задания' });
+      }
+
+      const cohortId = req.cohortId;
+      if (!cohortId) return res.status(400).json({ error: 'Идентификатор когорты не найден' });
+
+      const deletedTask = await testTaskService.deleteTestTask(id, cohortId);
+
+      if (!deletedTask) {
+        return res.status(404).json({ error: 'Задание не найдено или у вас нет прав на его удаление' });
+      }
+
+      return res.status(200).json({ message: 'Тестовое задание успешно удалено' });
+    } catch (error) {
       next(error);
     }
   }

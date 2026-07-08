@@ -7,8 +7,8 @@ const controller = new TestTaskController();
 
 router.post("/", requireRole("ADMIN"), controller.create);
 router.get("/", controller.getAll);
-
 router.patch("/:id", requireRole("ADMIN"), controller.update);
 router.post("/:id/publish", requireRole("ADMIN"), controller.publish);
+router.delete("/:id", requireRole("ADMIN"), controller.delete);
 
 export default router;
