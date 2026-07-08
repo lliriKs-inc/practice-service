@@ -23,9 +23,13 @@ export class DocumentGeneratorService {
     const zip = new PizZip(content);
 
     const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-    });
+    paragraphLoop: true,
+    linebreaks: true,
+    delimiters: {
+      start: "{{",
+      end: "}}",
+    },
+  });
 
     doc.render(data);
 
