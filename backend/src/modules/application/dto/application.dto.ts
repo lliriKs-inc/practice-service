@@ -12,3 +12,9 @@ export const CreateApplicationSchema = z.object({
 });
 
 export type CreateApplicationDto = z.infer<typeof CreateApplicationSchema>;
+
+export const ApproveApplicationSchema = z.object({
+  role_id: z.string().min(1, 'Роль обязательна для одобрения заявки'),
+});
+
+export type ApproveApplicationDto = z.infer<typeof ApproveApplicationSchema>;

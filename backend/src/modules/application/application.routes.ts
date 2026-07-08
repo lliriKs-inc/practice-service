@@ -23,6 +23,12 @@ router.get(
   controller.getMy
 );
 
+router.patch(
+  '/applications/:id/approve',
+  requireRole('ADMIN'),
+  controller.approve
+);
+
 router.get(
   '/applications/:id',
   requireRole('ADMIN'),

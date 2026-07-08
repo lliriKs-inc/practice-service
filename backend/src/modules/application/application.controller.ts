@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../../middlewares/auth.middleware';
 import { ApplicationService } from './application.service';
-import { CreateApplicationSchema } from './dto/application.dto';
+import { CreateApplicationSchema, ApproveApplicationSchema } from './dto/application.dto';
 
 const applicationService = new ApplicationService();
 
@@ -97,6 +97,56 @@ export class ApplicationController {
 
       return res.json({ success: true, data: application });
     } catch (error) {
+      next(error);
+    }
+  }
+
+  async approve(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const cohortId = req.cohortId;
+
+      if (typeof id !== 'string') {
+        return res.status(400).json({
+          success: false,
+          errors: ['Некорректный формат идентификатора заявки'],
+        });
+      }
+      
+      if (!cohortId) {
+        return res.status(400).json({
+          success: false,
+          errors: ['Активная когорта не найдена в текущем контексте'],
+        });
+      }
+
+      const validatedBody = ApproveApplicationSchema.parse(req.body);
+
+      const application = await applicationService.approveApplication(
+        id,
+        cohortId,
+        validatedBody
+      );
+
+      if (!application) {
+        return res.status(404).json({
+          success: false,
+          errors: ['Заявка не найдена'],
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: application,
+      });
+    } catch (error: any) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({
+          success: false,
+          errors: [error.message],
+        });
+      }
+
       next(error);
     }
   }
