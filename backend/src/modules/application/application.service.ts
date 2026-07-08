@@ -1,6 +1,6 @@
 import { prisma } from '../../shared/prisma';
-import { CreateApplicationDto } from './dto/application.dto';
 import { ApplicationAnswerService } from './applicationAnswer.service';
+import { CreateApplicationDto, ApproveApplicationDto } from './dto/application.dto';
 
 const answerService = new ApplicationAnswerService();
 
@@ -121,6 +121,56 @@ export class ApplicationService {
             created_at: true,
           },
         },
+        answers: {
+          include: {
+            field: true,
+          },
+        },
+      },
+    });
+  }
+  
+  async approveApplication(id: string, cohortId: string, dto: ApproveApplicationDto) {
+    const application = await prisma.application.findFirst({
+      where: {
+        id,
+        cohort_id: cohortId,
+      },
+    });
+
+    if (!application) {
+      return null;
+    }
+
+    const role = await prisma.cohortRole.findFirst({
+      where: {
+        id: dto.role_id,
+        cohort_id: cohortId,
+      },
+    });
+
+    if (!role) {
+      const error = new Error('Роль не найдена в активной когорте');
+      (error as any).statusCode = 400;
+      throw error;
+    }
+
+    return prisma.application.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        role_id: dto.role_id,
+        review_comment: null,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            created_at: true,
+          },
+        },
+        role: true,
         answers: {
           include: {
             field: true,
