@@ -115,16 +115,18 @@ enum FieldType {
   TEXTAREA
   SELECT
   RADIO
+  CHECKBOX
 }
 
 model SurveyField {
   id        String @id @default(cuid())
   cohort_id String
 
-  label   String
-  type    FieldType
-  options Json?
-  order   Int
+  label    String
+  type     FieldType
+  required Boolean @default(false)
+  options  Json?
+  order    Int
 
   cohort             Cohort              @relation(fields: [cohort_id], references: [id])
   applicationAnswers ApplicationAnswer[]

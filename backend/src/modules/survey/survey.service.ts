@@ -8,10 +8,11 @@ export class SurveyService {
       data: {
         label: dto.label,
         type: dto.type,
+        required: dto.required,
         order: dto.order,
         cohort_id: cohortId,
         options: dto.options === null ? Prisma.DbNull : dto.options,
-      },
+      }
     });
   }
 
@@ -52,6 +53,7 @@ export class SurveyService {
       data: {
         label: dto.label,
         type: dto.type,
+        required: dto.required,
         order: dto.order,
         options: dto.options === null ? Prisma.DbNull : dto.options,
       },

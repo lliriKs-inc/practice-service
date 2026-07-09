@@ -74,6 +74,7 @@ export class ApplicationService {
         id: field.id,
         label: field.label,
         type: field.type,
+        required: field.required,
         options: field.options,
         order: field.order,
         existingAnswer: savedAnswer ? savedAnswer.value : null,
