@@ -1,6 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import { AppError } from "../../middlewares/error.middleware";
 import { TasksService } from "./tasks.service";
+import { CreateTaskSchema } from "./dto/create-task.dto";
+import { UpdateTaskSchema } from "./dto/update-task.dto";
 
 const service = new TasksService();
 
@@ -15,7 +17,8 @@ export class TasksController {
         throw new AppError("No active cohort selected", 400);
       }
 
-      const task = await service.create(req.user.id, req.cohortId, req.body);
+      const dto = CreateTaskSchema.parse(req.body);
+      const task = await service.create(req.user.id, req.cohortId, dto);
 
       return res.status(201).json(task);
     } catch (error) {
@@ -81,13 +84,15 @@ export class TasksController {
         throw new AppError("Task id is required", 400);
       }
 
+      const dto = UpdateTaskSchema.parse(req.body);
+
       const task = await service.update(
         req.user.id,
         req.cohortId,
         taskId,
-        req.body
+        dto
       );
-
+      
       return res.json(task);
     } catch (error) {
       next(error);
