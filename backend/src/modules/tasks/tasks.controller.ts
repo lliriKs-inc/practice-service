@@ -3,6 +3,7 @@ import { AppError } from "../../middlewares/error.middleware";
 import { TasksService } from "./tasks.service";
 import { CreateTaskSchema } from "./dto/create-task.dto";
 import { UpdateTaskSchema } from "./dto/update-task.dto";
+import { TaskParamsSchema, WeekQuerySchema } from "./dto/task-request.dto";
 
 const service = new TasksService();
 
@@ -54,11 +55,7 @@ export class TasksController {
         throw new AppError("No active cohort selected", 400);
       }
 
-      const weekStart = req.query.weekStart;
-
-      if (typeof weekStart !== "string") {
-        throw new AppError("weekStart is required", 400);
-      }
+      const { weekStart } = WeekQuerySchema.parse(req.query);
 
       const tasks = await service.findWeek(req.user.id, req.cohortId, weekStart);
 
@@ -78,14 +75,8 @@ export class TasksController {
         throw new AppError("No active cohort selected", 400);
       }
 
-      const taskId = req.params.id;
-
-      if (typeof taskId !== "string") {
-        throw new AppError("Task id is required", 400);
-      }
-
+      const { id: taskId } = TaskParamsSchema.parse(req.params);
       const dto = UpdateTaskSchema.parse(req.body);
-
       const task = await service.update(
         req.user.id,
         req.cohortId,
@@ -109,12 +100,7 @@ export class TasksController {
         throw new AppError("No active cohort selected", 400);
       }
 
-      const taskId = req.params.id;
-
-      if (typeof taskId !== "string") {
-        throw new AppError("Task id is required", 400);
-      }
-
+      const { id: taskId } = TaskParamsSchema.parse(req.params);
       const result = await service.delete(
         req.user.id,
         req.cohortId,
@@ -147,14 +133,9 @@ export class TasksController {
         throw new AppError("No active cohort selected", 400);
       }
 
-      const weekStart = req.query.weekStart;
+    const { weekStart } = WeekQuerySchema.parse(req.query);
 
-      if (typeof weekStart !== "string") {
-        throw new AppError("weekStart is required", 400);
-      }
-
-      const tasks = await service.findAllWeek(req.cohortId, weekStart);
-
+    const tasks = await service.findAllWeek(req.cohortId, weekStart);
       return res.json(tasks);
     } catch (error) {
       next(error);
