@@ -11,6 +11,9 @@ export const UpdateDocumentSchema = z
     practice_topic: z.string().trim().optional(),
     main_stage_tasks: z.string().trim().optional(),
   })
-  .strict();
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "At least one document field is required",
+  });
 
 export type UpdateDocumentDto = z.infer<typeof UpdateDocumentSchema>;

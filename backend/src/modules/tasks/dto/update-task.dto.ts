@@ -7,6 +7,9 @@ export const UpdateTaskSchema = z
     description: z.string().trim().min(1, "description is required").optional(),
     artifact_link: z.string().trim().optional().nullable(),
   })
-  .strict();
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "At least one task field is required",
+  });
 
 export type UpdateTaskDto = z.infer<typeof UpdateTaskSchema>;
