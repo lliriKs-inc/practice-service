@@ -2,6 +2,11 @@ import { NextFunction, Request, Response } from "express";
 import { AppError } from "../../middlewares/error.middleware";
 import { DocumentsService } from "./documents.service";
 import { DocumentTemplate } from "./documentGenerator.service";
+import { UpdateDocumentSchema } from "./dto/update-document.dto";
+import {
+  ApproveReportSchema,
+  UpdateReviewRequestSchema,
+} from "./dto/update-review.dto";
 
 const service = new DocumentsService();
 
@@ -51,11 +56,12 @@ export class DocumentsController {
       if (!req.cohortId) {
         throw new AppError("No active cohort selected", 400);
       }
+      const dto = UpdateDocumentSchema.parse(req.body);
 
       const documents = await service.update(
         req.user.id,
         req.cohortId,
-        req.body
+        dto
       );
 
       return res.json(documents);
@@ -98,12 +104,7 @@ export class DocumentsController {
         throw new AppError("No active cohort selected", 400);
       }
 
-      const { userId, ...data } = req.body;
-
-      if (!userId) {
-        throw new AppError("userId is required", 400);
-      }
-
+      const { userId, ...data } = UpdateReviewRequestSchema.parse(req.body);
       const documents = await service.updateReview(userId, req.cohortId, data);
 
       return res.json(documents);
@@ -118,12 +119,7 @@ export class DocumentsController {
         throw new AppError("No active cohort selected", 400);
       }
 
-      const { userId } = req.body;
-
-      if (!userId) {
-        throw new AppError("userId is required", 400);
-      }
-
+      const { userId } = ApproveReportSchema.parse(req.body);
       const result = await service.approveReport(userId, req.cohortId);
 
       if (result.count === 0) {
