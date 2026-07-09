@@ -252,6 +252,9 @@ export class DocumentsService {
       main_stage_tasks: documents.main_stage_tasks,
       practice_start: this.formatDate(cohort.practice_start),
       practice_end: this.formatDate(cohort.practice_end),
+      practice_stage1_finish: this.formatDate(this.addDays(cohort.practice_start, 7)),
+      practice_stage2_finish: this.formatDate(this.addDays(cohort.practice_start, 23)),
+      practice_stage3_start: this.formatDate(this.addDays(cohort.practice_start, 24)),
       review_activities: documents.review_activities,
       review_characteristic: documents.review_characteristic,
       review_employed: documents.review_employed,
@@ -266,4 +269,11 @@ export class DocumentsService {
   private formatDate(date: Date) {
     return new Intl.DateTimeFormat("ru-RU").format(date);
   }
+
+  private addDays(date: Date, days: number) {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
+  }
+
 }
