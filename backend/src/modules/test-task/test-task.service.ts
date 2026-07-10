@@ -1,4 +1,5 @@
 import { prisma } from '../../shared/prisma'; 
+import { sendMail } from '../../shared/mail';
 import { CreateTestTaskDto } from './dto/create-test-task.dto';
 import { UpdateTestTaskDto } from './dto/update-test-task.dto';
 
@@ -73,12 +74,16 @@ export class TestTaskService {
       throw new Error('ALREADY_PUBLISHED');
     }
 
-    return prisma.testTask.update({
+    const publishedTask = await prisma.testTask.update({
       where: { id },
       data: {
         published_at: new Date(),
       },
     });
+
+    await this.notifyApplicantsAboutPublishedTask(cohortId);
+
+    return publishedTask;
   }
 
   async deleteTestTask(id: string, cohortId: string) {
@@ -91,5 +96,46 @@ export class TestTaskService {
     return prisma.testTask.delete({
       where: { id },
     });
+  }
+
+  private async notifyApplicantsAboutPublishedTask(cohortId: string) {
+    const applications = await prisma.application.findMany({
+      where: { cohort_id: cohortId },
+      include: {
+        user: {
+          select: {
+            email: true,
+          },
+        },
+      },
+    });
+
+    const recipients = applications
+      .map((application) => application.user.email)
+      .filter((email): email is string => Boolean(email));
+
+    if (recipients.length === 0) {
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      recipients.map((email) =>
+        sendMail({
+          to: email,
+          subject: 'Test task has been published',
+          text: 'The test task for your practice application has been published. Please sign in to your account to view it.',
+          html: `
+            <p>The test task for your practice application has been published.</p>
+            <p>Please sign in to your account to view it.</p>
+          `,
+        })
+      )
+    );
+
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+
+    if (failedCount > 0) {
+      console.warn(`Failed to send ${failedCount} test task publication email(s)`);
+    }
   }
 }
