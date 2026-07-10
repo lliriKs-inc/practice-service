@@ -1,4 +1,5 @@
 import { prisma } from '../../shared/prisma';
+import { AppError } from '../../middlewares/error.middleware';
 import { ApplicationAnswerService } from './applicationAnswer.service';
 import { CreateApplicationDto, ApproveApplicationDto } from './dto/application.dto';
 
@@ -19,6 +20,50 @@ export class ApplicationService {
       throw error;
     }
 
+        const surveyFields = await prisma.surveyField.findMany({
+      where: { cohort_id: cohortId },
+      select: {
+        id: true,
+        label: true,
+        required: true,
+      },
+    });
+
+    const surveyFieldIds = new Set(surveyFields.map((field) => field.id));
+
+    const invalidAnswers = dto.answers.filter(
+      (answer) => !surveyFieldIds.has(answer.field_id)
+    );
+
+    if (invalidAnswers.length > 0) {
+      throw new AppError(
+        'Application contains answers for unknown survey fields',
+        400
+      );
+    }
+
+    const answerByFieldId = new Map(
+      dto.answers.map((answer) => [answer.field_id, answer.value])
+    );
+
+    const missingRequiredFields = surveyFields.filter((field) => {
+      if (!field.required) {
+        return false;
+      }
+
+      const value = answerByFieldId.get(field.id);
+      return value === undefined || value.trim() === '';
+    });
+
+    if (missingRequiredFields.length > 0) {
+      throw new AppError(
+        `Required survey fields are missing: ${missingRequiredFields
+          .map((field) => field.label)
+          .join(', ')}`,
+        400
+      );
+    }
+    
     return prisma.$transaction(async (tx) => {
       let applicationId = existingApplication?.id;
 
