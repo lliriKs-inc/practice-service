@@ -71,4 +71,29 @@ export class SurveyService {
       where: { id },
     });
   }
+
+  async getPublicCurrentFields() {
+    const now = new Date();
+
+    const currentCohort = await prisma.cohort.findFirst({
+      where: {
+        application_start: { lte: now },
+        application_end: { gte: now },
+      },
+      include: {
+        surveyFields: {
+          orderBy: { order: "asc" },
+        },
+      },
+    });
+
+    if (!currentCohort) {
+      return null;
+    }
+
+    return currentCohort.surveyFields.map((field) => ({
+      ...field,
+      options: field.options ?? null,
+    }));
+  }
 }

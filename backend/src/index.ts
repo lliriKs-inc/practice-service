@@ -15,6 +15,7 @@ import surveyRoutes from "./modules/survey/survey.routes";
 import applicationRouter from './modules/application/application.routes';
 import { uploadDir } from "./shared/upload";
 import { CohortController } from "./modules/cohort/cohort.controller";
+import { SurveyController } from "./modules/survey/survey.controller";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,6 +28,12 @@ app.use("/auth", authRoutes);
 
 const cohortController = new CohortController();
 app.get("/cohorts/public/current", cohortController.getPublicCurrent);
+
+const surveyController = new SurveyController();
+app.get(
+  "/survey-fields",
+  surveyController.getPublicCurrentFields.bind(surveyController)
+);
 
 app.use(authMiddleware);
 app.use(cohortContextMiddleware);

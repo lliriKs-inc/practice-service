@@ -104,4 +104,20 @@ export class SurveyController {
       next(error);
     }
   }
+
+  async getPublicCurrentFields(req: Request, res: Response, next: NextFunction) {
+    try {
+      const fields = await surveyService.getPublicCurrentFields();
+
+      if (!fields) {
+        return res.status(404).json({
+          message: "В данный момент нет активных когорт, открытых для регистрации студентов.",
+        });
+      }
+
+      return res.json(fields);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
