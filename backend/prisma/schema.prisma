@@ -177,7 +177,8 @@ model Application {
   track_id      String
   status        ApplicationStatus @default(PENDING)
   submitted_at  DateTime          @default(now())
-
+  rejection_reason String?
+  
   user  User  @relation(fields: [user_id], references: [id])
   track Track @relation(fields: [track_id], references: [id])
 
