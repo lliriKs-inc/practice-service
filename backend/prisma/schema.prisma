@@ -11,62 +11,19 @@ datasource db {
   provider = "postgresql"
 }
 
+// =========================================================================
+// ENUMS
+// =========================================================================
+
 enum UserRole {
   STUDENT
   ADMIN
 }
 
-model User {
-  id                   String                @id @default(cuid())
-  email                String                @unique
-  password_hash        String
-  created_at           DateTime              @default(now())
-  applications         Application[]
-  role                 UserRole              @default(STUDENT)
-  active_cohort_id     String?
-  activeCohort         Cohort?               @relation("UserActiveCohort", fields: [active_cohort_id], references: [id])
-  studentDocumentDatas StudentDocumentData[]
-  taskCards            TaskCard[]
-}
-
-model Cohort {
-  id   String @id @default(cuid())
-  name String @unique
-
-  application_start DateTime
-  application_end   DateTime
-
-  practice_start DateTime
-  practice_end   DateTime
-
-  created_at           DateTime              @default(now())
-  activeForUsers       User[]                @relation("UserActiveCohort")
-  cohortRoles          CohortRole[]
-  testTasks            TestTask[]
-  applications         Application[]
-  surveyFields         SurveyField[]
-  studentDocumentDatas StudentDocumentData[]
-  taskCards            TaskCard[]
-}
-
-model CohortRole {
-  id           String        @id @default(cuid())
-  cohort_id    String
-  name         String
-  cohort       Cohort        @relation(fields: [cohort_id], references: [id])
-  applications Application[]
-
-  @@unique([cohort_id, name])
-}
-
-model TestTask {
-  id        String @id @default(cuid())
-  cohort_id String
-
-  content      String
-  published_at DateTime?
-
-  cohort Cohort @relation(fields: [cohort_id], references: [id])
+enum CohortStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
 }
 
 enum ApplicationStatus {
@@ -75,39 +32,17 @@ enum ApplicationStatus {
   REJECTED
 }
 
-model Application {
-  id String @id @default(cuid())
-
-  user_id   String
-  cohort_id String
-  role_id   String?
-
-  status         ApplicationStatus @default(PENDING)
-  review_comment String?
-
-  created_at DateTime @default(now())
-
-  user   User        @relation(fields: [user_id], references: [id])
-  cohort Cohort      @relation(fields: [cohort_id], references: [id])
-  role   CohortRole? @relation(fields: [role_id], references: [id])
-
-  answers ApplicationAnswer[]
-
-  @@unique([user_id, cohort_id])
+enum ReportStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
-model ApplicationAnswer {
-  id String @id @default(cuid())
-
-  application_id String
-  field_id       String
-
-  value String
-
-  application Application @relation(fields: [application_id], references: [id])
-  field       SurveyField @relation(fields: [field_id], references: [id])
-
-  @@unique([application_id, field_id])
+enum DocumentType {
+  INDIVIDUAL_TASK
+  TITLE_PAGE
+  REVIEW
+  NOTICE
 }
 
 enum FieldType {
@@ -118,68 +53,233 @@ enum FieldType {
   CHECKBOX
 }
 
-model SurveyField {
-  id        String @id @default(cuid())
-  cohort_id String
+// =========================================================================
+// 1. ПОЛЬЗОВАТЕЛИ И КОГОРТЫ
+// =========================================================================
 
-  label    String
-  type     FieldType
-  required Boolean @default(false)
-  options  Json?
-  order    Int
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password_hash String
+  full_name     String
+  role          UserRole @default(STUDENT)
+  created_at    DateTime @default(now())
 
-  cohort             Cohort              @relation(fields: [cohort_id], references: [id])
-  applicationAnswers ApplicationAnswer[]
+  // Сохранено из текущей схемы: не часть ERD из md, но нужно бэкенду,
+  // чтобы понимать, в контексте какой когорты сейчас находится пользователь
+  // в UI (актуально и для админа, и для практиканта с несколькими заявками
+  // за разные годы).
+  active_cohort_id String?
+  activeCohort     Cohort? @relation("UserActiveCohort", fields: [active_cohort_id], references: [id])
+
+  createdCohorts Cohort[]      @relation("CohortCreatedBy")
+  applications   Application[]
 }
 
-model StudentDocumentData {
-  id String @id @default(cuid())
+model Cohort {
+  id      String       @id @default(cuid())
+  title   String
+  status  CohortStatus @default(DRAFT)
 
-  user_id   String
-  cohort_id String
+  // Сохранено из текущей схемы: в ERD из md1 есть только одна пара дат
+  // (start_date/end_date для срока практики). Раздельные окна регистрации
+  // и практики — рабочая фича текущего бэкенда (нужно закрывать приём
+  // заявок раньше, чем начинается сама практика), поэтому сохраняем обе пары.
+  application_start DateTime?
+  application_end   DateTime?
 
-  student_fio String?
-  group       String?
+  // Соответствует Cohort.start_date / end_date из ERD — источник правды
+  // для генерации DailyTask на весь срок практики.
+  practice_start DateTime @db.Date
+  practice_end   DateTime @db.Date
 
-  direction_code String?
-  direction_name String?
-  program_name   String?
-  specialty      String?
-  practice_topic String?
+  created_by String
+  creator    User     @relation("CohortCreatedBy", fields: [created_by], references: [id])
+  created_at DateTime @default(now())
 
-  main_stage_tasks String?
+  activeForUsers User[] @relation("UserActiveCohort")
 
-  review_activities       String?
-  review_characteristic   String?
-  review_employed         String?
-  review_next_practice    String?
-  review_employment_offer String?
-  review_suggestions      String?
-  review_grade            String?
-
-  report_file_url       String?
-  report_admin_approved Boolean @default(false)
-
-  user   User   @relation(fields: [user_id], references: [id])
-  cohort Cohort @relation(fields: [cohort_id], references: [id])
-
-  @@unique([user_id, cohort_id])
+  invitation Invitation?
+  survey     Survey?
+  tracks     Track[]
 }
 
-model TaskCard {
-  id String @id @default(cuid())
+model Invitation {
+  id         String   @id @default(cuid())
+  token      String   @unique
+  cohort_id  String   @unique
+  created_at DateTime @default(now())
+  expires_at DateTime
 
-  user_id   String
-  cohort_id String
+  cohort Cohort @relation(fields: [cohort_id], references: [id], onDelete: Cascade)
+}
 
-  date DateTime
+// =========================================================================
+// 2. АНКЕТА
+// =========================================================================
 
-  title         String
-  description   String
-  artifact_link String?
-
+model Survey {
+  id         String   @id @default(cuid())
+  cohort_id  String   @unique
+  title      String
   updated_at DateTime @updatedAt
 
-  user   User   @relation(fields: [user_id], references: [id])
-  cohort Cohort @relation(fields: [cohort_id], references: [id])
+  cohort    Cohort     @relation(fields: [cohort_id], references: [id], onDelete: Cascade)
+  questions Question[]
+}
+
+model Question {
+  id          String    @id @default(cuid())
+  survey_id   String
+  label       String
+  type        FieldType
+  order_index Int
+  required    Boolean   @default(false)
+  // Сохранено из текущей схемы: варианты ответа для SELECT/RADIO/CHECKBOX
+  // не входят в ERD явно (там только "select..."), но нужны бэкенду и
+  // фронту, чтобы реально отрисовать поле.
+  options     Json?
+
+  survey  Survey               @relation(fields: [survey_id], references: [id], onDelete: Cascade)
+  answers ApplicationAnswer[]
+}
+
+// =========================================================================
+// 3. ТРЕКИ И ЗАЯВКИ
+// =========================================================================
+
+model Track {
+  id        String @id @default(cuid())
+  cohort_id String
+  title     String
+
+  cohort       Cohort        @relation(fields: [cohort_id], references: [id], onDelete: Cascade)
+  testTask     TestTask?
+  applications Application[]
+
+  @@unique([cohort_id, title])
+}
+
+model TestTask {
+  id           String    @id @default(cuid())
+  track_id     String    @unique
+  title        String
+  file_url     String?
+  description  String?
+  published_at DateTime?
+
+  track Track @relation(fields: [track_id], references: [id], onDelete: Cascade)
+}
+
+model Application {
+  id            String            @id @default(cuid())
+  user_id       String
+  track_id      String
+  status        ApplicationStatus @default(PENDING)
+  submitted_at  DateTime          @default(now())
+
+  user  User  @relation(fields: [user_id], references: [id])
+  track Track @relation(fields: [track_id], references: [id])
+
+  answers            ApplicationAnswer[]
+  testTaskSubmission TestTaskSubmission?
+  report             Report?
+  documents          Document[]
+  dailyTasks         DailyTask[]
+
+  // Одна заявка на трек от пользователя. Это то место, где текущая
+  // схема расходилась с ERD: раньше уникальность была (user_id, cohort_id),
+  // что блокировало подачу нескольких заявок в одну когорту по разным
+  // трекам. Теперь уникальность именно по (user_id, track_id).
+  @@unique([user_id, track_id])
+}
+
+model ApplicationAnswer {
+  id             String @id @default(cuid())
+  application_id String
+  question_id    String
+  answer_value   String
+
+  application Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  question    Question    @relation(fields: [question_id], references: [id])
+
+  @@unique([application_id, question_id])
+}
+
+model TestTaskSubmission {
+  id             String   @id @default(cuid())
+  application_id String   @unique
+  file_url       String
+  submitted_at   DateTime @default(now())
+
+  application Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
+}
+
+// =========================================================================
+// 4. ОТЧЁТ И ДОКУМЕНТЫ
+// =========================================================================
+
+model Report {
+  id             String       @id @default(cuid())
+  application_id String       @unique
+  file_url       String
+  status         ReportStatus @default(PENDING)
+  uploaded_at    DateTime     @default(now())
+  reviewed_at    DateTime?
+
+  application Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
+}
+
+model Document {
+  id                 String       @id @default(cuid())
+  application_id     String
+  type               DocumentType
+  generated_file_url String?
+  generated_at       DateTime?
+
+  application Application          @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  fieldValues DocumentFieldValue[]
+
+  @@unique([application_id, type])
+}
+
+model DocumentFieldValue {
+  id          String   @id @default(cuid())
+  document_id String
+  field_key   String
+  value       String
+  // Кто заполнил поле — переиспользуем UserRole (STUDENT/ADMIN), значения
+  // совпадают с "practicant / admin" из ERD.
+  filled_by   UserRole
+
+  document Document @relation(fields: [document_id], references: [id], onDelete: Cascade)
+
+  @@unique([document_id, field_key])
+}
+
+// =========================================================================
+// 5. ЗАДАЧИ / ПРОГРЕСС
+// =========================================================================
+
+model DailyTask {
+  id             String    @id @default(cuid())
+  application_id String
+  task_date      DateTime  @db.Date
+  description    String?
+  saved_at       DateTime?
+
+  application Application     @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  links       DailyTaskLink[]
+
+  // Ключевой констрейнт из md1: гарантирует "одна ячейка = одна запись"
+  // на уровне БД, а не только в бизнес-логике.
+  @@unique([application_id, task_date])
+}
+
+model DailyTaskLink {
+  id            String @id @default(cuid())
+  daily_task_id String
+  url           String
+
+  dailyTask DailyTask @relation(fields: [daily_task_id], references: [id], onDelete: Cascade)
 }
