@@ -16,3 +16,5 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 /src/generated/prisma
 /docs/.obsidian
+backend/prisma/(old) schema.prisma
+.agents
