@@ -5,11 +5,11 @@ declare global {
     interface Request {
       user?: {
         id: string;
-        email: string;
         role: UserRole;
       };
 
       cohortId?: string | null;
+      requestId?: string;
     }
   }
 }

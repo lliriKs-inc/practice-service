@@ -1,12 +1,11 @@
-import { Response, NextFunction } from 'express';
-import { AuthRequest } from '../../middlewares/auth.middleware';
+import { Request, Response, NextFunction } from 'express';
 import { ApplicationService } from './application.service';
 import { CreateApplicationSchema, ApproveApplicationSchema } from './dto/application.dto';
 
 const applicationService = new ApplicationService();
 
 export class ApplicationController {
-  async create(req: AuthRequest, res: Response, next: NextFunction) {
+  async create(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
       const cohortId = req.cohortId;
@@ -31,7 +30,7 @@ export class ApplicationController {
     }
   }
 
-  async getForm(req: AuthRequest, res: Response, next: NextFunction) {
+  async getForm(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
       const cohortId = req.cohortId;
@@ -51,7 +50,7 @@ export class ApplicationController {
     }
   }
 
-  async getMy(req: AuthRequest, res: Response, next: NextFunction) {
+  async getMy(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
       const cohortId = req.cohortId;
@@ -76,7 +75,7 @@ export class ApplicationController {
     }
   }
 
-  async getById(req: AuthRequest, res: Response, next: NextFunction) {
+  async getById(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
       const cohortId = req.cohortId;
@@ -101,7 +100,7 @@ export class ApplicationController {
     }
   }
 
-  async approve(req: AuthRequest, res: Response, next: NextFunction) {
+  async approve(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
       const cohortId = req.cohortId;

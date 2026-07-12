@@ -5,7 +5,7 @@ import { errorHandler } from './middlewares/error.middleware';
 import authRoutes from "./modules/auth/auth.routes";
 import cohortRoutes from "./modules/cohort/cohort.routes";
 import testTaskRoutes from './modules/test-task/test-task.routes';
-import { authMiddleware } from "./middlewares/auth.middleware";
+import { authenticateJWT } from "./middlewares/auth.middleware";
 import { cohortContextMiddleware } from "./middlewares/cohortContext.middleware";
 import cohortRoleRoutes from "./modules/cohort-role/cohortRole.routes";
 import documentsRoutes from "./modules/documents/documents.routes";
@@ -16,12 +16,25 @@ import applicationRouter from './modules/application/application.routes';
 import { uploadDir } from "./shared/upload";
 import { CohortController } from "./modules/cohort/cohort.controller";
 import { SurveyController } from "./modules/survey/survey.controller";
+import { config } from "./shared/config";
+import { requestIdMiddleware } from "./middlewares/requestId.middleware";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = config.port;
 
-app.use(cors());
-app.use(express.json());
+app.use(requestIdMiddleware);
+
+app.use(
+  cors({
+    origin: config.cors.origin,
+  })
+);
+
+app.use(
+  express.json({
+    limit: config.http.jsonBodyLimit,
+  })
+);
 app.use("/uploads", express.static(uploadDir));
 
 app.use("/auth", authRoutes);
@@ -35,12 +48,12 @@ app.get(
   surveyController.getPublicCurrentFields.bind(surveyController)
 );
 
-app.use(authMiddleware);
+app.use(authenticateJWT);
 app.use(cohortContextMiddleware);
 
 app.use(surveyRoutes);
 app.use(applicationRouter);
-app.use('/test-task', authMiddleware, cohortContextMiddleware, testTaskRoutes);
+app.use('/test-task', authenticateJWT, cohortContextMiddleware, testTaskRoutes);
 
 app.use("/cohorts", cohortRoleRoutes);
 app.use("/cohorts", cohortRoutes);

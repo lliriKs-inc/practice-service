@@ -1,22 +1,29 @@
 import { Request, Response, NextFunction } from "express";
 import { UserRole } from "@prisma/client";
+import { AppError } from "./error.middleware";
 
 export function requireRole(...allowedRoles: UserRole[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
-      return res.status(401).json({
-        error: "Unauthorized",
-        message: "Пользователь не аутентифицирован",
-      });
+      return next(
+        new AppError(
+          "Пользователь не аутентифицирован",
+          401,
+          "AUTH_REQUIRED"
+        )
+      );
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({
-        error: "Forbidden",
-        message: "Недостаточно прав",
-      });
+      return next(
+        new AppError(
+          "Недостаточно прав для выполнения операции",
+          403,
+          "INSUFFICIENT_PERMISSIONS"
+        )
+      );
     }
 
-    next();
+    return next();
   };
 }
