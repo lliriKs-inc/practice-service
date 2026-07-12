@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import { AuthService } from "./auth.service";
-import { AuthRequest } from "../../middlewares/auth.middleware";
 import { registerSchema } from "./dto/register.dto";
 import { loginSchema } from "./dto/login.dto";
 
@@ -38,7 +37,7 @@ export class AuthController {
     }
   }
 
-  static async me(req: AuthRequest, res: Response) {
+  static async me(req: Request, res: Response) {
     try {
       const userId = req.user?.id;
 

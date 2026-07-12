@@ -1,55 +1,52 @@
-import { Request, Response, NextFunction } from 'express';
-import * as jwt from 'jsonwebtoken';
-import { UserRole } from '@prisma/client';
+import { Request, Response, NextFunction } from "express";
+import { AppError } from "./error.middleware";
+import { verifyToken } from "../shared/jwt";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_key_change_me';
+export function authenticateJWT(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+) {
+  const authorization = req.headers.authorization;
 
-export const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ 
-      error: 'Unauthorized', 
-      message: 'Отсутствует или некорректен токен авторизации' 
-    });
+  if (!authorization) {
+    return next(
+      new AppError(
+        "Токен авторизации не предоставлен",
+        401,
+        "AUTH_TOKEN_MISSING"
+      )
+    );
   }
 
-  const token = authHeader.split(' ')[1];
+  const [scheme, token, extraPart] = authorization.trim().split(/\s+/);
+
+  if (scheme !== "Bearer" || !token || extraPart) {
+    return next(
+      new AppError(
+        "Некорректный формат токена авторизации",
+        401,
+        "AUTH_TOKEN_INVALID_FORMAT"
+      )
+    );
+  }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string; role: UserRole };
-    
+    const payload = verifyToken(token);
+
     req.user = {
-      id: decoded.id,
-      email: decoded.email,
-      role: decoded.role
+      id: payload.id,
+      role: payload.role,
     };
 
     return next();
-  } catch (error) {
-    return res.status(403).json({ 
-      error: 'Forbidden', 
-      message: 'Невалидный или просроченный токен' 
-    });
+  } catch {
+    return next(
+      new AppError(
+        "Токен недействителен или просрочен",
+        401,
+        "AUTH_TOKEN_INVALID"
+      )
+    );
   }
-};
-
-export const requireRole = (...allowedRoles: UserRole[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return res.status(401).json({ 
-        error: 'Unauthorized', 
-        message: 'Пользователь не аутентифицирован' 
-      });
-    }
-
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        error: 'Forbidden', 
-        message: 'Недостаточно прав для выполнения этой операции' 
-      });
-    }
-
-    return next();
-  };
-};
+}
