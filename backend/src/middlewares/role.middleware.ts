@@ -1,14 +1,20 @@
-import { Response, NextFunction } from "express";
-import { AuthRequest } from "./auth.middleware";
+import { Request, Response, NextFunction } from "express";
+import { UserRole } from "@prisma/client";
 
-export function requireRole(role: "ADMIN" | "STUDENT") {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
+export function requireRole(...allowedRoles: UserRole[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return res.status(401).json({ message: "Unauthorized" });
+      return res.status(401).json({
+        error: "Unauthorized",
+        message: "Пользователь не аутентифицирован",
+      });
     }
 
-    if (req.user.role !== role) {
-      return res.status(403).json({ message: "Forbidden" });
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "Недостаточно прав",
+      });
     }
 
     next();

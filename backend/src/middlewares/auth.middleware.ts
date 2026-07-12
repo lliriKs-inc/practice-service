@@ -1,42 +1,55 @@
-import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import { Request, Response, NextFunction } from 'express';
+import * as jwt from 'jsonwebtoken';
+import { UserRole } from '@prisma/client';
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
+const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_key_change_me';
 
-export interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    role: string;
-  };
-}
+export const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
 
-export function authMiddleware(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ 
+      error: 'Unauthorized', 
+      message: 'Отсутствует или некорректен токен авторизации' 
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
   try {
-    const header = req.headers.authorization;
-
-    if (!header) {
-      return res.status(401).json({ message: "No token provided" });
-    }
-
-    const [type, token] = header.split(" ");
-
-    if (type !== "Bearer" || !token) {
-        return res.status(401).json({ message: "Invalid token format" });
-    }
-
-    const decoded = jwt.verify(token, JWT_SECRET) as {
-      id: string;
-      role: string;
+    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string; role: UserRole };
+    
+    req.user = {
+      id: decoded.id,
+      email: decoded.email,
+      role: decoded.role
     };
 
-    req.user = decoded;
-
-    next();
-  } catch (e) {
-    return res.status(401).json({ message: "Unauthorized" });
+    return next();
+  } catch (error) {
+    return res.status(403).json({ 
+      error: 'Forbidden', 
+      message: 'Невалидный или просроченный токен' 
+    });
   }
-}
+};
+
+export const requireRole = (...allowedRoles: UserRole[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ 
+        error: 'Unauthorized', 
+        message: 'Пользователь не аутентифицирован' 
+      });
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        error: 'Forbidden', 
+        message: 'Недостаточно прав для выполнения этой операции' 
+      });
+    }
+
+    return next();
+  };
+};
