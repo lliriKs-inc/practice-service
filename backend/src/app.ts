@@ -1,11 +1,12 @@
 import express from "express";
 import cors from "cors";
-import { errorHandler } from "./middlewares/error.middleware";
+import {
+  createErrorHandler,
+} from "./middlewares/error.middleware";
 import { requestIdMiddleware } from "./middlewares/requestId.middleware";
 import { authenticateJWT } from "./middlewares/auth.middleware";
 import { cohortContextMiddleware } from "./middlewares/cohortContext.middleware";
 import { config } from "./shared/config";
-import { uploadDir } from "./shared/upload";
 
 import authRoutes from "./modules/auth/auth.routes";
 import cohortRoutes from "./modules/cohort/cohort.routes";
@@ -23,17 +24,39 @@ import {
   createHealthRouter,
   ReadinessCheck,
 } from "./modules/health/health.routes";
+import {
+  appLogger,
+} from "./shared/logger/runtime-logger";
+import type {
+  Logger,
+} from "./shared/logger/logger.types";
+
+import {
+  createAuthRateLimiter,
+  createGeneralRateLimiter,
+  createSecurityHeaders,
+} from "./middlewares/security.middleware";
 
 export interface CreateAppOptions {
   readinessCheck?: ReadinessCheck;
+  logger?: Logger;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
   const app = express();
+  const logger = options.logger ?? appLogger;
+
+  app.set(
+  "trust proxy",
+  config.security.trustProxyHops === 0
+    ? false
+    : config.security.trustProxyHops
+);
 
   app.disable("x-powered-by");
 
   app.use(requestIdMiddleware);
+  app.use(createSecurityHeaders());
 
   app.use(
     cors({
@@ -48,10 +71,13 @@ export function createApp(options: CreateAppOptions = {}) {
   );
 
   app.use(createHealthRouter(options.readinessCheck));
+  app.use(createGeneralRateLimiter(logger));
 
-  app.use("/uploads", express.static(uploadDir));
-
-  app.use("/auth", authRoutes);
+  app.use(
+    "/auth",
+    createAuthRateLimiter(logger),
+    authRoutes
+  );
 
   const cohortController = new CohortController();
 
@@ -85,7 +111,7 @@ export function createApp(options: CreateAppOptions = {}) {
     });
   });
 
-  app.use(errorHandler);
+  app.use(createErrorHandler(logger));
 
   return app;
 }

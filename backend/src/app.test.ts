@@ -1,6 +1,13 @@
+import {
+  mkdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { join } from "node:path";
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app";
+import { config } from "./shared/config";
 
 describe("platform HTTP foundation", () => {
   afterEach(() => {
@@ -143,5 +150,116 @@ describe("platform HTTP foundation", () => {
     const response = await request(app).get("/health");
 
     expect(response.headers["x-powered-by"]).toBeUndefined();
+  });
+
+  it("configures trust proxy explicitly", () => {
+    const app = createApp({
+      readinessCheck: async () => undefined,
+    });
+
+    expect(app.get("trust proxy")).toBe(false);
+  });
+
+  it("applies Helmet headers to health responses", async () => {
+    const app = createApp({
+      readinessCheck: async () => undefined,
+    });
+
+    const response = await request(app)
+      .get("/health");
+
+    expect(response.status).toBe(200);
+
+    expect(
+      response.headers[
+        "x-content-type-options"
+      ]
+    ).toBe("nosniff");
+
+    expect(
+      response.headers[
+        "cross-origin-resource-policy"
+      ]
+    ).toBe("same-site");
+
+    expect(
+      response.headers["x-frame-options"]
+    ).toBe("SAMEORIGIN");
+  });
+
+  it("allows the configured CORS origin", async () => {
+    const app = createApp({
+      readinessCheck: async () => undefined,
+    });
+
+    const response = await request(app)
+      .get("/health")
+      .set("Origin", config.cors.origin);
+
+    expect(response.status).toBe(200);
+
+    expect(
+      response.headers[
+        "access-control-allow-origin"
+      ]
+    ).toBe(config.cors.origin);
+  });
+
+  it("does not grant CORS access to another origin", async () => {
+    const app = createApp({
+      readinessCheck: async () => undefined,
+    });
+
+    const response = await request(app)
+      .get("/health")
+      .set(
+        "Origin",
+        "https://untrusted.example"
+      );
+
+    expect(response.status).toBe(200);
+
+    expect(
+      response.headers[
+        "access-control-allow-origin"
+      ]
+    ).toBe(config.cors.origin);
+
+    expect(
+      response.headers[
+        "access-control-allow-origin"
+      ]
+    ).not.toBe("https://untrusted.example");
+  });
+
+  it("does not expose files through the legacy uploads path", async () => {
+    const fileName = "private-storage-regression-test.txt";
+    const filePath = join(
+      config.storage.uploadDir,
+      fileName
+    );
+    const privateContent = "must-not-be-public";
+
+    await mkdir(config.storage.uploadDir, {
+      recursive: true,
+    });
+    await writeFile(filePath, privateContent, "utf8");
+
+    try {
+      const app = createApp({
+        readinessCheck: async () => undefined,
+      });
+
+      const response = await request(app).get(
+        `/uploads/${fileName}`
+      );
+
+      expect(response.status).toBe(401);
+      expect(response.text).not.toContain(privateContent);
+    } finally {
+      await rm(filePath, {
+        force: true,
+      });
+    }
   });
 });
