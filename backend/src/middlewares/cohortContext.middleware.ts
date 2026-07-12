@@ -1,31 +1,26 @@
-// backend/src/middlewares/cohortContext.middleware.ts
 import { Request, Response, NextFunction } from "express";
-import { prisma } from "../shared/prisma";
+import { AppError } from "./error.middleware";
 
-export async function cohortContextMiddleware(
+const COHORT_HEADER = "x-cohort-id";
+
+export function cohortContextMiddleware(
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ) {
-  const userId = req.user?.id;
+  const routeCohortId =
+    (typeof req.params.cohort_id === "string" && req.params.cohort_id) ||
+    (typeof req.params.cohortId === "string" && req.params.cohortId);
+  const headerCohortId = req.headers[COHORT_HEADER];
+  const explicitCohortId =
+    routeCohortId ||
+    (typeof headerCohortId === "string" ? headerCohortId.trim() : undefined);
 
-  if (!userId) return next();
+  req.cohortId = explicitCohortId || null;
 
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { active_cohort_id: true },
-    });
-
-    req.cohortId = user?.active_cohort_id ?? null;
-    
-    next();
-  } catch (error) {
-    console.error("[Database Error] Ошибка в cohortContextMiddleware при чтении БД:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Внутренняя ошибка сервера при обработке контекста когорты",
-    });
+  if (explicitCohortId && !req.user) {
+    return next(new AppError("Authentication required", 401, "AUTH_REQUIRED"));
   }
+
+  return next();
 }

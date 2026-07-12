@@ -3,7 +3,7 @@ import { prisma } from "../../shared/prisma";
 import { generateToken } from "../../shared/jwt";
 
 export class AuthService {
-  static async register(email: string, password: string) {
+  static async register(email: string, password: string, full_name: string) {
     const exists = await prisma.user.findUnique({ where: { email } });
 
     if (exists) {
@@ -16,13 +16,16 @@ export class AuthService {
       data: {
         email,
         password_hash: hash,
+        full_name,
       },
     });
 
     return {
         id: user.id,
         email: user.email,
+        full_name: user.full_name,
         role: user.role,
+        active_cohort_id: user.active_cohort_id,
         created_at: user.created_at,
     };
   }
@@ -53,7 +56,9 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        full_name: true,
         role: true,
+        active_cohort_id: true,
         created_at: true,
       },
     });
