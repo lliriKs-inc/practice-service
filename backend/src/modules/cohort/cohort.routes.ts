@@ -1,47 +1,23 @@
 import { Router } from "express";
 import { CohortController } from "./cohort.controller";
+import { authenticateJWT } from "../../middlewares/auth.middleware";
 import { requireRole } from "../../middlewares/role.middleware";
-import { validateCreateCohort, validateUpdateCohort } from "../../middlewares/cohortValidation.middleware";
+import { UserRole } from "@prisma/client";
 
 const router = Router();
+
 const controller = new CohortController();
 
-router.post(
-  "/",
-  requireRole("ADMIN"),
-  validateCreateCohort,
-  controller.create
-);
-
 router.get(
-  "/",
-  requireRole("ADMIN"),
-  controller.getAll
-);
-
-router.get(
-  "/active/me",
-  requireRole("ADMIN"),
-  controller.getActive
-);
-
-router.get(
-  "/:id",
-  requireRole("ADMIN"),
-  controller.getById
+    "/public/current",
+    controller.getCurrentPublicCohort.bind(controller)
 );
 
 router.post(
-  "/:id/activate",
-  requireRole("ADMIN"),
-  controller.activate
-);
-
-router.patch(
-  "/:id",
-  requireRole("ADMIN"),
-  validateUpdateCohort,
-  controller.update
+    "/",
+    authenticateJWT,
+    requireRole(UserRole.ADMIN),
+    controller.createCohort.bind(controller)
 );
 
 export default router;

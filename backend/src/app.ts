@@ -9,8 +9,10 @@ import { cohortContextMiddleware } from "./middlewares/cohortContext.middleware"
 import { config } from "./shared/config";
 
 import authRoutes from "./modules/auth/auth.routes";
-import cohortRoutes from "./modules/cohort/cohort.routes";
+import cohortRouter from "./modules/cohort/cohort.routes";
 import cohortRoleRoutes from "./modules/cohort-role/cohortRole.routes";
+import trackRouter from "./modules/track/track.routes";
+import invitationRouter from "./modules/invitation/invitation.routes";
 import surveyRoutes from "./modules/survey/survey.routes";
 import applicationRouter from "./modules/application/application.routes";
 import testTaskRoutes from "./modules/test-task/test-task.routes";
@@ -18,7 +20,6 @@ import documentsRoutes from "./modules/documents/documents.routes";
 import tasksRoutes from "./modules/tasks/tasks.routes";
 import adminRoutes from "./modules/admin/admin.routes";
 
-import { CohortController } from "./modules/cohort/cohort.controller";
 import { SurveyController } from "./modules/survey/survey.controller";
 import {
   createHealthRouter,
@@ -79,12 +80,6 @@ export function createApp(options: CreateAppOptions = {}) {
     authRoutes
   );
 
-  const cohortController = new CohortController();
-
-  app.get(
-    "/cohorts/public/current",
-    cohortController.getPublicCurrent
-  );
 
   const surveyController = new SurveyController();
 
@@ -100,7 +95,9 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use(applicationRouter);
   app.use("/test-task", testTaskRoutes);
   app.use("/cohorts", cohortRoleRoutes);
-  app.use("/cohorts", cohortRoutes);
+  app.use("/cohorts", cohortRouter);
+  app.use("/tracks", trackRouter);
+  app.use("/invitations", invitationRouter);
   app.use("/documents", documentsRoutes);
   app.use("/tasks", tasksRoutes);
   app.use("/admin", adminRoutes);

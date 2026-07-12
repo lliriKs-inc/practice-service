@@ -1,108 +1,72 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import { CohortService } from "./cohort.service";
-import { prisma } from "../../shared/prisma";
-
-const service = new CohortService();
+import { AppError } from "../../middlewares/error.middleware";
 
 export class CohortController {
-  async create(req: Request, res: Response) {
-    const cohort = await service.create(req.body);
-    return res.json(cohort);
-  }
+  private cohortService = new CohortService();
 
-  async update(req: Request<{ id: string }>, res: Response) {
-    const updated = await service.update(
-        req.params.id,
-        req.body
-    );
-
-    res.json(updated);
-  }
-
-  async getAll(req: Request, res: Response) {
-    const cohorts = await service.findAll();
-    return res.json(cohorts);
-  }
-
-  async getPublicCurrent(req: Request, res: Response) {
+  async createCohort(req: Request, res: Response, next: NextFunction) {
     try {
-      const now = new Date();
+      const {
+        title,
+        status,
+        application_start,
+        application_end,
+        practice_start,
+        practice_end,
+      } = req.body;
 
-      const currentCohort = await prisma.cohort.findFirst({
-        where: {
-          application_start: { lte: now },
-          application_end: { gte: now },
-        },
-      });
-
-      if (!currentCohort) {
-        return res.status(404).json({
-          success: false,
-          message: "В данный момент нет активных когорт, открытых для регистрации студентов.",
-        });
+      if (!title || !practice_start || !practice_end) {
+        return next(
+          new AppError(
+            "Отсутствуют обязательные поля (title, practice_start, practice_end)",
+            400,
+            "BAD_REQUEST"
+          )
+        );
       }
 
-      return res.json({
-        success: true,
-        data: currentCohort,
+      const cohort = await this.cohortService.createCohort({
+        title,
+        status,
+        application_start: application_start
+          ? new Date(application_start)
+          : undefined,
+        application_end: application_end
+          ? new Date(application_end)
+          : undefined,
+        practice_start: new Date(practice_start),
+        practice_end: new Date(practice_end),
+        created_by: req.user!.id,
       });
+
+      return res.status(201).json(cohort);
     } catch (error) {
-      console.error("⚠️ [Error] Ошибка при поиске текущей публичной когорты:", error);
-      return res.status(500).json({
-        success: false,
-        message: "Внутренняя ошибка сервера при определении актуальной когорты.",
-      });
+      return next(error);
     }
   }
 
-  async getById(req: Request<{ id: string }>, res: Response) {
-    const cohort = await service.findById(req.params.id);
-    return res.json(cohort);
-  }
+  async getCurrentPublicCohort(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const cohort = await this.cohortService.findCurrentPublicCohort();
 
-  async activate(req: Request<{ id: string }>, res: Response) {
-    if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+      if (!cohort) {
+        return next(
+          new AppError(
+            "Нет активной когорты для подачи заявок в данный момент",
+            404,
+            "COHORT_NOT_FOUND"
+          )
+        );
+      }
+
+      return res.status(200).json(cohort);
+    } catch (error) {
+      return next(error);
     }
-
-    const userId = req.user.id;
-    const cohortId = req.params.id;
-    const cohort = await prisma.cohort.findUnique({
-        where: { id: cohortId },
-    });
-
-    if (!cohort) {
-        return res.status(404).json({
-        message: "Cohort not found",
-        });
-    }
-    
-    await prisma.user.update({
-        where: { id: userId },
-        data: { active_cohort_id: cohortId },
-    });
-
-    return res.json({
-        message: "active cohort set",
-        cohortId,
-    });
-  }
-
-  async getActive(req: Request, res: Response) {
-    if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
-    }
-    const userId = req.user.id;
-
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { active_cohort_id: true },
-    });
-
-    const cohortId = user?.active_cohort_id ?? null;
-
-    return res.json({
-        activeCohortId: cohortId || null,
-    });
   }
 }
