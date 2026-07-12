@@ -5,6 +5,10 @@ const environmentSchema = z.object({
     .enum(["development", "test", "production"])
     .default("development"),
 
+  LOG_LEVEL: z
+    .enum(["debug", "info", "warn", "error"])
+    .default("info"),
+
   PORT: z.coerce
     .number()
     .int()
@@ -68,6 +72,11 @@ if (!result.success) {
 
 export const config = {
   environment: result.data.NODE_ENV,
+
+  logging: {
+    level: result.data.LOG_LEVEL,
+  },
+
   port: result.data.PORT,
 
   database: {
