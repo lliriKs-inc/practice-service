@@ -1,3 +1,9 @@
+import {
+  mkdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { join } from "node:path";
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app";
@@ -224,5 +230,36 @@ describe("platform HTTP foundation", () => {
         "access-control-allow-origin"
       ]
     ).not.toBe("https://untrusted.example");
+  });
+
+  it("does not expose files through the legacy uploads path", async () => {
+    const fileName = "private-storage-regression-test.txt";
+    const filePath = join(
+      config.storage.uploadDir,
+      fileName
+    );
+    const privateContent = "must-not-be-public";
+
+    await mkdir(config.storage.uploadDir, {
+      recursive: true,
+    });
+    await writeFile(filePath, privateContent, "utf8");
+
+    try {
+      const app = createApp({
+        readinessCheck: async () => undefined,
+      });
+
+      const response = await request(app).get(
+        `/uploads/${fileName}`
+      );
+
+      expect(response.status).toBe(401);
+      expect(response.text).not.toContain(privateContent);
+    } finally {
+      await rm(filePath, {
+        force: true,
+      });
+    }
   });
 });

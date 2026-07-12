@@ -7,7 +7,6 @@ import { requestIdMiddleware } from "./middlewares/requestId.middleware";
 import { authenticateJWT } from "./middlewares/auth.middleware";
 import { cohortContextMiddleware } from "./middlewares/cohortContext.middleware";
 import { config } from "./shared/config";
-import { uploadDir } from "./shared/upload";
 
 import authRoutes from "./modules/auth/auth.routes";
 import cohortRoutes from "./modules/cohort/cohort.routes";
@@ -73,8 +72,6 @@ export function createApp(options: CreateAppOptions = {}) {
 
   app.use(createHealthRouter(options.readinessCheck));
   app.use(createGeneralRateLimiter(logger));
-
-  app.use("/uploads", express.static(uploadDir));
 
   app.use(
     "/auth",
