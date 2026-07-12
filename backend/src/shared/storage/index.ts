@@ -26,3 +26,24 @@ export type {
   StorageKeyParts,
   StoredFile,
 } from "./storage.types";
+
+export {
+  createFileDownloadHandler,
+} from "./file-download.handler";
+
+export type {
+  FileDownloadHandlerOptions,
+} from "./file-download.handler";
+
+export {
+  FileDownloadNotFoundError,
+  FileDownloadStreamError,
+} from "./file-download.errors";
+
+export type {
+  AuthorizedFileDownload,
+  FileAccessActor,
+  FileAccessPolicy,
+  FileAccessRequest,
+  FileDisposition,
+} from "./file-access.policy";
