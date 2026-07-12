@@ -55,6 +55,43 @@ const environmentSchema = z.object({
     .positive()
     .max(100 * 1024 * 1024)
     .default(10 * 1024 * 1024),
+
+  MAIL_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+
+  SMTP_HOST: z
+    .string()
+    .min(1)
+    .optional(),
+
+  SMTP_PORT: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(65535)
+    .default(587),
+
+  SMTP_SECURE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+
+  SMTP_USER: z
+    .string()
+    .min(1)
+    .optional(),
+
+  SMTP_PASS: z
+    .string()
+    .min(1)
+    .optional(),
+
+  SMTP_FROM: z
+    .string()
+    .min(1)
+    .optional(),
 });
 
 const result = environmentSchema.safeParse(process.env);
@@ -68,6 +105,37 @@ if (!result.success) {
     .join("; ");
 
   throw new Error(`Invalid environment configuration: ${details}`);
+}
+
+if (
+  result.data.NODE_ENV === "production" &&
+  !result.data.MAIL_ENABLED
+) {
+  throw new Error(
+    "Invalid environment configuration: MAIL_ENABLED must be true in production"
+  );
+}
+
+if (result.data.MAIL_ENABLED) {
+  const requiredMailVariables = {
+    SMTP_HOST: result.data.SMTP_HOST,
+    SMTP_USER: result.data.SMTP_USER,
+    SMTP_PASS: result.data.SMTP_PASS,
+  };
+
+  const missingMailVariables = Object.entries(
+    requiredMailVariables
+  )
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+
+  if (missingMailVariables.length > 0) {
+    throw new Error(
+      `Invalid environment configuration: missing ${missingMailVariables.join(
+        ", "
+      )}`
+    );
+  }
 }
 
 export const config = {
@@ -102,6 +170,22 @@ export const config = {
     maxFileSizeBytes:
       result.data.UPLOAD_MAX_FILE_SIZE_BYTES,
   },
+
+  mail: result.data.MAIL_ENABLED
+    ? {
+        enabled: true as const,
+        host: result.data.SMTP_HOST!,
+        port: result.data.SMTP_PORT,
+        secure: result.data.SMTP_SECURE,
+        user: result.data.SMTP_USER!,
+        password: result.data.SMTP_PASS!,
+        from:
+          result.data.SMTP_FROM ??
+          result.data.SMTP_USER!,
+      }
+    : {
+        enabled: false as const,
+      },
 } as const;
 
 export type AppConfig = typeof config;

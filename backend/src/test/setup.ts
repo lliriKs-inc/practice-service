@@ -15,3 +15,7 @@ process.env.JSON_BODY_LIMIT ??= "1mb";
 process.env.UPLOAD_DIR ??= "uploads";
 process.env.UPLOAD_MAX_FILE_SIZE_BYTES ??= "10485760";
 process.env.LOG_LEVEL ??= "error";
+
+process.env.MAIL_ENABLED ??= "false";
+process.env.SMTP_PORT ??= "587";
+process.env.SMTP_SECURE ??= "false";
