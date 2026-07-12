@@ -13,3 +13,4 @@ process.env.JWT_AUDIENCE ??= "practice-service-api";
 process.env.CORS_ORIGIN ??= "http://localhost:3001";
 process.env.JSON_BODY_LIMIT ??= "1mb";
 process.env.UPLOAD_DIR ??= "uploads";
+process.env.UPLOAD_MAX_FILE_SIZE_BYTES ??= "10485760";

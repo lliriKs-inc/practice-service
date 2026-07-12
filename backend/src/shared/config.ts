@@ -44,6 +44,13 @@ const environmentSchema = z.object({
     .string()
     .min(1)
     .default("uploads"),
+
+  UPLOAD_MAX_FILE_SIZE_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(100 * 1024 * 1024)
+    .default(10 * 1024 * 1024),
 });
 
 const result = environmentSchema.safeParse(process.env);
@@ -83,6 +90,8 @@ export const config = {
 
   storage: {
     uploadDir: result.data.UPLOAD_DIR,
+    maxFileSizeBytes:
+      result.data.UPLOAD_MAX_FILE_SIZE_BYTES,
   },
 } as const;
 
