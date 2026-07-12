@@ -14,7 +14,7 @@ export class EmptyUploadError extends AppError {
 
 export class UploadTooLargeError extends AppError {
   constructor(
-    actualSize: number,
+    actualSize: number | null,
     maximumSize: number
   ) {
     super(
@@ -59,5 +59,62 @@ export class UploadCategoryNotAllowedError extends AppError {
     );
 
     this.name = "UploadCategoryNotAllowedError";
+  }
+}
+
+export class MissingUploadFileError extends AppError {
+  constructor(fieldName: string) {
+    super(
+      "Файл не был передан",
+      400,
+      "UPLOAD_FILE_REQUIRED",
+      {
+        fieldName,
+      }
+    );
+
+    this.name = "MissingUploadFileError";
+  }
+}
+
+export class TooManyUploadFilesError extends AppError {
+  constructor() {
+    super(
+      "Разрешена загрузка только одного файла",
+      400,
+      "UPLOAD_TOO_MANY_FILES"
+    );
+
+    this.name = "TooManyUploadFilesError";
+  }
+}
+
+export class UnexpectedUploadFieldError extends AppError {
+  constructor(fieldName: string | undefined) {
+    super(
+      "Передано неподдерживаемое поле файла",
+      400,
+      "UPLOAD_UNEXPECTED_FIELD",
+      {
+        fieldName: fieldName ?? null,
+      }
+    );
+
+    this.name = "UnexpectedUploadFieldError";
+  }
+}
+
+export class UploadProcessingError extends AppError {
+  constructor(multerCode: string | null = null) {
+    super(
+      "Не удалось обработать загружаемый файл",
+      400,
+      "UPLOAD_PROCESSING_FAILED",
+      {
+        multerCode,
+      }
+    );
+
+    this.name = "UploadProcessingError";
   }
 }

@@ -1,7 +1,11 @@
 export {
   EmptyUploadError,
+  MissingUploadFileError,
+  TooManyUploadFilesError,
+  UnexpectedUploadFieldError,
   UploadCategoryNotAllowedError,
   UploadFileTypeNotAllowedError,
+  UploadProcessingError,
   UploadTooLargeError,
 } from "./upload.errors";
 
@@ -17,3 +21,11 @@ export type {
   UploadableStorageCategory,
   UploadPolicy,
 } from "./upload-policy";
+
+export {
+  createSingleFileUpload,
+} from "./memory-upload.middleware";
+
+export type {
+  SingleFileUploadOptions,
+} from "./memory-upload.middleware";
