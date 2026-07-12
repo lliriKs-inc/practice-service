@@ -1,6 +1,14 @@
 export type { StorageService } from "./storage.service";
 
 export {
+  LocalStorageService,
+} from "./local-storage.service";
+
+export type {
+  LocalStorageServiceOptions,
+} from "./local-storage.service";
+
+export {
   InvalidStorageKeyError,
   StorageError,
   StorageFileNotFoundError,
