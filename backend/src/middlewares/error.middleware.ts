@@ -42,12 +42,31 @@ export class AppError extends Error {
   }
 }
 
+function isMalformedJsonError(
+  err: Error
+): err is SyntaxError & { status: number; body: string } {
+  return (
+    err instanceof SyntaxError &&
+    "status" in err &&
+    err.status === 400 &&
+    "body" in err
+  );
+}
+
 export function errorHandler(
   err: Error,
   req: Request,
   res: Response,
   _next: NextFunction
 ) {
+  if (isMalformedJsonError(err)) {
+    return res.status(400).json({
+      code: "INVALID_JSON",
+      message: "Request body contains invalid JSON",
+      details: null,
+      requestId: req.requestId ?? null,
+    });
+  }
   if (err instanceof ZodError) {
     return res.status(400).json({
       code: "VALIDATION_ERROR",
