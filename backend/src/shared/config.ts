@@ -44,6 +44,37 @@ const environmentSchema = z.object({
     .min(1)
     .default("1mb"),
 
+  TRUST_PROXY_HOPS: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(10)
+    .default(0),
+
+  RATE_LIMIT_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(15 * 60 * 1000),
+
+  RATE_LIMIT_MAX_REQUESTS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(300),
+
+  AUTH_RATE_LIMIT_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(15 * 60 * 1000),
+
+  AUTH_RATE_LIMIT_MAX_REQUESTS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10),
+
   UPLOAD_DIR: z
     .string()
     .min(1)
@@ -163,6 +194,25 @@ export const config = {
 
   http: {
     jsonBodyLimit: result.data.JSON_BODY_LIMIT,
+  },
+
+  security: {
+    trustProxyHops:
+      result.data.TRUST_PROXY_HOPS,
+
+    rateLimit: {
+      windowMilliseconds:
+        result.data.RATE_LIMIT_WINDOW_MS,
+      maximumRequests:
+        result.data.RATE_LIMIT_MAX_REQUESTS,
+    },
+
+    authRateLimit: {
+      windowMilliseconds:
+        result.data.AUTH_RATE_LIMIT_WINDOW_MS,
+      maximumRequests:
+        result.data.AUTH_RATE_LIMIT_MAX_REQUESTS,
+    },
   },
 
   storage: {
