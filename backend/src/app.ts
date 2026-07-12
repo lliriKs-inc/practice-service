@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
-import { errorHandler } from "./middlewares/error.middleware";
+import {
+  createErrorHandler,
+} from "./middlewares/error.middleware";
 import { requestIdMiddleware } from "./middlewares/requestId.middleware";
 import { authenticateJWT } from "./middlewares/auth.middleware";
 import { cohortContextMiddleware } from "./middlewares/cohortContext.middleware";
@@ -23,13 +25,21 @@ import {
   createHealthRouter,
   ReadinessCheck,
 } from "./modules/health/health.routes";
+import {
+  appLogger,
+} from "./shared/logger/runtime-logger";
+import type {
+  Logger,
+} from "./shared/logger/logger.types";
 
 export interface CreateAppOptions {
   readinessCheck?: ReadinessCheck;
+  logger?: Logger;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
   const app = express();
+  const logger = options.logger ?? appLogger;
 
   app.disable("x-powered-by");
 
@@ -85,7 +95,7 @@ export function createApp(options: CreateAppOptions = {}) {
     });
   });
 
-  app.use(errorHandler);
+  app.use(createErrorHandler(logger));
 
   return app;
 }

@@ -40,3 +40,8 @@ export type {
   AuditLogger,
   AuditOutcome,
 } from "./audit.types";
+
+export {
+  appLogger,
+  auditLogger,
+} from "./runtime-logger";
