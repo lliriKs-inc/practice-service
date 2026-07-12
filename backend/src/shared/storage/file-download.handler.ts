@@ -76,10 +76,10 @@ export function createFileDownloadHandler(
 
       const authorization =
         await options.accessPolicy.authorize({
-          actor,
-          key,
+        actor,
+        key,
+        requestId: req.requestId ?? null,
         });
-
       if (!authorization) {
         throw new FileDownloadNotFoundError();
       }

@@ -199,13 +199,14 @@ describe("file download handler", () => {
     });
 
     expect(
-      dependencies.authorizeMock
+    dependencies.authorizeMock
     ).toHaveBeenCalledWith({
-      actor: {
+    actor: {
         id: "student-1",
         role: UserRole.STUDENT,
-      },
-      key: FILE_KEY,
+    },
+    key: FILE_KEY,
+    requestId: expect.any(String),
     });
 
     expect(

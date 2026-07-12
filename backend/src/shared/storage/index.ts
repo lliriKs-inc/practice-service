@@ -47,3 +47,7 @@ export type {
   FileAccessRequest,
   FileDisposition,
 } from "./file-access.policy";
+
+export {
+  AuditedFileAccessPolicy,
+} from "./audited-file-access.policy";

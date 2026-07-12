@@ -12,6 +12,7 @@ export type FileDisposition =
 export interface FileAccessRequest {
   actor: FileAccessActor;
   key: string;
+  requestId: string | null;
 }
 
 export interface AuthorizedFileDownload {
