@@ -20,3 +20,18 @@
 ### 3. Политика контекстов и статусов
 * Правом перевода заявки в статус `approved` обладает только системный `ADMIN`.
 * В момент перевода заявки в статус `approved` бэкенд обязан триггерить создание пустых дневных записей прогресса `DAILY_TASK` на весь период практики (исключая сб/вс) на основе дат `Cohort.start_date` и `Cohort.end_date`.
+## Decision acceptance
+
+**Status:** Accepted
+**Owner:** Backend Developer A
+**Date:** 2026-07-13
+**Review:** Tech Lead review is recorded by the PR/commit that accepts this ADR.
+
+The decisions in this ADR are the approved MVP basis for the admissions cutover. Backward compatibility with the legacy admissions model is not required. Legacy code remains only until A-08 and must not be extended.
+
+## Tech Lead review
+
+- Reviewer: ФИО второго разработчика
+- Date: 2026-07-13
+- Decision: Approved
+- Scope: migration strategy, rejection reason, context/status policy, admissions API
