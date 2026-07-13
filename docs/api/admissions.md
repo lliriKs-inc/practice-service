@@ -157,3 +157,57 @@ ownership checks.
 ### DELETE /cohorts/:cohortId/tracks/:trackId/test-task
 
 Requires `ADMIN`. Deletes the task and cleans up its stored file, if present.
+
+## Candidate E2E checklist
+
+The local admissions flow is verified in this order:
+
+1. Validate an invitation without authentication.
+2. Read the public invitation form without authentication.
+3. Register and login as a `STUDENT`.
+4. Read `/auth/me` and use the returned JWT on private requests.
+5. Submit one application for a track and answer every required question.
+6. Read the student's application archive and application detail.
+7. Read the published test task and upload its submission.
+8. Login as `ADMIN`, read the selected cohort applications and submission.
+9. Approve the application and verify the student's `APPROVED` status.
+
+The integration flow is executed against an isolated PostgreSQL database only
+when `RUN_DB_INTEGRATION=true` is set. The ordinary unit suite skips this flow.
+
+## Authentication and error contract
+
+Private endpoints require:
+
+```text
+Authorization: Bearer <jwt>
+```
+
+The local router contract uses paths without `/api/v1`; Backend B adds the
+production prefix during final route mounting. A request without a token or
+with an invalid token receives `401`. A valid token with an insufficient role
+receives `403`.
+
+Validation and domain errors use the common response shape:
+
+```json
+{
+  "code": "ERROR_CODE",
+  "message": "Readable message",
+  "details": null,
+  "requestId": "request-id"
+}
+```
+
+Resource ownership is always checked from server-side relations. A student's
+application is scoped by `Application.user_id`; an administrative application,
+track, task or submission is scoped through `Application.track.cohort_id` or
+`Track.cohort_id`. `active_cohort_id` is only a UI preference and is not an
+authorization source.
+
+## Integration ownership
+
+The A-07 test harness composes the domain routers in the target public/private
+order without changing production `app.ts` or `index.ts`. Backend B owns the
+final `/api/v1` mount, public middleware ordering in production and the central
+`docs/api-contract.md` consolidation.
