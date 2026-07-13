@@ -10,11 +10,20 @@ import {
 import { DocumentReadinessService } from "./document-readiness.service";
 import { DocumentEavService } from "./document-eav.service";
 import { updateDocumentFieldSchema } from "./dto/update-document-field.dto";
+import { ReportService } from "./report.service";
+import { reportStatusSchema } from "./dto/report-status.dto";
+import { LocalStorageService } from "../../shared/storage";
+import { config } from "../../shared/config";
 
 const service = new DocumentsService();
 const readinessService =
   new DocumentReadinessService();
 const eavService = new DocumentEavService();
+const reportService = new ReportService(
+  new LocalStorageService({
+    rootDirectory: config.storage.uploadDir,
+  })
+);
 
 export class DocumentsController {
   async getMyDocuments(req: Request, res: Response, next: NextFunction) {
@@ -317,6 +326,132 @@ export class DocumentsController {
         );
 
       return res.status(200).json(field);
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async getApplicationReport(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      if (!req.user) {
+        throw new AppError(
+          "Authentication required",
+          401,
+          "AUTH_REQUIRED"
+        );
+      }
+
+      const applicationId =
+        req.params.applicationId;
+
+      if (typeof applicationId !== "string") {
+        throw new AppError(
+          "Application id is required",
+          400,
+          "APPLICATION_ID_REQUIRED"
+        );
+      }
+
+      const report =
+        await reportService.getMine(
+          req.user.id,
+          applicationId
+        );
+
+      return res.status(200).json(report);
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async replaceApplicationReport(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      if (!req.user) {
+        throw new AppError(
+          "Authentication required",
+          401,
+          "AUTH_REQUIRED"
+        );
+      }
+
+      const applicationId =
+        req.params.applicationId;
+
+      if (typeof applicationId !== "string") {
+        throw new AppError(
+          "Application id is required",
+          400,
+          "APPLICATION_ID_REQUIRED"
+        );
+      }
+
+      if (!req.file) {
+        throw new AppError(
+          "Report file is required",
+          400,
+          "REPORT_FILE_REQUIRED"
+        );
+      }
+
+      const report =
+        await reportService.replaceMine(
+          req.user.id,
+          applicationId,
+          {
+            category: "reports",
+            content: req.file.buffer,
+            originalName: req.file.originalname,
+            contentType: req.file.mimetype,
+          }
+        );
+
+      return res.status(200).json(report);
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async updateReportStatus(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const cohortId = req.params.cohortId;
+      const applicationId =
+        req.params.applicationId;
+
+      if (
+        typeof cohortId !== "string" ||
+        typeof applicationId !== "string"
+      ) {
+        throw new AppError(
+          "Invalid report parameters",
+          400,
+          "INVALID_REPORT_PARAMETERS"
+        );
+      }
+
+      const { status } =
+        reportStatusSchema.parse(req.body);
+
+      const result =
+        await reportService.review(
+          req.user?.id ?? "unknown",
+          cohortId,
+          applicationId,
+          status
+        );
+
+      return res.status(200).json(result);
     } catch (error) {
       return next(error);
     }
