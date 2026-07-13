@@ -1,0 +1,22 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { CohortStatus } from "@prisma/client";
+import { CohortService } from "./cohort.service";
+import { prisma } from "../../shared/prisma";
+
+describe("CohortService", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("rejects reversed practice dates", async () => {
+    await expect(new CohortService().createCohort({ title: "Test", practice_start: new Date("2026-08-01"), practice_end: new Date("2026-07-01"), created_by: "admin" })).rejects.toMatchObject({ code: "INVALID_DATE_RANGE" });
+  });
+
+  it("requires an application window for ACTIVE cohorts", async () => {
+    await expect(new CohortService().createCohort({ title: "Test", status: CohortStatus.ACTIVE, practice_start: new Date("2026-07-01"), practice_end: new Date("2026-08-01"), created_by: "admin" })).rejects.toMatchObject({ code: "INVALID_COHORT_STATUS" });
+  });
+
+  it("finds only active cohorts inside the application window", async () => {
+    const findFirst = vi.spyOn(prisma.cohort, "findFirst").mockResolvedValue(null);
+    await new CohortService().findCurrentPublicCohort();
+    expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: CohortStatus.ACTIVE, application_start: expect.any(Object), application_end: expect.any(Object) }) }));
+  });
+});

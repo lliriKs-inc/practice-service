@@ -18,3 +18,4 @@ backend/uploads/*
 /docs/.obsidian
 backend/prisma/(old) schema.prisma
 .agents
+docs/main docs

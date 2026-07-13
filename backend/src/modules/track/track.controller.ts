@@ -1,39 +1,23 @@
 import { Request, Response, NextFunction } from "express";
 import { TrackService } from "./track.service";
+import { createTrackSchema } from "./dto/create-track.dto";
 import { AppError } from "../../middlewares/error.middleware";
-import { UserRole } from "@prisma/client";
 
 const trackService = new TrackService();
 
 export async function createTrack(req: Request, res: Response, next: NextFunction) {
   try {
-    const { cohort_id, title } = req.body;
-    if (!cohort_id || !title) {
-      return next(new AppError("Поля cohort_id и title обязательны", 400, "BAD_REQUEST"));
-    }
-
-    const track = await trackService.createTrack({ cohort_id, title });
-    return res.status(201).json(track);
-  } catch (error) {
-    return next(error);
-  }
+    const parsed = createTrackSchema.safeParse(req.body);
+    if (!parsed.success) return next(new AppError("Request validation failed", 400, "VALIDATION_ERROR", parsed.error.issues));
+    if (req.cohortId && req.cohortId !== parsed.data.cohort_id) return next(new AppError("Cohort context mismatch", 403, "COHORT_CONTEXT_MISMATCH"));
+    return res.status(201).json(await trackService.createTrack(parsed.data));
+  } catch (error) { return next(error); }
 }
 
 export async function getTracks(req: Request, res: Response, next: NextFunction) {
   try {
-    let cohortId = req.cohortId;
-    
-    if (req.user?.role === UserRole.ADMIN && req.query.cohort_id) {
-      cohortId = req.query.cohort_id as string;
-    }
-
-    if (!cohortId) {
-      return next(new AppError("Контекст когорты не определен. Невозможно получить треки.", 400, "COHORT_CONTEXT_MISSING"));
-    }
-
-    const tracks = await trackService.getTracksByCohort(cohortId);
-    return res.status(200).json(tracks);
-  } catch (error) {
-    return next(error);
-  }
+    const cohortId = req.cohortId;
+    if (!cohortId) return next(new AppError("Cohort context is required", 400, "COHORT_CONTEXT_MISSING"));
+    return res.status(200).json(await trackService.getTracksByCohort(cohortId));
+  } catch (error) { return next(error); }
 }

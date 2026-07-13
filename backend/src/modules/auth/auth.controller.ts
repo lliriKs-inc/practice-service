@@ -11,8 +11,8 @@ export class AuthController {
     }
 
     try {
-      const { email, password } = result.data;
-      const user = await AuthService.register(email, password);
+      const { email, password, full_name } = result.data;
+      const user = await AuthService.register(email, password, full_name);
       res.status(201).json(user);
     } catch (e: any) {
       if (e.message.toLowerCase().includes("exists")) {
