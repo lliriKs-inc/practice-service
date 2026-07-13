@@ -8,6 +8,7 @@ import { DailyTaskProgressService } from "./daily-task-progress.service";
 import { updateDailyTaskSchema } from "./dto/update-daily-task.dto";
 import { DailyTaskProgressReadService } from "./daily-task-progress-read.service";
 import { progressWeekQuerySchema } from "./dto/progress-week.dto";
+import { missedProgressQuerySchema } from "./dto/missed-progress.dto";
 
 const service = new TasksService();
 const dailyTaskProgressService =
@@ -259,6 +260,47 @@ export class TasksController {
         await dailyTaskProgressReadService.getCohort(
           cohortId,
           weekStart
+        );
+
+      return res.status(200).json(result);
+    } catch (error) {
+      return next(error);
+    }
+  }
+  async getMissedProgress(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      if (!req.user) {
+        throw new AppError(
+          "Authentication required",
+          401,
+          "AUTH_REQUIRED"
+        );
+      }
+
+      const cohortId = req.params.cohortId;
+
+      if (typeof cohortId !== "string") {
+        throw new AppError(
+          "Cohort id is required",
+          400,
+          "COHORT_ID_REQUIRED"
+        );
+      }
+
+      const {
+        weekStart,
+        studentId,
+      } = missedProgressQuerySchema.parse(req.query);
+
+      const result =
+        await dailyTaskProgressReadService.getMissed(
+          cohortId,
+          weekStart,
+          studentId
         );
 
       return res.status(200).json(result);

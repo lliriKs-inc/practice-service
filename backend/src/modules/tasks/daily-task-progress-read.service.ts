@@ -242,4 +242,109 @@ export class DailyTaskProgressReadService {
       ),
     };
   }
+  async getMissed(
+    cohortId: string,
+    weekStartValue: string,
+    studentId?: string
+  ) {
+    const requestedWeekStart = parseUtcDateOnly(
+      weekStartValue
+    );
+
+    const weekStart = normalizeWeekStart(
+      requestedWeekStart
+    );
+
+    const weekEnd = addUtcDays(weekStart, 6);
+
+    const now = new Date();
+
+    const todayUtc = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate()
+      )
+    );
+
+    const effectiveEnd =
+      weekEnd.getTime() < todayUtc.getTime()
+        ? weekEnd
+        : todayUtc;
+
+    if (effectiveEnd.getTime() < weekStart.getTime()) {
+      return {
+        cohortId,
+        weekStart: formatDate(weekStart),
+        weekEnd: formatDate(weekEnd),
+        missed: [],
+      };
+    }
+
+    const applications =
+      await prisma.application.findMany({
+        where: {
+          status: ApplicationStatus.APPROVED,
+          track: {
+            cohort_id: cohortId,
+          },
+          ...(studentId
+            ? {
+                user_id: studentId,
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          user: {
+            select: {
+              id: true,
+              full_name: true,
+              email: true,
+            },
+          },
+          track: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          dailyTasks: {
+            where: {
+              task_date: {
+                gte: weekStart,
+                lte: effectiveEnd,
+              },
+              description: null,
+            },
+            include: {
+              links: {
+                orderBy: {
+                  id: "asc",
+                },
+              },
+            },
+            orderBy: {
+              task_date: "asc",
+            },
+          },
+        },
+      });
+
+    return {
+      cohortId,
+      weekStart: formatDate(weekStart),
+      weekEnd: formatDate(weekEnd),
+      missed: applications.flatMap((application) =>
+        application.dailyTasks.map((task) => ({
+          applicationId: application.id,
+          taskId: task.id,
+          taskDate: formatDate(task.task_date),
+          student: application.user,
+          track: application.track,
+          links: task.links,
+        }))
+      ),
+    };
+  }
 }

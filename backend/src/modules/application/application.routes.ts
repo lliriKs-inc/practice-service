@@ -23,6 +23,13 @@ router.get(
   requireRole(UserRole.STUDENT),
   tasksController.getMyProgress.bind(tasksController)
 );
+router.get(
+  "/cohorts/:cohortId/progress/missed",
+  requireRole(UserRole.ADMIN),
+  tasksController.getMissedProgress.bind(
+    tasksController
+  )
+);
 
 router.get(
   "/cohorts/:cohortId/progress",
