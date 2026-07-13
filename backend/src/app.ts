@@ -13,14 +13,13 @@ import cohortRouter from "./modules/cohort/cohort.routes";
 import cohortRoleRoutes from "./modules/cohort-role/cohortRole.routes";
 import trackRouter from "./modules/track/track.routes";
 import invitationRouter from "./modules/invitation/invitation.routes";
-import surveyRoutes from "./modules/survey/survey.routes";
 import applicationRouter from "./modules/application/application.routes";
 import testTaskRoutes from "./modules/test-task/test-task.routes";
 import documentsRoutes from "./modules/documents/documents.routes";
 import tasksRoutes from "./modules/tasks/tasks.routes";
 import adminRoutes from "./modules/admin/admin.routes";
 
-import { SurveyController } from "./modules/survey/survey.controller";
+import surveyRoutes, { publicSurveyRouter } from "./modules/survey/survey.routes";
 import {
   createHealthRouter,
   ReadinessCheck,
@@ -81,12 +80,7 @@ export function createApp(options: CreateAppOptions = {}) {
   );
 
 
-  const surveyController = new SurveyController();
-
-  app.get(
-    "/survey-fields",
-    surveyController.getPublicCurrentFields.bind(surveyController)
-  );
+  app.use(publicSurveyRouter);
 
   app.use(authenticateJWT);
   app.use(cohortContextMiddleware);
