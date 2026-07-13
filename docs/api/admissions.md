@@ -95,3 +95,65 @@ Cohort statuses are `DRAFT`, `ACTIVE`, and `CLOSED`. Closed cohorts do not accep
 - Cohort context comes from an explicit route parameter or approved request header and is verified server-side. `active_cohort_id` is a UI preference, not an authorization source.
 - Validation errors return `400`; invalid or expired invitations use stable error codes.
 - Errors follow the common envelope: `code`, `message`, `details`, `requestId`.
+
+## Test tasks and submissions
+
+`TestTask` belongs to a `Track`; one track can have at most one task. All
+administrative routes verify that the track belongs to the selected cohort.
+
+### GET /cohorts/:cohortId/tracks/:trackId/test-task
+
+Requires `ADMIN`. Returns task metadata, publication state and `has_file`.
+Physical filesystem paths are never returned.
+
+### PUT /cohorts/:cohortId/tracks/:trackId/test-task
+
+Requires `ADMIN`. Creates or updates the task. The body contains `title` and
+optional `description`; publication is controlled separately.
+
+### POST /cohorts/:cohortId/tracks/:trackId/test-task/file
+
+Requires `ADMIN`. Accepts one multipart file under `file`. The B-01 policy
+allows PDF, DOC, DOCX and ZIP files in the `test-tasks` category. Replacing a
+file updates the storage key and cleans up the previous file after the database
+update.
+
+### POST /cohorts/:cohortId/tracks/:trackId/test-task/publish
+
+Requires `ADMIN`. Publishes once by setting `published_at`. Notifications are
+sent only to users with applications for this track. A failed email does not
+roll back publication or prevent other recipients from being attempted.
+
+### GET /me/applications/:applicationId/test-task
+
+Requires `STUDENT` and returns a task only for the application owner. Before
+publication it returns `available: false` and a waiting message. A published
+task returns its metadata and file presence.
+
+### PUT /me/applications/:applicationId/test-task-submission
+
+Requires `STUDENT` and accepts one multipart `file`. The task must be published
+and the application must belong to the current user. The single submission is
+upserted; replacement updates `submitted_at` and removes the previous file.
+
+### GET /me/applications/:applicationId/test-task-submission
+
+Requires `STUDENT` and returns only the current student's submission metadata.
+Physical access uses the shared protected download handler and a domain policy;
+public `/uploads/*` URLs are not used.
+
+### GET /cohorts/:cohortId/applications/:applicationId/test-task-submission
+
+Requires `ADMIN` and returns a submission only when the application belongs to
+the selected cohort. The response contains a protected `download_path`, never
+an absolute filesystem path.
+
+### GET /files/:category/:fileName
+
+Protected download route. A student can open only their own submission or a
+published task, while an admin can open task/submission files after domain
+ownership checks.
+
+### DELETE /cohorts/:cohortId/tracks/:trackId/test-task
+
+Requires `ADMIN`. Deletes the task and cleans up its stored file, if present.

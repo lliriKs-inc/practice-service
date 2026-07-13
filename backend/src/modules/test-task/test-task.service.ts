@@ -1,141 +1,440 @@
-import { prisma } from '../../shared/prisma'; 
-import { sendMail } from '../../shared/mail';
-import { CreateTestTaskDto } from './dto/create-test-task.dto';
-import { UpdateTestTaskDto } from './dto/update-test-task.dto';
+import { Prisma, UserRole } from "@prisma/client";
+import { AppError } from "../../middlewares/error.middleware";
+import { prisma } from "../../shared/prisma";
+import { mailService, type MailService } from "../../shared/mail";
+import type { StorageService, SaveFileInput } from "../../shared/storage";
+import {
+  LocalStorageService,
+} from "../../shared/storage";
+import { config } from "../../shared/config";
+import type { CreateTestTaskDto } from "./dto/create-test-task.dto";
+import type { UpdateTestTaskDto } from "./dto/update-test-task.dto";
+
+const taskInclude = {
+  track: { select: { id: true, cohort_id: true, title: true } },
+} satisfies Prisma.TestTaskInclude;
+
+const submissionInclude = {
+  application: {
+    select: {
+      id: true,
+      user_id: true,
+      track_id: true,
+      track: { select: { id: true, cohort_id: true, title: true } },
+    },
+  },
+} satisfies Prisma.TestTaskSubmissionInclude;
+
+export interface TestTaskServiceOptions {
+  storage?: StorageService;
+  mail?: MailService;
+}
+
+export type TestTaskActor = {
+  id: string;
+  role: UserRole;
+};
+
+function notFound(message: string, code: string): AppError {
+  return new AppError(message, 404, code);
+}
 
 export class TestTaskService {
-  async createTestTask(cohortId: string, dto: CreateTestTaskDto) {
-    return prisma.testTask.create({
-      data: {
-        cohort_id: cohortId,
-        content: dto.content,
-        published_at: dto.published_at ?? null,
-      },
+  private readonly storage: StorageService;
+  private readonly mail: MailService;
+
+  constructor(options: TestTaskServiceOptions = {}) {
+    this.storage = options.storage ?? new LocalStorageService({
+      rootDirectory: config.storage.uploadDir,
     });
+    this.mail = options.mail ?? mailService;
   }
 
-  async getTasksForContext(cohortId: string, userId: string, userRole: string) {
-    if (userRole === 'ADMIN') {
-      return prisma.testTask.findMany({
-        where: { cohort_id: cohortId },
-        orderBy: { id: 'asc' }
+  async getForTrack(cohortId: string, trackId: string) {
+    await this.assertTrackInCohort(cohortId, trackId);
+
+    const task = await prisma.testTask.findUnique({
+      where: { track_id: trackId },
+      include: taskInclude,
+    });
+
+    if (!task) {
+      throw notFound("Test task not found", "TEST_TASK_NOT_FOUND");
+    }
+
+    return this.toTaskResponse(task);
+  }
+
+  async upsertForTrack(
+    cohortId: string,
+    trackId: string,
+    dto: CreateTestTaskDto | UpdateTestTaskDto,
+  ) {
+    await this.assertTrackInCohort(cohortId, trackId);
+
+    try {
+      const task = await prisma.testTask.upsert({
+        where: { track_id: trackId },
+        create: {
+          track_id: trackId,
+          title: dto.title ?? "Тестовое задание",
+          description: dto.description ?? null,
+        },
+        update: {
+          ...(dto.title !== undefined ? { title: dto.title } : {}),
+          ...(dto.description !== undefined
+            ? { description: dto.description }
+            : {}),
+        },
+        include: taskInclude,
       });
-    }
 
-    const hasApplication = await prisma.application.findFirst({
-      where: { user_id: userId, cohort_id: cohortId }
-    });
-
-    if (!hasApplication) {
-      throw new Error('ACCESS_DENIED_NO_APPLICATION');
-    }
-
-    const tasks = await prisma.testTask.findMany({
-      where: { cohort_id: cohortId },
-      orderBy: { id: 'asc' }
-    });
-
-    return tasks.map(task => {
-      if (!task.published_at) {
-        return {
-          id: task.id,
-          cohort_id: task.cohort_id,
-          published_at: null,
-          content: null,
-          is_published: false
-        };
+      return this.toTaskResponse(task);
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new AppError(
+          "Test task already exists for this track",
+          409,
+          "TEST_TASK_ALREADY_EXISTS",
+        );
       }
-      return { ...task, is_published: true };
-    });
+      throw error;
+    }
   }
 
-  async updateTestTask(id: string, cohortId: string, dto: UpdateTestTaskDto) {
-    const exists = await prisma.testTask.findFirst({
-      where: { id, cohort_id: cohortId },
+  async uploadTaskFile(
+    cohortId: string,
+    trackId: string,
+    file: SaveFileInput,
+  ) {
+    await this.assertTrackInCohort(cohortId, trackId);
+    const task = await prisma.testTask.findUnique({
+      where: { track_id: trackId },
+      select: { id: true, file_url: true },
     });
 
-    if (!exists) return null;
-
-    return prisma.testTask.update({
-      where: { id },
-      data: {
-        content: dto.content,
-      },
-    });
-  }
-
-  async publishTestTask(id: string, cohortId: string) {
-    const exists = await prisma.testTask.findFirst({
-      where: { id, cohort_id: cohortId },
-    });
-
-    if (!exists) return null;
-    if (exists.published_at !== null) {
-      throw new Error('ALREADY_PUBLISHED');
+    if (!task) {
+      throw notFound("Test task not found", "TEST_TASK_NOT_FOUND");
     }
 
-    const publishedTask = await prisma.testTask.update({
-      where: { id },
-      data: {
-        published_at: new Date(),
-      },
+    const stored = await this.storage.save({
+      ...file,
+      category: "test-tasks",
     });
 
-    await this.notifyApplicantsAboutPublishedTask(cohortId);
+    try {
+      const updated = await prisma.testTask.update({
+        where: { id: task.id },
+        data: { file_url: stored.key },
+        include: taskInclude,
+      });
 
-    return publishedTask;
+      if (task.file_url && task.file_url !== stored.key) {
+        await this.storage.remove(task.file_url);
+      }
+
+      return this.toTaskResponse(updated);
+    } catch (error) {
+      await this.storage.remove(stored.key).catch(() => undefined);
+      throw error;
+    }
   }
 
-  async deleteTestTask(id: string, cohortId: string) {
-    const exists = await prisma.testTask.findFirst({
-      where: { id, cohort_id: cohortId },
+  async publish(cohortId: string, trackId: string) {
+    await this.assertTrackInCohort(cohortId, trackId);
+    const task = await prisma.testTask.findUnique({
+      where: { track_id: trackId },
+      select: { id: true, title: true, published_at: true },
     });
 
-    if (!exists) return null;
+    if (!task) {
+      throw notFound("Test task not found", "TEST_TASK_NOT_FOUND");
+    }
+    if (task.published_at) {
+      throw new AppError(
+        "Test task is already published",
+        409,
+        "TEST_TASK_ALREADY_PUBLISHED",
+      );
+    }
 
-    return prisma.testTask.delete({
-      where: { id },
+    const published = await prisma.testTask.update({
+      where: { id: task.id },
+      data: { published_at: new Date() },
+      include: taskInclude,
     });
+
+    await this.notifyApplicants(trackId, task.title);
+    return this.toTaskResponse(published);
   }
 
-  private async notifyApplicantsAboutPublishedTask(cohortId: string) {
-    const applications = await prisma.application.findMany({
-      where: { cohort_id: cohortId },
-      include: {
-        user: {
+  async deleteForTrack(cohortId: string, trackId: string) {
+    await this.assertTrackInCohort(cohortId, trackId);
+    const task = await prisma.testTask.findUnique({
+      where: { track_id: trackId },
+      select: { id: true, file_url: true },
+    });
+    if (!task) {
+      throw notFound("Test task not found", "TEST_TASK_NOT_FOUND");
+    }
+
+    await prisma.testTask.delete({ where: { id: task.id } });
+    if (task.file_url) {
+      await this.storage.remove(task.file_url);
+    }
+    return { deleted: true };
+  }
+
+  async getForStudent(userId: string, applicationId: string) {
+    const application = await prisma.application.findFirst({
+      where: { id: applicationId, user_id: userId },
+      select: {
+        id: true,
+        track_id: true,
+        track: {
           select: {
-            email: true,
+            id: true,
+            cohort_id: true,
+            testTask: true,
           },
+        },
+        testTaskSubmission: {
+          select: { id: true, submitted_at: true },
         },
       },
     });
 
+    if (!application) {
+      throw notFound("Application not found", "APPLICATION_NOT_FOUND");
+    }
+
+    const task = application.track.testTask;
+    if (!task || !task.published_at) {
+      return {
+        available: false,
+        message:
+          "Тестовое задание пока не опубликовано. Оно будет направлено на email позже.",
+      };
+    }
+
+    return {
+      available: true,
+      id: task.id,
+      track_id: application.track_id,
+      title: task.title,
+      description: task.description,
+      published_at: task.published_at,
+      has_file: Boolean(task.file_url),
+      download_path: task.file_url
+        ? `/files/${task.file_url}`
+        : null,
+      submission: application.testTaskSubmission
+        ? {
+            id: application.testTaskSubmission.id,
+            submitted_at: application.testTaskSubmission.submitted_at,
+          }
+        : null,
+    };
+  }
+
+  async replaceSubmission(
+    userId: string,
+    applicationId: string,
+    file: SaveFileInput,
+  ) {
+    const application = await prisma.application.findFirst({
+      where: { id: applicationId, user_id: userId },
+      select: {
+        id: true,
+        track: { select: { testTask: { select: { published_at: true } } } },
+        testTaskSubmission: { select: { id: true, file_url: true } },
+      },
+    });
+
+    if (!application) {
+      throw notFound("Application not found", "APPLICATION_NOT_FOUND");
+    }
+    if (!application.track.testTask?.published_at) {
+      throw new AppError(
+        "Test task is not available",
+        403,
+        "TEST_TASK_NOT_PUBLISHED",
+      );
+    }
+
+    const stored = await this.storage.save({
+      ...file,
+      category: "test-task-submissions",
+    });
+
+    try {
+      const submission = await prisma.testTaskSubmission.upsert({
+        where: { application_id: applicationId },
+        create: { application_id: applicationId, file_url: stored.key },
+        update: { file_url: stored.key, submitted_at: new Date() },
+      });
+
+      if (application.testTaskSubmission?.file_url) {
+        await this.storage.remove(application.testTaskSubmission.file_url);
+      }
+
+      return {
+        id: submission.id,
+        application_id: submission.application_id,
+        submitted_at: submission.submitted_at,
+        has_file: true,
+      };
+    } catch (error) {
+      await this.storage.remove(stored.key).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async getSubmissionForStudent(userId: string, applicationId: string) {
+    const submission = await prisma.testTaskSubmission.findFirst({
+      where: { application_id: applicationId, application: { user_id: userId } },
+      include: submissionInclude,
+    });
+
+    if (!submission) {
+      throw notFound(
+        "Test task submission not found",
+        "TEST_TASK_SUBMISSION_NOT_FOUND",
+      );
+    }
+
+    return this.toSubmissionResponse(submission);
+  }
+
+  async getSubmissionForAdmin(cohortId: string, applicationId: string) {
+    const submission = await prisma.testTaskSubmission.findFirst({
+      where: {
+        application_id: applicationId,
+        application: { track: { cohort_id: cohortId } },
+      },
+      include: submissionInclude,
+    });
+
+    if (!submission) {
+      throw notFound(
+        "Test task submission not found",
+        "TEST_TASK_SUBMISSION_NOT_FOUND",
+      );
+    }
+
+    return this.toSubmissionResponse(submission);
+  }
+
+  async authorizeFile(actor: TestTaskActor, key: string) {
+    const task = await prisma.testTask.findFirst({
+      where: { file_url: key },
+      select: { title: true, track_id: true, published_at: true },
+    });
+
+    if (task) {
+      const studentHasApplication = actor.role === UserRole.STUDENT
+        ? await prisma.application.findFirst({
+            where: { user_id: actor.id, track_id: task.track_id },
+            select: { id: true },
+          })
+        : true;
+
+      if (studentHasApplication && (actor.role === UserRole.ADMIN || task.published_at)) {
+        return {
+          downloadName: `${task.title}.bin`,
+          contentType: "application/octet-stream",
+        };
+      }
+      return null;
+    }
+
+    const submission = await prisma.testTaskSubmission.findFirst({
+      where: { file_url: key },
+      include: submissionInclude,
+    });
+
+    if (!submission) return null;
+    if (
+      actor.role !== UserRole.ADMIN &&
+      submission.application.user_id !== actor.id
+    ) {
+      return null;
+    }
+
+    return {
+      downloadName: "test-task-submission",
+      contentType: "application/octet-stream",
+    };
+  }
+
+  private async assertTrackInCohort(cohortId: string, trackId: string) {
+    const track = await prisma.track.findFirst({
+      where: { id: trackId, cohort_id: cohortId },
+      select: { id: true },
+    });
+    if (!track) {
+      throw notFound("Track not found", "TRACK_NOT_FOUND");
+    }
+  }
+
+  private async notifyApplicants(trackId: string, title: string) {
+    const applications = await prisma.application.findMany({
+      where: { track_id: trackId },
+      select: { user: { select: { email: true } } },
+    });
+
     const recipients = applications
-      .map((application) => application.user.email)
+      .map(({ user }) => user.email)
       .filter((email): email is string => Boolean(email));
 
-    if (recipients.length === 0) {
-      return;
-    }
-
-    const results = await Promise.allSettled(
-      recipients.map((email) =>
-        sendMail({
-          to: email,
-          subject: 'Test task has been published',
-          text: 'The test task for your practice application has been published. Please sign in to your account to view it.',
-          html: `
-            <p>The test task for your practice application has been published.</p>
-            <p>Please sign in to your account to view it.</p>
-          `,
-        })
-      )
+    await Promise.allSettled(
+      recipients.map((to) =>
+        this.mail.send({
+          to,
+          subject: "Тестовое задание опубликовано",
+          text: `Тестовое задание «${title}» опубликовано. Войдите в личный кабинет, чтобы открыть его.`,
+          html: `<p>Тестовое задание «${title}» опубликовано.</p><p>Войдите в личный кабинет, чтобы открыть его.</p>`,
+        }),
+      ),
     );
+  }
 
-    const failedCount = results.filter((result) => result.status === 'rejected').length;
+  private toTaskResponse(task: {
+    id: string;
+    track_id: string;
+    title: string;
+    description: string | null;
+    file_url: string | null;
+    published_at: Date | null;
+  }) {
+    return {
+      id: task.id,
+      track_id: task.track_id,
+      title: task.title,
+      description: task.description,
+      published_at: task.published_at,
+      available: Boolean(task.published_at),
+      has_file: Boolean(task.file_url),
+      download_path: task.file_url ? `/files/${task.file_url}` : null,
+    };
+  }
 
-    if (failedCount > 0) {
-      console.warn(`Failed to send ${failedCount} test task publication email(s)`);
-    }
+  private toSubmissionResponse(submission: {
+    id: string;
+    application_id: string;
+    file_url: string;
+    submitted_at: Date;
+  }) {
+    return {
+      id: submission.id,
+      application_id: submission.application_id,
+      submitted_at: submission.submitted_at,
+      has_file: true,
+      download_path: `/files/${submission.file_url}`,
+    };
+  }
+
+  private isUniqueViolation(error: unknown) {
+    return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
   }
 }
