@@ -1,27 +1,10 @@
-import { prisma } from '../../shared/prisma';
-import { CreateApplicationAnswerSchema } from './dto/application.dto';
-import { z } from 'zod';
-
-type AnswerInput = z.infer<typeof CreateApplicationAnswerSchema>;
+import type { Prisma } from "@prisma/client";
+import type { CreateApplicationDto } from "./dto/application.dto";
 
 export class ApplicationAnswerService {
-  async createAnswersBulk(tx: any, applicationId: string, answers: AnswerInput[]) {
-    const answerData = answers.map(ans => ({
-      application_id: applicationId,
-      field_id: ans.field_id,
-      value: ans.value,
-    }));
-
+  async createAnswersBulk(tx: Prisma.TransactionClient, applicationId: string, answers: CreateApplicationDto["answers"]) {
     return tx.applicationAnswer.createMany({
-      data: answerData,
-    });
-  }
-
-  async deleteAnswersByApplicationId(tx: any, applicationId: string) {
-    return tx.applicationAnswer.deleteMany({
-      where: {
-        application_id: applicationId,
-      },
+      data: answers.map(({ question_id, answer_value }) => ({ application_id: applicationId, question_id, answer_value })),
     });
   }
 }
