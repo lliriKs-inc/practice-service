@@ -4,8 +4,12 @@ import { TasksService } from "./tasks.service";
 import { CreateTaskSchema } from "./dto/create-task.dto";
 import { UpdateTaskSchema } from "./dto/update-task.dto";
 import { TaskParamsSchema, WeekQuerySchema } from "./dto/task-request.dto";
+import { DailyTaskProgressService } from "./daily-task-progress.service";
+import { updateDailyTaskSchema } from "./dto/update-daily-task.dto";
 
 const service = new TasksService();
+const dailyTaskProgressService =
+  new DailyTaskProgressService();
 
 export class TasksController {
   async create(req: Request, res: Response, next: NextFunction) {
@@ -139,6 +143,43 @@ export class TasksController {
       return res.json(tasks);
     } catch (error) {
       next(error);
+    }
+  }
+  async updateDailyTask(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      if (!req.user) {
+        throw new AppError(
+          "Authentication required",
+          401,
+          "AUTH_REQUIRED"
+        );
+      }
+
+      const taskId = req.params.taskId;
+
+      if (!taskId) {
+        throw new AppError(
+          "Daily task id is required",
+          400,
+          "DAILY_TASK_ID_REQUIRED"
+        );
+      }
+
+      const dto = updateDailyTaskSchema.parse(req.body);
+
+      const task = await dailyTaskProgressService.updateMine(
+        req.user.id,
+        taskId,
+        dto
+      );
+
+      return res.status(200).json(task);
+    } catch (error) {
+      return next(error);
     }
   }
 }
