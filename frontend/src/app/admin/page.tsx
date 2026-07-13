@@ -3,171 +3,146 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { logout } from '@/services/api/auth'
+import { getAllApplications, updateApplicationStatus, type Application } from '@/services/api/invitation'
 import {
     getCohorts,
-    getActiveCohort,
-    createCohort as apiCreateCohort,
-    activateCohort,
-    createRole,
-    getRoles,
+    createCohort,
+    saveCohortDraft,
     type Cohort,
+    type CohortStatus,
+    type Track,
+    type Question,
 } from '@/services/api/cohorts'
 
-type Tab = 'cohorts' | 'applications' | 'documents' | 'tasks'
+type AdminTab = 'cohorts' | 'applications' | 'documents' | 'tasks'
+type EditTab = 'general' | 'tracks' | 'survey' | 'invitation'
 
-interface CohortWithRoles extends Cohort {
-    roles: string[]
-    isActive?: boolean
+const STATUS_LABELS: Record<CohortStatus, string> = {
+    draft: 'Черновик',
+    active: 'Активна',
+    closed: 'Закрыта',
 }
 
-type FieldType = 'text' | 'select'
-
-interface SurveyFieldDraft {
-    id: string
-    label: string
-    type: FieldType
-    options: string[]
+const STATUS_STYLES: Record<CohortStatus, string> = {
+    draft: 'bg-[#F5F4FD] border-[#E4E2F4] text-[#6B6880]',
+    active: 'bg-[#EDFBF4] border-[#7EE8B8] text-[#1A7A5A]',
+    closed: 'bg-[#FFF5F5] border-[#F0BABA] text-[#D94F4F]',
 }
 
-interface EditForm {
-    name: string
-    application_start: string
-    application_end: string
-    practice_start: string
-    practice_end: string
-    roles: string[]
-    testTaskContent: string
-    testTaskPublished: boolean
-    fields: SurveyFieldDraft[]
-}
+const QUESTION_TYPES = [
+    { value: 'text', label: 'Текст (строка)' },
+    { value: 'textarea', label: 'Текст (абзац)' },
+    { value: 'select', label: 'Выпадающий список' },
+    { value: 'radio', label: 'Один из вариантов' },
+    { value: 'checkbox', label: 'Несколько вариантов' },
+]
 
-// части без бэкенда держим в черновике на когорту, чтобы не терялись при повторном открытии в рамках сессии
-type DraftExtras = Record<string, {
-    testTaskContent: string
-    testTaskPublished: boolean
-    fields: SurveyFieldDraft[]
-}>
-
-function uid(): string {
-    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
-    return Math.random().toString(36).slice(2, 11)
-}
-
-// ISO → YYYY-MM-DD для <input type="date">
 function toDateInput(iso: string): string {
     if (!iso) return ''
     const d = new Date(iso)
     return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10)
 }
 
-// YYYY-MM-DD → ISO (с фолбэком на прежнее значение)
-function fromDateInput(value: string, fallbackIso: string): string {
-    if (!value) return fallbackIso
-    const d = new Date(value)
-    return Number.isNaN(d.getTime()) ? fallbackIso : d.toISOString()
+function uid() {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
+    return Math.random().toString(36).slice(2, 11)
 }
 
 export default function AdminPage() {
     const { user, loading } = useAuth('ADMIN')
 
-    const [tab, setTab] = useState<Tab>('cohorts')
-    const [cohorts, setCohorts] = useState<CohortWithRoles[]>([])
+    const [tab, setTab] = useState<AdminTab>('cohorts')
+    const [cohorts, setCohorts] = useState<Cohort[]>([])
     const [cohortsLoading, setCohortsLoading] = useState(true)
     const [cohortsError, setCohortsError] = useState('')
 
+    // Создание когорты
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [createLoading, setCreateLoading] = useState(false)
     const [createError, setCreateError] = useState('')
-    const [newRole, setNewRole] = useState('')
-    const [newCohort, setNewCohort] = useState({
-        name: '',
-        application_start: '',
-        application_end: '',
-        practice_start: '',
-        practice_end: '',
-        roles: [] as string[],
-    })
+    const [newCohort, setNewCohort] = useState({ title: '', start_date: '', end_date: '' })
 
-    // ── редактирование когорты ──
-    const [editCohortId, setEditCohortId] = useState<string | null>(null)
-    const [editForm, setEditForm] = useState<EditForm | null>(null)
-    const [editRole, setEditRole] = useState('')
+    // ── Редактирование: локальный черновик ────────────────────────
+    // Все правки в модалке применяются только к editDraft. Ничего не
+    // улетает на "сервер" (моки), пока не нажата кнопка "Сохранить".
+    const [editDraft, setEditDraft] = useState<Cohort | null>(null)
+    const [editTab, setEditTab] = useState<EditTab>('general')
     const [editSaving, setEditSaving] = useState(false)
     const [editError, setEditError] = useState('')
-    const [activating, setActivating] = useState(false)
-    const [draftExtras, setDraftExtras] = useState<DraftExtras>({})
+    const [newTrackTitle, setNewTrackTitle] = useState('')
 
-    const editingCohort = cohorts.find(c => c.id === editCohortId) ?? null
+    // ── Заявки (реальные данные всех студентов) ─────────────────────
+    const [applications, setApplications] = useState<Application[]>([])
+    const [applicationsLoading, setApplicationsLoading] = useState(false)
+    const [applicationsError, setApplicationsError] = useState('')
+    const [applicationActionId, setApplicationActionId] = useState<string | null>(null)
 
-    // загрузка когорт
-    useEffect(() => {
-        if (loading) return
-        const fetchCohorts = async () => {
-            try {
-                const [data, activeData] = await Promise.all([
-                    getCohorts(),
-                    getActiveCohort(),
-                ])
-
-                const activeCohortId = activeData.active_cohort_id
-
-                // если есть активная — загружаем её роли
-                let activeRoles: string[] = []
-                if (activeCohortId) {
-                    const roles = await getRoles()
-                    activeRoles = roles.map(r => r.name)
-                }
-
-                setCohorts(data.map(c => ({
-                    ...c,
-                    roles: c.id === activeCohortId ? activeRoles : [],
-                    isActive: c.id === activeCohortId,
-                })))
-            } catch (err: unknown) {
-                setCohortsError(err instanceof Error ? err.message : 'Ошибка загрузки')
-            } finally {
-                setCohortsLoading(false)
-            }
+    async function loadApplications() {
+        setApplicationsLoading(true)
+        setApplicationsError('')
+        try {
+            const data = await getAllApplications()
+            setApplications(data)
+        } catch (err: unknown) {
+            setApplicationsError(err instanceof Error ? err.message : 'Ошибка загрузки заявок')
+        } finally {
+            setApplicationsLoading(false)
         }
-        fetchCohorts()
+    }
+
+    useEffect(() => {
+        (async () => {
+            if (tab === 'applications' && !loading) await loadApplications()
+        })()
+    }, [tab, loading])
+
+    async function handleApplicationDecision(id: string, status: 'approved' | 'rejected') {
+        setApplicationActionId(id)
+        try {
+            await updateApplicationStatus(id, status)
+            await loadApplications()
+        } catch (err: unknown) {
+            setApplicationsError(err instanceof Error ? err.message : 'Не удалось изменить статус заявки')
+        } finally {
+            setApplicationActionId(null)
+        }
+    }
+
+    // ── Загрузка когорт ────────────────────────────────────────────
+    async function loadCohorts() {
+        setCohortsLoading(true)
+        setCohortsError('')
+        try {
+            const data = await getCohorts()
+            setCohorts(data)
+        } catch (err: unknown) {
+            setCohortsError(err instanceof Error ? err.message : 'Ошибка загрузки когорт')
+        } finally {
+            setCohortsLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        (async () => {
+            if (loading) return
+            await loadCohorts()
+        })()
     }, [loading])
 
-    function addRole() {
-        if (!newRole.trim()) return
-        setNewCohort(prev => ({ ...prev, roles: [...prev.roles, newRole.trim()] }))
-        setNewRole('')
-    }
-
-    function removeRole(role: string) {
-        setNewCohort(prev => ({ ...prev, roles: prev.roles.filter(r => r !== role) }))
-    }
-
+    // ── Создание когорты (отдельная модалка, без изменений) ───────
     async function handleCreateCohort() {
-        if (!newCohort.name) return
+        if (!newCohort.title) return
         setCreateLoading(true)
         setCreateError('')
         try {
-            // 1. создаём когорту
-            const cohort = await apiCreateCohort({
-                name: newCohort.name,
-                application_start: new Date(newCohort.application_start).toISOString(),
-                application_end: new Date(newCohort.application_end).toISOString(),
-                practice_start: new Date(newCohort.practice_start).toISOString(),
-                practice_end: new Date(newCohort.practice_end).toISOString(),
+            await createCohort({
+                title: newCohort.title,
+                start_date: newCohort.start_date || new Date().toISOString().slice(0, 10),
+                end_date: newCohort.end_date || new Date().toISOString().slice(0, 10),
             })
-
-            // 2. активируем чтобы добавить роли
-            await activateCohort(cohort.id)
-
-            // 3. создаём роли
-            for (const role of newCohort.roles) {
-                await createRole(role)
-            }
-
-            // 4. добавляем в список
-            setCohorts(prev => [{ ...cohort, roles: newCohort.roles }, ...prev])
+            await loadCohorts()
             setShowCreateModal(false)
-            setNewCohort({ name: '', application_start: '', application_end: '', practice_start: '', practice_end: '', roles: [] })
+            setNewCohort({ title: '', start_date: '', end_date: '' })
         } catch (err: unknown) {
             setCreateError(err instanceof Error ? err.message : 'Ошибка создания когорты')
         } finally {
@@ -175,125 +150,145 @@ export default function AdminPage() {
         }
     }
 
-    function openEdit(cohort: CohortWithRoles) {
-        const extras = draftExtras[cohort.id]
-        setEditCohortId(cohort.id)
-        setEditForm({
-            name: cohort.name,
-            application_start: toDateInput(cohort.application_start),
-            application_end: toDateInput(cohort.application_end),
-            practice_start: toDateInput(cohort.practice_start),
-            practice_end: toDateInput(cohort.practice_end),
-            roles: [...cohort.roles],
-            testTaskContent: extras?.testTaskContent ?? '',
-            testTaskPublished: extras?.testTaskPublished ?? false,
-            fields: extras?.fields.map(f => ({ ...f, options: [...f.options] })) ?? [],
-        })
-        setEditRole('')
+    // ── Открыть/закрыть редактирование ─────────────────────────────
+    function openEdit(cohort: Cohort) {
+        // Глубокая копия — правки идут в черновик, исходная когорта в
+        // списке не трогается, пока не нажата "Сохранить"
+        setEditDraft(JSON.parse(JSON.stringify(cohort)))
+        setEditTab('general')
         setEditError('')
+        setNewTrackTitle('')
     }
 
     function closeEdit() {
-        setEditCohortId(null)
-        setEditForm(null)
+        // Черновик просто выбрасывается — все несохранённые правки исчезают
+        setEditDraft(null)
     }
 
-    function patchEdit(patch: Partial<EditForm>) {
-        setEditForm(prev => (prev ? { ...prev, ...patch } : prev))
+    function patchDraft(patch: Partial<Cohort>) {
+        setEditDraft(prev => (prev ? { ...prev, ...patch } : prev))
     }
 
-    // активация — есть реальный эндпоинт
-    async function handleActivateInEdit() {
-        if (!editCohortId) return
-        setActivating(true)
+    async function handleSaveEdit() {
+        if (!editDraft) return
+        setEditSaving(true)
         setEditError('')
         try {
-            await activateCohort(editCohortId)
-            const roles = await getRoles()
-            const roleNames = roles.map(r => r.name)
-            setCohorts(prev => prev.map(c => ({
-                ...c,
-                isActive: c.id === editCohortId,
-                roles: c.id === editCohortId ? roleNames : c.roles,
-            })))
-            // подтягиваем реальные роли когорты в форму, не теряя добавленных в черновике
-            patchEdit({ roles: Array.from(new Set([...roleNames, ...(editForm?.roles ?? [])])) })
+            await saveCohortDraft(editDraft.id, editDraft)
+            await loadCohorts()
+            setEditDraft(null)
         } catch (err: unknown) {
-            setEditError(err instanceof Error ? err.message : 'Не удалось активировать когорту')
+            setEditError(err instanceof Error ? err.message : 'Не удалось сохранить изменения')
         } finally {
-            setActivating(false)
+            setEditSaving(false)
         }
     }
 
-    // роли — createRole/getRoles работают в контексте активной когорты
-    async function addEditRole() {
-        const value = editRole.trim()
-        if (!value || !editForm) return
-        if (editForm.roles.includes(value)) { setEditRole(''); return }
-        patchEdit({ roles: [...editForm.roles, value] })
-        setEditRole('')
-        if (editingCohort?.isActive) {
-            try {
-                await createRole(value)
-                setCohorts(prev => prev.map(c =>
-                    c.id === editCohortId ? { ...c, roles: [...c.roles, value] } : c
-                ))
-            } catch (err: unknown) {
-                setEditError(err instanceof Error ? err.message : 'Не удалось сохранить роль')
-            }
+    // ── Статус (теперь тоже часть черновика) ───────────────────────
+    function handleStatusChange(status: CohortStatus) {
+        patchDraft({ status })
+    }
+
+    // ── Треки (локально, без сети) ─────────────────────────────────
+    function addTrack() {
+        if (!newTrackTitle.trim() || !editDraft) return
+        const track: Track = { id: uid(), title: newTrackTitle.trim(), testTask: null }
+        patchDraft({ tracks: [...editDraft.tracks, track] })
+        setNewTrackTitle('')
+    }
+
+    function removeTrack(trackId: string) {
+        if (!editDraft) return
+        patchDraft({ tracks: editDraft.tracks.filter(t => t.id !== trackId) })
+    }
+
+    function updateTrackTitle(trackId: string, title: string) {
+        if (!editDraft) return
+        patchDraft({ tracks: editDraft.tracks.map(t => t.id === trackId ? { ...t, title } : t) })
+    }
+
+    function saveTrackTestTask(trackId: string, patch: Partial<NonNullable<Track['testTask']>>) {
+        if (!editDraft) return
+        patchDraft({
+            tracks: editDraft.tracks.map(t => {
+                if (t.id !== trackId) return t
+                const current = t.testTask ?? { title: '', description: '', fileUrl: null, publishedAt: null }
+                return { ...t, testTask: { ...current, ...patch } }
+            }),
+        })
+    }
+
+    function toggleTrackPublish(trackId: string) {
+        if (!editDraft) return
+        patchDraft({
+            tracks: editDraft.tracks.map(t => {
+                if (t.id !== trackId || !t.testTask) return t
+                const isPublished = !!t.testTask.publishedAt
+                return { ...t, testTask: { ...t.testTask, publishedAt: isPublished ? null : new Date().toISOString() } }
+            }),
+        })
+    }
+
+    // ── Анкета / вопросы (локально) ────────────────────────────────
+    function ensureSurvey() {
+        if (editDraft?.survey) return editDraft.survey
+        const survey = { id: uid(), title: 'Анкета', questions: [] as Question[] }
+        patchDraft({ survey })
+        return survey
+    }
+
+    function addQuestion() {
+        const survey = ensureSurvey()
+        const q: Question = {
+            id: uid(),
+            label: '',
+            type: 'text',
+            required: false,
+            options: [],
+            order_index: survey.questions.length + 1,
         }
+        patchDraft({ survey: { ...survey, questions: [...survey.questions, q] } })
     }
 
-    function removeEditRole(role: string) {
-        if (!editForm) return
-        patchEdit({ roles: editForm.roles.filter(r => r !== role) })
-    }
-
-    // поля анкеты — пока только локально
-    function addField() {
-        if (!editForm) return
-        const field: SurveyFieldDraft = { id: uid(), label: '', type: 'text', options: [] }
-        patchEdit({ fields: [...editForm.fields, field] })
-    }
-
-    function updateField(id: string, patch: Partial<SurveyFieldDraft>) {
-        if (!editForm) return
-        patchEdit({ fields: editForm.fields.map(f => (f.id === id ? { ...f, ...patch } : f)) })
-    }
-
-    function removeField(id: string) {
-        if (!editForm) return
-        patchEdit({ fields: editForm.fields.filter(f => f.id !== id) })
-    }
-
-    function handleSaveEdit() {
-        if (!editForm || !editCohortId) return
-        setEditSaving(true)
-        // бэкенда для названия/дат/анкеты/тестового пока нет — отражаем изменения локально,
-        // чтобы карточка и повторное открытие показывали актуальные данные в рамках сессии
-        setCohorts(prev => prev.map(c =>
-            c.id === editCohortId
-                ? {
-                    ...c,
-                    name: editForm.name,
-                    application_start: fromDateInput(editForm.application_start, c.application_start),
-                    application_end: fromDateInput(editForm.application_end, c.application_end),
-                    practice_start: fromDateInput(editForm.practice_start, c.practice_start),
-                    practice_end: fromDateInput(editForm.practice_end, c.practice_end),
-                    roles: editForm.roles,
-                }
-                : c
-        ))
-        setDraftExtras(prev => ({
-            ...prev,
-            [editCohortId]: {
-                testTaskContent: editForm.testTaskContent,
-                testTaskPublished: editForm.testTaskPublished,
-                fields: editForm.fields,
+    function saveQuestion(questionId: string, patch: Partial<Question>) {
+        if (!editDraft?.survey) return
+        patchDraft({
+            survey: {
+                ...editDraft.survey,
+                questions: editDraft.survey.questions.map(q => q.id === questionId ? { ...q, ...patch } : q),
             },
-        }))
-        setEditSaving(false)
-        closeEdit()
+        })
+    }
+
+    function removeQuestion(questionId: string) {
+        if (!editDraft?.survey) return
+        patchDraft({
+            survey: { ...editDraft.survey, questions: editDraft.survey.questions.filter(q => q.id !== questionId) },
+        })
+    }
+
+    // ── Приглашение (локально) ─────────────────────────────────────
+    function getInvitationUrl(token: string) {
+        if (typeof window === 'undefined') return ''
+        return `${window.location.origin}/apply/${token}`
+    }
+
+    function copyInvitation(token: string) {
+        navigator.clipboard.writeText(getInvitationUrl(token))
+    }
+
+    function createDraftInvitation() {
+        patchDraft({ invitation: { token: uid().slice(0, 8), expiresAt: null } })
+    }
+
+    function regenerateDraftInvitation() {
+        patchDraft({ invitation: { token: uid().slice(0, 8), expiresAt: null } })
+    }
+
+    // [FIX] Раньше ссылку нельзя было убрать после создания — только
+    // перегенерировать. Добавлена возможность удалить её полностью.
+    function deleteDraftInvitation() {
+        patchDraft({ invitation: null })
     }
 
     if (loading) return (
@@ -308,12 +303,8 @@ export default function AdminPage() {
             {/* NAVBAR */}
             <header className="bg-white border-b border-[#E4E2F4] px-8 py-4 flex items-center justify-between sticky top-0 z-20">
                 <div className="flex items-center gap-3">
-                    <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-base"
-                        style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}
-                    >
-                        🎓
-                    </div>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base"
+                        style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>🎓</div>
                     <span className="font-extrabold text-base text-[#1C1A3A] tracking-tight">Практика УрФУ</span>
                     <div className="flex items-center gap-2 px-3 py-1 bg-[#1C1A3A] rounded-full ml-2">
                         <span className="text-xs font-semibold text-white">Админ</span>
@@ -322,9 +313,7 @@ export default function AdminPage() {
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-[#EBE9FF] rounded-full">
                         <div className="w-2 h-2 rounded-full bg-[#6C63FF]" />
-                        <span className="text-xs font-semibold text-[#4A42D4]">
-                            {user?.email ?? '…'}
-                        </span>
+                        <span className="text-xs font-semibold text-[#4A42D4]">{user?.email ?? '…'}</span>
                     </div>
                     <div className="w-8 h-8 rounded-full bg-[#6C63FF] text-white text-sm font-bold flex items-center justify-center">
                         {user?.email?.[0]?.toUpperCase() ?? 'А'}
@@ -337,28 +326,20 @@ export default function AdminPage() {
                 {/* SIDEBAR */}
                 <aside className="w-56 bg-white border-r border-[#E4E2F4] flex flex-col p-4 gap-1 sticky top-[65px] h-[calc(100vh-65px)]">
                     {[
-                        { id: 'cohorts',      icon: '🗂️', label: 'Когорты' },
+                        { id: 'cohorts', icon: '🗂️', label: 'Когорты' },
                         { id: 'applications', icon: '📋', label: 'Заявки' },
-                        { id: 'documents',    icon: '📄', label: 'Документы' },
-                        { id: 'tasks',        icon: '✅', label: 'Задачи' },
+                        { id: 'documents', icon: '📄', label: 'Документы' },
+                        { id: 'tasks', icon: '✅', label: 'Задачи' },
                     ].map(item => (
-                        <button
-                            key={item.id}
-                            onClick={() => setTab(item.id as Tab)}
+                        <button key={item.id} onClick={() => setTab(item.id as AdminTab)}
                             className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left
-                                ${tab === item.id
-                                    ? 'bg-[#EBE9FF] text-[#4A42D4]'
-                                    : 'text-[#6B6880] hover:bg-[#F5F4FD]'}`}
-                        >
-                            <span>{item.icon}</span>
-                            {item.label}
+                                ${tab === item.id ? 'bg-[#EBE9FF] text-[#4A42D4]' : 'text-[#6B6880] hover:bg-[#F5F4FD]'}`}>
+                            <span>{item.icon}</span>{item.label}
                         </button>
                     ))}
                     <div className="mt-auto pt-4 border-t border-[#E4E2F4]">
-                        <button
-                            onClick={logout}
-                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] w-full text-left"
-                        >
+                        <button onClick={logout}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] w-full text-left">
                             <span>🚪</span> Выйти
                         </button>
                     </div>
@@ -375,17 +356,18 @@ export default function AdminPage() {
                                     <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1">Когорты</h1>
                                     <p className="text-sm text-[#6B6880]">Управление потоками практики.</p>
                                 </div>
-                                <button
-                                    onClick={() => setShowCreateModal(true)}
+                                <button onClick={() => setShowCreateModal(true)}
                                     className="text-sm font-semibold text-white px-5 py-2.5 rounded-xl shadow-md"
-                                    style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}
-                                >
+                                    style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
                                     + Создать когорту
                                 </button>
                             </div>
 
                             {cohortsLoading && (
-                                <p className="text-sm text-[#6B6880]">Загрузка когорт…</p>
+                                <div className="flex items-center gap-2 text-sm text-[#6B6880]">
+                                    <div className="w-4 h-4 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
+                                    Загружаем когорты…
+                                </div>
                             )}
 
                             {cohortsError && (
@@ -407,28 +389,21 @@ export default function AdminPage() {
                                     <div key={cohort.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
                                         <div className="px-7 py-5 border-b border-[#E4E2F4] flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <h2 className="font-bold text-lg text-[#1C1A3A]">{cohort.name}</h2>
-                                                {cohort.isActive && (
-                                                    <span className="text-xs font-semibold px-3 py-1 rounded-full border bg-[#EDFBF4] border-[#7EE8B8] text-[#1A7A5A]">
-                                                        Активна
-                                                    </span>
-                                                )}
+                                                <h2 className="font-bold text-lg text-[#1C1A3A]">{cohort.title}</h2>
+                                                <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${STATUS_STYLES[cohort.status]}`}>
+                                                    {STATUS_LABELS[cohort.status]}
+                                                </span>
                                             </div>
-                                            <button
-                                                onClick={() => openEdit(cohort)}
-                                                className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#6C63FF] text-[#6C63FF] hover:bg-[#EBE9FF] transition-all inline-flex items-center gap-1.5"
-                                            >
-                                                <span className="text-sm leading-none">✎</span>
-                                                Редактировать
+                                            <button onClick={() => openEdit(cohort)}
+                                                className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#6C63FF] text-[#6C63FF] hover:bg-[#EBE9FF] transition-all inline-flex items-center gap-1.5">
+                                                <span className="text-sm leading-none">✎</span> Редактировать
                                             </button>
                                         </div>
 
-                                        <div className="grid grid-cols-4 divide-x divide-[#E4E2F4]">
+                                        <div className="grid grid-cols-2 divide-x divide-[#E4E2F4]">
                                             {[
-                                                { label: 'Приём заявок с', value: new Date(cohort.application_start).toLocaleDateString('ru') },
-                                                { label: 'Приём заявок по', value: new Date(cohort.application_end).toLocaleDateString('ru') },
-                                                { label: 'Практика с', value: new Date(cohort.practice_start).toLocaleDateString('ru') },
-                                                { label: 'Практика по', value: new Date(cohort.practice_end).toLocaleDateString('ru') },
+                                                { label: 'Начало практики', value: new Date(cohort.start_date).toLocaleDateString('ru') },
+                                                { label: 'Конец практики', value: new Date(cohort.end_date).toLocaleDateString('ru') },
                                             ].map((item, i) => (
                                                 <div key={i} className="px-6 py-4 flex flex-col gap-1">
                                                     <span className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB]">{item.label}</span>
@@ -437,14 +412,33 @@ export default function AdminPage() {
                                             ))}
                                         </div>
 
-                                        {cohort.roles.length > 0 && (
+                                        {cohort.tracks.length > 0 && (
                                             <div className="px-7 py-4 flex items-center gap-2 flex-wrap border-t border-[#E4E2F4]">
-                                                <span className="text-xs text-[#A9A7BB] font-medium mr-1">Роли:</span>
-                                                {cohort.roles.map(role => (
-                                                    <span key={role} className="text-xs font-medium px-3 py-1 bg-[#F5F4FD] border border-[#E4E2F4] rounded-full text-[#6B6880]">
-                                                        {role}
+                                                <span className="text-xs text-[#A9A7BB] font-medium mr-1">Треки:</span>
+                                                {cohort.tracks.map(track => (
+                                                    <span key={track.id} className="text-xs font-medium px-3 py-1 bg-[#F5F4FD] border border-[#E4E2F4] rounded-full text-[#6B6880] inline-flex items-center gap-1.5">
+                                                        {track.title}
+                                                        {track.testTask?.publishedAt && (
+                                                            <span className="text-[#1A7A5A] text-[10px]">· ТЗ ✓</span>
+                                                        )}
                                                     </span>
                                                 ))}
+                                            </div>
+                                        )}
+
+                                        {cohort.invitation && (
+                                            <div className="px-7 py-3 border-t border-[#E4E2F4] flex items-center gap-3 bg-[#F5F4FD]">
+                                                <span className="text-xs text-[#A9A7BB]">🔗 Ссылка для кандидатов:</span>
+                                                <code className="text-xs text-[#4A42D4] flex-1 truncate">/apply/{cohort.invitation.token}</code>
+                                                <button onClick={() => copyInvitation(cohort.invitation!.token)}
+                                                    className="text-xs font-semibold text-[#6C63FF] hover:underline shrink-0">
+                                                    Копировать
+                                                </button>
+                                                {cohort.status !== 'active' && (
+                                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#FFF8ED] border border-[#F5D9A0] text-[#7A5C1A] shrink-0">
+                                                        заработает после активации
+                                                    </span>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -458,13 +452,122 @@ export default function AdminPage() {
                         <div className="flex flex-col gap-6">
                             <div>
                                 <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1">Заявки</h1>
-                                <p className="text-sm text-[#6B6880]">Входящие заявки · активная когорта</p>
+                                <p className="text-sm text-[#6B6880]">Все заявки кандидатов по всем когортам.</p>
                             </div>
-                            <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
-                                <div className="text-4xl mb-4">📋</div>
-                                <p className="font-semibold text-[#1C1A3A] mb-1">Заявки появятся позже</p>
-                                <p className="text-sm text-[#6B6880]">Эндпоинт /applications ещё не реализован на бэке</p>
-                            </div>
+
+                            {applicationsLoading && (
+                                <div className="flex items-center gap-2 text-sm text-[#6B6880]">
+                                    <div className="w-4 h-4 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
+                                    Загружаем заявки…
+                                </div>
+                            )}
+
+                            {applicationsError && (
+                                <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
+                                    <p className="text-sm text-[#D94F4F]">⚠️ {applicationsError}</p>
+                                </div>
+                            )}
+
+                            {!applicationsLoading && !applicationsError && applications.length === 0 && (
+                                <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
+                                    <div className="text-4xl mb-4">📋</div>
+                                    <p className="font-semibold text-[#1C1A3A] mb-1">Заявок пока нет</p>
+                                    <p className="text-sm text-[#6B6880]">Как только кандидат подаст заявку по ссылке-приглашению, она появится здесь.</p>
+                                </div>
+                            )}
+
+                            {!applicationsLoading && !applicationsError && applications.length > 0 && (
+                                <div className="flex flex-col gap-4">
+                                    {applications.map(app => {
+                                        // [FIX] Раньше админ не видел ни ответов анкеты, ни тестового
+                                        // задания трека — ищем их прямо из уже загруженного списка когорт
+                                        const sourceCohort = cohorts.find(c => c.id === app.cohort.id)
+                                        const trackTestTask = sourceCohort?.tracks.find(t => t.id === app.track.id)?.testTask
+
+                                        return (
+                                        <div key={app.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                                            <div className="px-7 py-5 border-b border-[#E4E2F4] flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-xs font-bold tracking-widest uppercase text-[#A9A7BB] mb-1">
+                                                        {app.cohort.title} · {app.track.title}
+                                                    </p>
+                                                    <h2 className="font-bold text-lg text-[#1C1A3A]">{app.student?.email ?? 'Неизвестный кандидат'}</h2>
+                                                </div>
+                                                <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border
+                                                    ${app.status === 'pending' ? 'bg-[#FFF8ED] border-[#F5D9A0] text-[#7A5C1A]'
+                                                        : app.status === 'approved' ? 'bg-[#EDFBF4] border-[#7EE8B8] text-[#1A7A5A]'
+                                                        : 'bg-[#FFF5F5] border-[#F0BABA] text-[#D94F4F]'}`}>
+                                                    <div className={`w-2 h-2 rounded-full
+                                                        ${app.status === 'pending' ? 'bg-[#F59E0B]' : app.status === 'approved' ? 'bg-[#2CB87A]' : 'bg-[#D94F4F]'}`} />
+                                                    <span className="text-xs font-semibold">
+                                                        {app.status === 'pending' ? 'На рассмотрении' : app.status === 'approved' ? 'Одобрена' : 'Отклонена'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Ответы анкеты */}
+                                            {app.answers && app.answers.length > 0 && (
+                                                <div className="px-7 py-4 border-b border-[#E4E2F4] flex flex-col gap-2.5">
+                                                    <span className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB]">Ответы анкеты</span>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        {app.answers.map((a, i) => (
+                                                            <div key={i} className="flex flex-col gap-0.5">
+                                                                <span className="text-xs text-[#A9A7BB]">{a.label}</span>
+                                                                <span className="text-sm text-[#1C1A3A]">{a.value}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Тестовое задание трека */}
+                                            {trackTestTask && (trackTestTask.title || trackTestTask.description) && (
+                                                <div className="px-7 py-4 border-b border-[#E4E2F4] flex flex-col gap-1.5 bg-[#FBFAFF]">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB]">Тестовое задание трека</span>
+                                                        {trackTestTask.publishedAt ? (
+                                                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EDFBF4] border border-[#7EE8B8] text-[#1A7A5A]">Опубликовано</span>
+                                                        ) : (
+                                                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F5F4FD] border border-[#E4E2F4] text-[#A9A7BB]">Черновик</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm font-semibold text-[#1C1A3A]">{trackTestTask.title || '—'}</p>
+                                                    {trackTestTask.description && (
+                                                        <p className="text-xs text-[#6B6880] leading-relaxed">{trackTestTask.description}</p>
+                                                    )}
+                                                    <p className="text-[11px] text-[#A9A7BB] mt-1">
+                                                        Загрузка решения кандидатом пока не реализована — эта часть появится отдельно.
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            <div className="px-7 py-4 flex items-center justify-between">
+                                                <span className="text-xs text-[#A9A7BB]">
+                                                    Подана {new Date(app.submitted_at).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                </span>
+                                                {app.status === 'pending' && (
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            disabled={applicationActionId === app.id}
+                                                            onClick={() => handleApplicationDecision(app.id, 'rejected')}
+                                                            className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#F0BABA] text-[#D94F4F] hover:bg-[#FFF5F5] disabled:opacity-50">
+                                                            Отклонить
+                                                        </button>
+                                                        <button
+                                                            disabled={applicationActionId === app.id}
+                                                            onClick={() => handleApplicationDecision(app.id, 'approved')}
+                                                            className="text-xs font-semibold px-4 py-1.5 rounded-lg text-white shadow-sm disabled:opacity-50"
+                                                            style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                                                            {applicationActionId === app.id ? 'Сохраняем…' : 'Одобрить'}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -477,8 +580,8 @@ export default function AdminPage() {
                             </div>
                             <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
                                 <div className="text-4xl mb-4">📄</div>
-                                <p className="font-semibold text-[#1C1A3A] mb-1">Документы появятся позже</p>
-                                <p className="text-sm text-[#6B6880]">Нужен список студентов из /applications</p>
+                                <p className="font-semibold text-[#1C1A3A] mb-1">Ждём новый API</p>
+                                <p className="text-sm text-[#6B6880]">GET /cohorts/:id/documents · новая архитектура</p>
                             </div>
                         </div>
                     )}
@@ -488,99 +591,59 @@ export default function AdminPage() {
                         <div className="flex flex-col gap-6">
                             <div>
                                 <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1">Задачи</h1>
-                                <p className="text-sm text-[#6B6880]">Все задачи практикантов · активная когорта</p>
+                                <p className="text-sm text-[#6B6880]">Прогресс практикантов · активная когорта</p>
                             </div>
                             <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
                                 <div className="text-4xl mb-4">✅</div>
-                                <p className="font-semibold text-[#1C1A3A] mb-1">Задачи загружаются с бэка</p>
-                                <p className="text-sm text-[#6B6880]">Активируй когорту чтобы увидеть задачи участников</p>
+                                <p className="font-semibold text-[#1C1A3A] mb-1">Ждём новый API</p>
+                                <p className="text-sm text-[#6B6880]">GET /cohorts/:id/progress · новая архитектура</p>
                             </div>
                         </div>
                     )}
-
                 </main>
             </div>
 
-            {/* CREATE COHORT MODAL */}
+            {/* ── МОДАЛКА: СОЗДАТЬ КОГОРТУ ── */}
             {showCreateModal && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-                    onClick={() => setShowCreateModal(false)}
-                >
-                    <div
-                        className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
-                        onClick={e => e.stopPropagation()}
-                    >
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+                    onClick={() => setShowCreateModal(false)}>
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg mx-4"
+                        onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="font-bold text-xl text-[#1C1A3A]">Новая когорта</h3>
-                            <button
-                                onClick={() => setShowCreateModal(false)}
-                                className="text-[#A9A7BB] hover:text-[#1C1A3A] text-2xl leading-none"
-                            >
-                                ×
-                            </button>
+                            <button onClick={() => setShowCreateModal(false)}
+                                className="text-[#A9A7BB] hover:text-[#1C1A3A] text-2xl leading-none">×</button>
                         </div>
 
                         <div className="flex flex-col gap-5">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-sm font-medium text-[#1C1A3A]">Название потока</label>
-                                <input
-                                    type="text"
-                                    placeholder="Поток 2027"
-                                    value={newCohort.name}
-                                    onChange={e => setNewCohort(prev => ({ ...prev, name: e.target.value }))}
-                                    className="w-full text-sm"
-                                />
+                                <input type="text" placeholder="Практика 2027"
+                                    value={newCohort.title}
+                                    onChange={e => setNewCohort(prev => ({ ...prev, title: e.target.value }))}
+                                    className="w-full text-sm" />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                {[
-                                    { label: 'Приём заявок с', key: 'application_start' },
-                                    { label: 'Приём заявок по', key: 'application_end' },
-                                    { label: 'Практика с', key: 'practice_start' },
-                                    { label: 'Практика по', key: 'practice_end' },
-                                ].map(field => (
-                                    <div key={field.key} className="flex flex-col gap-1.5">
-                                        <label className="text-sm font-medium text-[#1C1A3A]">{field.label}</label>
-                                        <input
-                                            type="date"
-                                            value={newCohort[field.key as keyof typeof newCohort] as string}
-                                            onChange={e => setNewCohort(prev => ({ ...prev, [field.key]: e.target.value }))}
-                                            className="w-full text-sm"
-                                        />
-                                    </div>
-                                ))}
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-medium text-[#1C1A3A]">Начало практики</label>
+                                    <input type="date" value={newCohort.start_date}
+                                        onChange={e => setNewCohort(prev => ({ ...prev, start_date: e.target.value }))}
+                                        className="w-full text-sm" />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-medium text-[#1C1A3A]">Конец практики</label>
+                                    <input type="date" value={newCohort.end_date}
+                                        onChange={e => setNewCohort(prev => ({ ...prev, end_date: e.target.value }))}
+                                        className="w-full text-sm" />
+                                </div>
                             </div>
 
-                            <div className="flex flex-col gap-2">
-                                <label className="text-sm font-medium text-[#1C1A3A]">Роли / треки</label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        placeholder="Например: Backend"
-                                        value={newRole}
-                                        onChange={e => setNewRole(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && addRole()}
-                                        className="flex-1 text-sm"
-                                    />
-                                    <button
-                                        onClick={addRole}
-                                        className="px-4 py-2 text-sm font-semibold text-white rounded-lg"
-                                        style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}
-                                    >
-                                        +
-                                    </button>
-                                </div>
-                                {newCohort.roles.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mt-1">
-                                        {newCohort.roles.map(role => (
-                                            <div key={role} className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-[#EBE9FF] border border-[#6C63FF] text-[#4A42D4] rounded-full">
-                                                {role}
-                                                <button onClick={() => removeRole(role)} className="text-[#6C63FF] hover:text-[#4A42D4] leading-none">×</button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                            <div className="bg-[#EBE9FF] border border-[#C4BEFF] rounded-xl px-4 py-3">
+                                <p className="text-xs text-[#4A42D4]">
+                                    💡 После создания когорта будет в статусе «Черновик». Треки, анкету и тестовое задание
+                                    можно добавить через кнопку «Редактировать».
+                                </p>
                             </div>
 
                             {createError && (
@@ -590,18 +653,13 @@ export default function AdminPage() {
                             )}
 
                             <div className="flex justify-end gap-3 mt-2">
-                                <button
-                                    onClick={() => setShowCreateModal(false)}
-                                    className="px-5 py-2.5 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-xl"
-                                >
+                                <button onClick={() => setShowCreateModal(false)}
+                                    className="px-5 py-2.5 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-xl">
                                     Отмена
                                 </button>
-                                <button
-                                    onClick={handleCreateCohort}
-                                    disabled={createLoading}
+                                <button disabled={createLoading || !newCohort.title} onClick={handleCreateCohort}
                                     className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-md disabled:opacity-60"
-                                    style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}
-                                >
+                                    style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
                                     {createLoading ? 'Создаём…' : 'Создать'}
                                 </button>
                             </div>
@@ -610,266 +668,387 @@ export default function AdminPage() {
                 </div>
             )}
 
-            {/* EDIT COHORT MODAL */}
-            {editCohortId && editForm && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-                    onClick={closeEdit}
-                >
-                    <div
-                        className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        {/* header */}
-                        <div className="flex items-start justify-between mb-1">
-                            <div className="flex items-center gap-3">
-                                <h3 className="font-bold text-xl text-[#1C1A3A]">Редактирование потока</h3>
-                                {editingCohort?.isActive && (
-                                    <span className="text-xs font-semibold px-3 py-1 rounded-full border bg-[#EDFBF4] border-[#7EE8B8] text-[#1A7A5A]">
-                                        Активна
-                                    </span>
-                                )}
-                            </div>
-                            <button
-                                onClick={closeEdit}
-                                className="text-[#A9A7BB] hover:text-[#1C1A3A] text-2xl leading-none"
-                            >
-                                ×
-                            </button>
-                        </div>
-                        <p className="text-sm text-[#6B6880] mb-6">{editForm.name || 'Без названия'}</p>
+            {/* ── МОДАЛКА: РЕДАКТИРОВАТЬ КОГОРТУ (черновик) ── */}
+            {editDraft && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+                    onClick={closeEdit}>
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col"
+                        onClick={e => e.stopPropagation()}>
 
-                        {/* honest note about persistence */}
-                        <div className="bg-[#F5F4FD] border border-[#E4E2F4] rounded-xl px-4 py-3 mb-7">
-                            <p className="text-xs text-[#6B6880] leading-relaxed">
-                                Активация и роли сохраняются на сервере. Название, даты, тестовое задание и поля анкеты
-                                пока хранятся локально — эндпоинты для них ещё не реализованы на бэке.
-                            </p>
-                        </div>
-
-                        <div className="flex flex-col gap-7">
-
-                            {/* ── АКТИВНОСТЬ ── */}
-                            <section className="flex flex-col gap-3">
+                        {/* Шапка */}
+                        <div className="px-8 pt-7 pb-5 border-b border-[#E4E2F4] shrink-0">
+                            <div className="flex items-start justify-between mb-4">
                                 <div>
-                                    <h4 className="font-bold text-[15px] text-[#1C1A3A]">Активность</h4>
-                                    <p className="text-xs text-[#A9A7BB] mt-0.5">Активная когорта — та, чью анкету видят кандидаты по публичной ссылке.</p>
+                                    <h3 className="font-bold text-xl text-[#1C1A3A]">{editDraft.title}</h3>
+                                    <p className="text-sm text-[#6B6880] mt-0.5">Редактирование потока практики</p>
                                 </div>
-                                {editingCohort?.isActive ? (
-                                    <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-[#EDFBF4] border border-[#7EE8B8]">
-                                        <div className="w-2 h-2 rounded-full bg-[#1A7A5A]" />
-                                        <span className="text-sm font-semibold text-[#1A7A5A]">Эта когорта сейчас активна</span>
-                                    </div>
-                                ) : (
-                                    <button
-                                        onClick={handleActivateInEdit}
-                                        disabled={activating}
-                                        className="self-start text-sm font-semibold text-white px-5 py-2.5 rounded-xl shadow-md disabled:opacity-60"
-                                        style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}
-                                    >
-                                        {activating ? 'Активируем…' : 'Сделать активной'}
+                                <button onClick={closeEdit} className="text-[#A9A7BB] hover:text-[#1C1A3A] text-2xl leading-none">×</button>
+                            </div>
+
+                            <div className="flex gap-1">
+                                {([
+                                    { id: 'general', label: '⚙️ Основное' },
+                                    { id: 'tracks', label: '🛤 Треки' },
+                                    { id: 'survey', label: '📝 Анкета' },
+                                    { id: 'invitation', label: '🔗 Приглашение' },
+                                ] as const).map(t => (
+                                    <button key={t.id} onClick={() => setEditTab(t.id)}
+                                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all
+                                            ${editTab === t.id ? 'bg-[#EBE9FF] text-[#4A42D4]' : 'text-[#6B6880] hover:bg-[#F5F4FD]'}`}>
+                                        {t.label}
                                     </button>
-                                )}
-                            </section>
+                                ))}
+                            </div>
+
+                            <div className="mt-4 bg-[#F5F4FD] border border-[#E4E2F4] rounded-xl px-4 py-2.5">
+                                <p className="text-xs text-[#6B6880]">
+                                    Изменения на этой вкладке применятся только после нажатия «Сохранить» внизу окна.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Контент таба */}
+                        <div className="flex-1 overflow-y-auto px-8 py-6">
 
                             {/* ── ОСНОВНОЕ ── */}
-                            <section className="flex flex-col gap-4">
-                                <div>
-                                    <h4 className="font-bold text-[15px] text-[#1C1A3A]">Основное</h4>
-                                    <p className="text-xs text-[#A9A7BB] mt-0.5">Название потока и ключевые даты.</p>
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#1C1A3A]">Название потока</label>
-                                    <input
-                                        type="text"
-                                        value={editForm.name}
-                                        onChange={e => patchEdit({ name: e.target.value })}
-                                        placeholder="Поток 2027"
-                                        className="w-full text-sm"
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {([
-                                        { label: 'Приём заявок с', key: 'application_start' },
-                                        { label: 'Приём заявок по', key: 'application_end' },
-                                        { label: 'Практика с', key: 'practice_start' },
-                                        { label: 'Практика по', key: 'practice_end' },
-                                    ] as const).map(field => (
-                                        <div key={field.key} className="flex flex-col gap-1.5">
-                                            <label className="text-sm font-medium text-[#1C1A3A]">{field.label}</label>
-                                            <input
-                                                type="date"
-                                                value={editForm[field.key]}
-                                                onChange={e => patchEdit({ [field.key]: e.target.value } as Partial<EditForm>)}
-                                                className="w-full text-sm"
-                                            />
+                            {editTab === 'general' && (
+                                <div className="flex flex-col gap-5">
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-sm font-medium text-[#1C1A3A]">Статус когорты</label>
+                                        <div className="flex gap-2">
+                                            {(['draft', 'active', 'closed'] as CohortStatus[]).map(s => (
+                                                <button key={s} onClick={() => handleStatusChange(s)}
+                                                    className={`px-4 py-2 text-sm font-semibold rounded-lg border transition-all
+                                                        ${editDraft.status === s
+                                                            ? STATUS_STYLES[s] + ' border-current'
+                                                            : 'text-[#6B6880] border-[#E4E2F4] hover:bg-[#F5F4FD]'}`}>
+                                                    {STATUS_LABELS[s]}
+                                                </button>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
-                            </section>
-
-                            {/* ── РОЛИ / ТРЕКИ ── */}
-                            <section className="flex flex-col gap-2">
-                                <div>
-                                    <h4 className="font-bold text-[15px] text-[#1C1A3A]">Роли / треки</h4>
-                                    <p className="text-xs text-[#A9A7BB] mt-0.5">
-                                        {editingCohort?.isActive
-                                            ? 'Новые роли сразу сохраняются на сервере.'
-                                            : 'Роли сохранятся на сервере после активации когорты.'}
-                                    </p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        placeholder="Например: Backend"
-                                        value={editRole}
-                                        onChange={e => setEditRole(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && addEditRole()}
-                                        className="flex-1 text-sm"
-                                    />
-                                    <button
-                                        onClick={addEditRole}
-                                        className="px-4 py-2 text-sm font-semibold text-white rounded-lg"
-                                        style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}
-                                    >
-                                        +
-                                    </button>
-                                </div>
-                                {editForm.roles.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mt-1">
-                                        {editForm.roles.map(role => (
-                                            <div key={role} className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-[#EBE9FF] border border-[#6C63FF] text-[#4A42D4] rounded-full">
-                                                {role}
-                                                <button onClick={() => removeEditRole(role)} className="text-[#6C63FF] hover:text-[#4A42D4] leading-none">×</button>
-                                            </div>
-                                        ))}
+                                        <p className="text-xs text-[#A9A7BB]">
+                                            Черновик — невидим для кандидатов · Активна — принимаются заявки · Закрыта — только архив
+                                        </p>
                                     </div>
-                                )}
-                            </section>
 
-                            {/* ── ТЕСТОВОЕ ЗАДАНИЕ ── */}
-                            <section className="flex flex-col gap-3">
-                                <div>
-                                    <h4 className="font-bold text-[15px] text-[#1C1A3A]">Тестовое задание</h4>
-                                    <p className="text-xs text-[#A9A7BB] mt-0.5">Кандидат увидит его только после отправки анкеты.</p>
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#1C1A3A]">Текст задания</label>
-                                    <textarea
-                                        rows={4}
-                                        value={editForm.testTaskContent}
-                                        onChange={e => patchEdit({ testTaskContent: e.target.value })}
-                                        placeholder="Опишите тестовое задание для кандидатов…"
-                                        className="w-full text-sm rounded-lg border border-[#E4E2F4] px-3.5 py-2.5 resize-none focus:outline-none focus:border-[#6C63FF]"
-                                    />
-                                </div>
-                                <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                                    <input
-                                        type="checkbox"
-                                        checked={editForm.testTaskPublished}
-                                        onChange={e => patchEdit({ testTaskPublished: e.target.checked })}
-                                        className="w-4 h-4 accent-[#6C63FF]"
-                                    />
-                                    <span className="text-sm text-[#1C1A3A]">Опубликовать — кандидаты получат уведомление на e-mail</span>
-                                </label>
-                            </section>
-
-                            {/* ── ПОЛЯ АНКЕТЫ ── */}
-                            <section className="flex flex-col gap-3">
-                                <div className="flex items-center justify-between gap-4">
-                                    <div>
-                                        <h4 className="font-bold text-[15px] text-[#1C1A3A]">Поля анкеты</h4>
-                                        <p className="text-xs text-[#A9A7BB] mt-0.5">Вопросы публичной анкеты когорты.</p>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-sm font-medium text-[#1C1A3A]">Название потока</label>
+                                        <input type="text" value={editDraft.title}
+                                            onChange={e => patchDraft({ title: e.target.value })}
+                                            className="w-full text-sm" />
                                     </div>
-                                    <button
-                                        onClick={addField}
-                                        className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#6C63FF] text-[#6C63FF] hover:bg-[#EBE9FF] transition-all whitespace-nowrap"
-                                    >
-                                        + Поле
-                                    </button>
-                                </div>
 
-                                {editForm.fields.length === 0 ? (
-                                    <div className="rounded-xl border border-dashed border-[#E4E2F4] px-4 py-6 text-center">
-                                        <p className="text-sm text-[#A9A7BB]">Полей пока нет. Добавьте первый вопрос анкеты.</p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex flex-col gap-1.5">
+                                            <label className="text-sm font-medium text-[#1C1A3A]">Начало практики</label>
+                                            <input type="date" value={toDateInput(editDraft.start_date)}
+                                                onChange={e => patchDraft({ start_date: e.target.value })}
+                                                className="w-full text-sm" />
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                            <label className="text-sm font-medium text-[#1C1A3A]">Конец практики</label>
+                                            <input type="date" value={toDateInput(editDraft.end_date)}
+                                                onChange={e => patchDraft({ end_date: e.target.value })}
+                                                className="w-full text-sm" />
+                                        </div>
                                     </div>
-                                ) : (
-                                    <div className="flex flex-col gap-3">
-                                        {editForm.fields.map((field, idx) => (
-                                            <div key={field.id} className="rounded-xl border border-[#E4E2F4] bg-[#FBFAFF] p-4 flex flex-col gap-3">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB] w-6 shrink-0">{String(idx + 1).padStart(2, '0')}</span>
-                                                    <input
-                                                        type="text"
-                                                        value={field.label}
-                                                        onChange={e => updateField(field.id, { label: e.target.value })}
-                                                        placeholder="Текст вопроса, напр. Желаемая роль"
-                                                        className="flex-1 text-sm"
-                                                    />
-                                                    <select
-                                                        value={field.type}
-                                                        onChange={e => updateField(field.id, { type: e.target.value as FieldType })}
-                                                        className="text-sm rounded-lg border border-[#E4E2F4] px-2.5 py-2 bg-white focus:outline-none focus:border-[#6C63FF]"
-                                                    >
-                                                        <option value="text">Текст</option>
-                                                        <option value="select">Список</option>
-                                                    </select>
-                                                    <button
-                                                        onClick={() => removeField(field.id)}
-                                                        className="text-[#A9A7BB] hover:text-[#D94F4F] text-xl leading-none px-1 shrink-0"
-                                                        aria-label="Удалить поле"
-                                                    >
-                                                        ×
-                                                    </button>
-                                                </div>
-                                                {field.type === 'select' && (
-                                                    <div className="flex flex-col gap-1.5 pl-8">
-                                                        <label className="text-xs font-medium text-[#6B6880]">Варианты ответа (через запятую)</label>
-                                                        <input
-                                                            type="text"
-                                                            value={field.options.join(', ')}
-                                                            onChange={e => updateField(field.id, {
-                                                                options: e.target.value.split(',').map(s => s.trim()).filter(Boolean),
-                                                            })}
-                                                            placeholder="Frontend, Backend, Аналитик"
-                                                            className="w-full text-sm"
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </section>
-
-                            {editError && (
-                                <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
-                                    <p className="text-sm text-[#D94F4F]">⚠️ {editError}</p>
                                 </div>
                             )}
 
-                            {/* footer */}
-                            <div className="flex justify-end gap-3 border-t border-[#E4E2F4] pt-5 mt-1">
-                                <button
-                                    onClick={closeEdit}
-                                    className="px-5 py-2.5 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-xl"
-                                >
-                                    Закрыть
-                                </button>
-                                <button
-                                    onClick={handleSaveEdit}
-                                    disabled={editSaving}
-                                    className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-md disabled:opacity-60"
-                                    style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}
-                                >
-                                    {editSaving ? 'Сохраняем…' : 'Сохранить'}
-                                </button>
-                            </div>
+                            {/* ── ТРЕКИ ── */}
+                            {editTab === 'tracks' && (
+                                <div className="flex flex-col gap-5">
+                                    <p className="text-sm text-[#6B6880]">
+                                        У каждого трека — своё тестовое задание. Кандидат выбирает трек при заполнении анкеты.
+                                    </p>
+
+                                    <div className="flex gap-2">
+                                        <input type="text" placeholder="Название трека, напр. Backend"
+                                            value={newTrackTitle}
+                                            onChange={e => setNewTrackTitle(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && addTrack()}
+                                            className="flex-1 text-sm" />
+                                        <button onClick={addTrack}
+                                            className="px-4 py-2 text-sm font-semibold text-white rounded-lg"
+                                            style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                                            + Трек
+                                        </button>
+                                    </div>
+
+                                    {editDraft.tracks.length === 0 ? (
+                                        <div className="rounded-xl border border-dashed border-[#E4E2F4] px-4 py-8 text-center">
+                                            <p className="text-sm text-[#A9A7BB]">Треков пока нет. Добавьте первое направление.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-4">
+                                            {editDraft.tracks.map(track => (
+                                                <TrackEditor
+                                                    key={track.id}
+                                                    track={track}
+                                                    onRemove={() => removeTrack(track.id)}
+                                                    onTitleChange={title => updateTrackTitle(track.id, title)}
+                                                    onSaveTestTask={patch => saveTrackTestTask(track.id, patch)}
+                                                    onTogglePublish={() => toggleTrackPublish(track.id)}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* ── АНКЕТА ── */}
+                            {editTab === 'survey' && (
+                                <div className="flex flex-col gap-5">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm text-[#6B6880]">Вопросы публичной анкеты когорты.</p>
+                                        <button onClick={addQuestion}
+                                            className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#6C63FF] text-[#6C63FF] hover:bg-[#EBE9FF] transition-all whitespace-nowrap">
+                                            + Вопрос
+                                        </button>
+                                    </div>
+
+                                    {(!editDraft.survey || editDraft.survey.questions.length === 0) ? (
+                                        <div className="rounded-xl border border-dashed border-[#E4E2F4] px-4 py-8 text-center">
+                                            <p className="text-sm text-[#A9A7BB]">Вопросов пока нет. Добавьте первый.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-3">
+                                            {editDraft.survey.questions.map((q, idx) => (
+                                                <QuestionEditor
+                                                    key={q.id}
+                                                    question={q}
+                                                    index={idx}
+                                                    onSave={patch => saveQuestion(q.id, patch)}
+                                                    onRemove={() => removeQuestion(q.id)}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* ── ПРИГЛАШЕНИЕ ── */}
+                            {editTab === 'invitation' && (
+                                <div className="flex flex-col gap-5">
+                                    <p className="text-sm text-[#6B6880]">
+                                        Общая ссылка-приглашение для кандидатов. Не персональная — кто угодно с этой ссылкой может подать заявку.
+                                    </p>
+
+                                    {editDraft.invitation ? (
+                                        <div className="flex flex-col gap-4">
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-sm font-medium text-[#1C1A3A]">Ссылка для кандидатов</label>
+                                                <div className="flex gap-2">
+                                                    <input type="text" readOnly
+                                                        value={getInvitationUrl(editDraft.invitation.token)}
+                                                        className="flex-1 text-sm font-mono bg-[#F5F4FD]" />
+                                                    <button onClick={() => copyInvitation(editDraft.invitation!.token)}
+                                                        className="px-4 py-2 text-sm font-semibold border border-[#6C63FF] text-[#6C63FF] rounded-lg hover:bg-[#EBE9FF] shrink-0">
+                                                        Копировать
+                                                    </button>
+                                                </div>
+                                                <span className="text-xs text-[#A9A7BB]">Появится по этому адресу только после сохранения.</span>
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <button onClick={regenerateDraftInvitation}
+                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#E4E2F4] text-[#6B6880] hover:bg-[#F5F4FD] transition-all">
+                                                    🔄 Перегенерировать токен
+                                                </button>
+                                                <button onClick={deleteDraftInvitation}
+                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#F0BABA] text-[#D94F4F] hover:bg-[#FFF5F5] transition-all">
+                                                    🗑 Удалить ссылку
+                                                </button>
+                                            </div>
+                                            <div className="bg-[#FFF8ED] border-l-4 border-[#F59E0B] rounded-xl px-4 py-3">
+                                                <p className="text-xs text-[#7A5C1A]">
+                                                    ⚠️ После сохранения с новым токеном старая ссылка перестанет работать.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-3">
+                                            <div className="rounded-xl border border-dashed border-[#E4E2F4] px-4 py-8 text-center">
+                                                <p className="text-sm text-[#A9A7BB]">Ссылка ещё не создана.</p>
+                                            </div>
+                                            <button onClick={createDraftInvitation}
+                                                className="self-start text-sm font-semibold text-white px-5 py-2.5 rounded-xl shadow-md"
+                                                style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                                                Создать ссылку-приглашение
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {editError && (
+                                <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3 mt-5">
+                                    <p className="text-sm text-[#D94F4F]">⚠️ {editError}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Футер */}
+                        <div className="px-8 py-5 border-t border-[#E4E2F4] flex justify-end gap-3 shrink-0">
+                            <button onClick={closeEdit} disabled={editSaving}
+                                className="px-5 py-2.5 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-xl disabled:opacity-50">
+                                Отмена
+                            </button>
+                            <button onClick={handleSaveEdit} disabled={editSaving}
+                                className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-md disabled:opacity-60"
+                                style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                                {editSaving ? 'Сохраняем…' : 'Сохранить'}
+                            </button>
                         </div>
                     </div>
                 </div>
             )}
+        </div>
+    )
+}
 
+// ── Редактор трека (название + тестовое задание) — правки идут в draft ──
+function TrackEditor({
+    track,
+    onRemove,
+    onTitleChange,
+    onSaveTestTask,
+    onTogglePublish,
+}: {
+    track: Track
+    onRemove: () => void
+    onTitleChange: (title: string) => void
+    onSaveTestTask: (patch: Partial<NonNullable<Track['testTask']>>) => void
+    onTogglePublish: () => void
+}) {
+    const [title, setTitle] = useState(track.testTask?.title ?? '')
+    const [description, setDescription] = useState(track.testTask?.description ?? '')
+
+    return (
+        <div className="rounded-xl border border-[#E4E2F4] bg-[#FBFAFF] p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-lg bg-[#EBE9FF] flex items-center justify-center text-[#6C63FF] text-sm font-bold shrink-0">🛤</div>
+                <input type="text" value={track.title} onChange={e => onTitleChange(e.target.value)}
+                    className="flex-1 text-sm font-semibold" />
+                <button onClick={onRemove} className="text-[#A9A7BB] hover:text-[#D94F4F] text-xl leading-none px-1">×</button>
+            </div>
+
+            <div className="flex flex-col gap-3 pl-10">
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold tracking-widest uppercase text-[#A9A7BB]">Тестовое задание</span>
+                    {track.testTask?.publishedAt && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EDFBF4] border border-[#7EE8B8] text-[#1A7A5A]">
+                            Опубликовано
+                        </span>
+                    )}
+                </div>
+
+                <input type="text" value={title}
+                    onChange={e => { setTitle(e.target.value); onSaveTestTask({ title: e.target.value }) }}
+                    placeholder="Заголовок задания" className="w-full text-sm" />
+
+                <textarea rows={3} value={description}
+                    onChange={e => { setDescription(e.target.value); onSaveTestTask({ description: e.target.value }) }}
+                    placeholder="Опишите задание для этого трека…"
+                    className="w-full text-sm resize-none rounded-lg border border-[#E4E2F4] bg-white px-3.5 py-2.5 focus:outline-none focus:border-[#6C63FF]" />
+
+                <button onClick={onTogglePublish} disabled={!title && !description}
+                    className={`self-start text-xs font-semibold px-4 py-1.5 rounded-lg border transition-all disabled:opacity-40
+                        ${track.testTask?.publishedAt
+                            ? 'border-[#D94F4F] text-[#D94F4F] hover:bg-[#FFF5F5]'
+                            : 'border-[#6C63FF] text-[#6C63FF] hover:bg-[#EBE9FF]'}`}>
+                    {track.testTask?.publishedAt ? 'Снять с публикации' : 'Опубликовать'}
+                </button>
+            </div>
+        </div>
+    )
+}
+
+// ── Редактор вопроса анкеты — правки идут в draft ──────────────────
+function QuestionEditor({
+    question,
+    index,
+    onSave,
+    onRemove,
+}: {
+    question: Question
+    index: number
+    onSave: (patch: Partial<Question>) => void
+    onRemove: () => void
+}) {
+    function addOption() {
+        onSave({ options: [...question.options, ''] })
+    }
+
+    function updateOption(optIndex: number, value: string) {
+        const next = [...question.options]
+        next[optIndex] = value
+        onSave({ options: next })
+    }
+
+    function removeOption(optIndex: number) {
+        onSave({ options: question.options.filter((_, i) => i !== optIndex) })
+    }
+
+    return (
+        <div className="rounded-xl border border-[#E4E2F4] bg-[#FBFAFF] p-4 flex flex-col gap-3">
+            <div className="flex items-start gap-2">
+                <span className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB] pt-2.5 w-6 shrink-0">
+                    {String(index + 1).padStart(2, '0')}
+                </span>
+                <div className="flex-1 flex flex-col gap-2">
+                    <input type="text" value={question.label}
+                        onChange={e => onSave({ label: e.target.value })}
+                        placeholder="Текст вопроса" className="w-full text-sm" />
+                    <div className="flex items-center gap-3">
+                        <select value={question.type}
+                            onChange={e => onSave({ type: e.target.value as Question['type'] })}
+                            className="text-xs rounded-lg border border-[#E4E2F4] px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#6C63FF]">
+                            {QUESTION_TYPES.map(t => (
+                                <option key={t.value} value={t.value}>{t.label}</option>
+                            ))}
+                        </select>
+                        <label className="flex items-center gap-1.5 text-xs text-[#6B6880] cursor-pointer select-none">
+                            <input type="checkbox" checked={question.required}
+                                onChange={e => onSave({ required: e.target.checked })}
+                                className="accent-[#6C63FF]" />
+                            Обязательный
+                        </label>
+                    </div>
+
+                    {['select', 'radio', 'checkbox'].includes(question.type) && (
+                        <div className="flex flex-col gap-2 mt-1">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-medium text-[#6B6880]">Варианты ответа</label>
+                                <button type="button" onClick={addOption}
+                                    className="text-xs font-semibold text-[#6C63FF] hover:underline">
+                                    + Вариант
+                                </button>
+                            </div>
+
+                            {question.options.length === 0 && (
+                                <p className="text-xs text-[#A9A7BB]">Вариантов пока нет — добавь первый.</p>
+                            )}
+
+                            <div className="flex flex-col gap-2">
+                                {question.options.map((opt, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                        <input type="text" value={opt}
+                                            onChange={e => updateOption(i, e.target.value)}
+                                            placeholder={`Вариант ${i + 1}`}
+                                            className="flex-1 text-sm" />
+                                        <button type="button" onClick={() => removeOption(i)}
+                                            className="text-[#A9A7BB] hover:text-[#D94F4F] text-lg leading-none px-1 shrink-0"
+                                            aria-label="Удалить вариант">
+                                            ×
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+                <button onClick={onRemove} className="text-[#A9A7BB] hover:text-[#D94F4F] text-xl leading-none px-1 shrink-0">×</button>
+            </div>
         </div>
     )
 }
