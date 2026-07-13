@@ -3,20 +3,31 @@ import path from "path";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 
-export type DocumentTemplate = "individual-task" | "review" | "title-page";
+export type DocumentTemplate =
+  | "individual-task"
+  | "review"
+  | "title-page"
+  | "notice";
 
 const templateFileByType: Record<DocumentTemplate, string> = {
   "individual-task": "individual-task.docx",
   review: "review.docx",
   "title-page": "title-page.docx",
+  notice: "notice.docx",
 };
 
 export class DocumentGeneratorService {
   generate(type: DocumentTemplate, data: Record<string, string | number | boolean | null | undefined>) {
+    const templateFile = templateFileByType[type];
+
+    if (!templateFile) {
+      throw new Error(`Unsupported document template: ${type}`);
+    }
+
     const templatePath = path.resolve(
       __dirname,
       "../../../templates/documents",
-      templateFileByType[type]
+      templateFile
     );
 
     const content = fs.readFileSync(templatePath, "binary");
