@@ -3,9 +3,12 @@ import { UserRole } from "@prisma/client";
 import { requireRole } from "../../middlewares/role.middleware";
 import { getForCohort, getMine, listForCohort, listMine, submitApplication, updateStatus } from "./application.controller";
 import { TasksController } from "../tasks/tasks.controller";
+import { DocumentsController } from "../documents/documents.controller";
 
 const router = Router();
 const tasksController = new TasksController();
+const documentsController =
+  new DocumentsController();
 
 router.post("/public/invitations/:token/applications", requireRole(UserRole.STUDENT), submitApplication);
 router.get("/me/applications", requireRole(UserRole.STUDENT), listMine);
@@ -35,6 +38,14 @@ router.get(
   "/cohorts/:cohortId/progress",
   requireRole(UserRole.ADMIN),
   tasksController.getCohortProgress.bind(tasksController)
+);
+
+router.get(
+  "/me/applications/:applicationId/documents/readiness",
+  requireRole(UserRole.STUDENT),
+  documentsController.getApplicationReadiness.bind(
+    documentsController
+  )
 );
 
 export default router;

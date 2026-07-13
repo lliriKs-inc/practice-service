@@ -7,8 +7,11 @@ import {
   ApproveReportSchema,
   UpdateReviewRequestSchema,
 } from "./dto/update-review.dto";
+import { DocumentReadinessService } from "./document-readiness.service";
 
 const service = new DocumentsService();
+const readinessService =
+  new DocumentReadinessService();
 
 export class DocumentsController {
   async getMyDocuments(req: Request, res: Response, next: NextFunction) {
@@ -188,6 +191,43 @@ export class DocumentsController {
       return res.send(buffer);
     } catch (error) {
       next(error);
+    }
+  }
+
+  async getApplicationReadiness(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      if (!req.user) {
+        throw new AppError(
+          "Authentication required",
+          401,
+          "AUTH_REQUIRED"
+        );
+      }
+
+      const applicationId =
+        req.params.applicationId;
+
+      if (typeof applicationId !== "string") {
+        throw new AppError(
+          "Application id is required",
+          400,
+          "APPLICATION_ID_REQUIRED"
+        );
+      }
+
+      const result =
+        await readinessService.getForStudent(
+          req.user.id,
+          applicationId
+        );
+
+      return res.status(200).json(result);
+    } catch (error) {
+      return next(error);
     }
   }
 }
