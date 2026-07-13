@@ -18,5 +18,16 @@ router.put(
   requireRole(UserRole.STUDENT),
   tasksController.updateDailyTask.bind(tasksController)
 );
+router.get(
+  "/me/applications/:applicationId/tasks",
+  requireRole(UserRole.STUDENT),
+  tasksController.getMyProgress.bind(tasksController)
+);
+
+router.get(
+  "/cohorts/:cohortId/progress",
+  requireRole(UserRole.ADMIN),
+  tasksController.getCohortProgress.bind(tasksController)
+);
 
 export default router;

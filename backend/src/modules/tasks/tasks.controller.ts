@@ -6,10 +6,14 @@ import { UpdateTaskSchema } from "./dto/update-task.dto";
 import { TaskParamsSchema, WeekQuerySchema } from "./dto/task-request.dto";
 import { DailyTaskProgressService } from "./daily-task-progress.service";
 import { updateDailyTaskSchema } from "./dto/update-daily-task.dto";
+import { DailyTaskProgressReadService } from "./daily-task-progress-read.service";
+import { progressWeekQuerySchema } from "./dto/progress-week.dto";
 
 const service = new TasksService();
 const dailyTaskProgressService =
   new DailyTaskProgressService();
+const dailyTaskProgressReadService =
+  new DailyTaskProgressReadService();
 
 export class TasksController {
   async create(req: Request, res: Response, next: NextFunction) {
@@ -161,7 +165,7 @@ export class TasksController {
 
       const taskId = req.params.taskId;
 
-      if (!taskId) {
+      if (typeof taskId !== "string") {
         throw new AppError(
           "Daily task id is required",
           400,
@@ -178,6 +182,86 @@ export class TasksController {
       );
 
       return res.status(200).json(task);
+    } catch (error) {
+      return next(error);
+    }
+  }
+  async getMyProgress(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      if (!req.user) {
+        throw new AppError(
+          "Authentication required",
+          401,
+          "AUTH_REQUIRED"
+        );
+      }
+
+      const applicationId = req.params.applicationId;
+
+      if (typeof applicationId !== "string") {
+        throw new AppError(
+          "Application id is required",
+          400,
+          "APPLICATION_ID_REQUIRED"
+        );
+      }
+
+      const { weekStart } = progressWeekQuerySchema.parse(
+        req.query
+      );
+
+      const result =
+        await dailyTaskProgressReadService.getMine(
+          req.user.id,
+          applicationId,
+          weekStart
+        );
+
+      return res.status(200).json(result);
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async getCohortProgress(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      if (!req.user) {
+        throw new AppError(
+          "Authentication required",
+          401,
+          "AUTH_REQUIRED"
+        );
+      }
+
+      const cohortId = req.params.cohortId;
+
+      if (typeof cohortId !== "string") {
+        throw new AppError(
+          "Cohort id is required",
+          400,
+          "COHORT_ID_REQUIRED"
+        );
+      }
+
+      const { weekStart } = progressWeekQuerySchema.parse(
+        req.query
+      );
+
+      const result =
+        await dailyTaskProgressReadService.getCohort(
+          cohortId,
+          weekStart
+        );
+
+      return res.status(200).json(result);
     } catch (error) {
       return next(error);
     }
