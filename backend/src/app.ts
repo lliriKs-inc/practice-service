@@ -16,7 +16,6 @@ import invitationRouter from "./modules/invitation/invitation.routes";
 import applicationRouter from "./modules/application/application.routes";
 import testTaskRoutes from "./modules/test-task/test-task.routes";
 import documentsRoutes from "./modules/documents/documents.routes";
-import tasksRoutes from "./modules/tasks/tasks.routes";
 import adminRoutes from "./modules/admin/admin.routes";
 
 import surveyRoutes, { publicSurveyRouter } from "./modules/survey/survey.routes";
@@ -93,7 +92,6 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use("/tracks", trackRouter);
   app.use("/invitations", invitationRouter);
   app.use("/documents", documentsRoutes);
-  app.use("/tasks", tasksRoutes);
   app.use("/admin", adminRoutes);
 
   app.get("/", (_req, res) => {
