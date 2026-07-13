@@ -48,4 +48,20 @@ router.get(
   )
 );
 
+router.get(
+  "/me/applications/:applicationId/documents",
+  requireRole(UserRole.STUDENT),
+  documentsController.getApplicationDocuments.bind(
+    documentsController
+  )
+);
+
+router.put(
+  "/me/applications/:applicationId/documents/:type/fields/:fieldKey",
+  requireRole(UserRole.STUDENT),
+  documentsController.updateApplicationDocumentField.bind(
+    documentsController
+  )
+);
+
 export default router;

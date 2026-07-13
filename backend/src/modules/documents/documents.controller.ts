@@ -8,10 +8,13 @@ import {
   UpdateReviewRequestSchema,
 } from "./dto/update-review.dto";
 import { DocumentReadinessService } from "./document-readiness.service";
+import { DocumentEavService } from "./document-eav.service";
+import { updateDocumentFieldSchema } from "./dto/update-document-field.dto";
 
 const service = new DocumentsService();
 const readinessService =
   new DocumentReadinessService();
+const eavService = new DocumentEavService();
 
 export class DocumentsController {
   async getMyDocuments(req: Request, res: Response, next: NextFunction) {
@@ -226,6 +229,94 @@ export class DocumentsController {
         );
 
       return res.status(200).json(result);
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async getApplicationDocuments(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      if (!req.user) {
+        throw new AppError(
+          "Authentication required",
+          401,
+          "AUTH_REQUIRED"
+        );
+      }
+
+      const applicationId =
+        req.params.applicationId;
+
+      if (typeof applicationId !== "string") {
+        throw new AppError(
+          "Application id is required",
+          400,
+          "APPLICATION_ID_REQUIRED"
+        );
+      }
+
+      const documents =
+        await eavService.getForStudent(
+          req.user.id,
+          applicationId
+        );
+
+      return res.status(200).json(documents);
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async updateApplicationDocumentField(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      if (!req.user) {
+        throw new AppError(
+          "Authentication required",
+          401,
+          "AUTH_REQUIRED"
+        );
+      }
+
+      const applicationId =
+        req.params.applicationId;
+      const type = req.params.type;
+      const fieldKey = req.params.fieldKey;
+
+      if (
+        typeof applicationId !== "string" ||
+        typeof type !== "string" ||
+        typeof fieldKey !== "string"
+      ) {
+        throw new AppError(
+          "Invalid document parameters",
+          400,
+          "INVALID_DOCUMENT_PARAMETERS"
+        );
+      }
+
+      const { value } =
+        updateDocumentFieldSchema.parse(
+          req.body
+        );
+
+      const field =
+        await eavService.updateStudentField(
+          req.user.id,
+          applicationId,
+          type,
+          fieldKey,
+          value
+        );
+
+      return res.status(200).json(field);
     } catch (error) {
       return next(error);
     }
