@@ -90,4 +90,12 @@ router.patch(
   )
 );
 
+router.get(
+  "/me/applications/:applicationId/documents/:type/generate",
+  requireRole(UserRole.STUDENT),
+  documentsController.generateApplicationDocument.bind(
+    documentsController
+  )
+);
+
 export default router;
