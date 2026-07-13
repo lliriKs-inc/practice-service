@@ -1,20 +1,23 @@
-import { z } from 'zod';
+import { z } from "zod";
 
-export const CreateApplicationAnswerSchema = z.object({
-  field_id: z.string().min(1, 'Идентификатор поля анкеты обязателен'),
-  value: z.string().min(1, 'Ответ не может быть пустым'),
+export const applicationAnswerSchema = z.object({
+  question_id: z.string().trim().min(1),
+  answer_value: z.string(),
 });
 
-export const CreateApplicationSchema = z.object({
-  answers: z
-    .array(CreateApplicationAnswerSchema)
-    .min(1, 'Заявка должна содержать хотя бы один ответ на анкету'),
+export const createApplicationSchema = z.object({
+  track_id: z.string().trim().min(1),
+  answers: z.array(applicationAnswerSchema),
 });
 
-export type CreateApplicationDto = z.infer<typeof CreateApplicationSchema>;
-
-export const ApproveApplicationSchema = z.object({
-  role_id: z.string().min(1, 'Роль обязательна для одобрения заявки'),
+export const updateApplicationStatusSchema = z.object({
+  status: z.enum(["APPROVED", "REJECTED"]),
+  rejection_reason: z.string().trim().min(1).optional(),
+}).superRefine((value, ctx) => {
+  if (value.status === "REJECTED" && !value.rejection_reason) {
+    ctx.addIssue({ code: "custom", path: ["rejection_reason"], message: "Rejection reason is required" });
+  }
 });
 
-export type ApproveApplicationDto = z.infer<typeof ApproveApplicationSchema>;
+export type CreateApplicationDto = z.infer<typeof createApplicationSchema>;
+export type UpdateApplicationStatusDto = z.infer<typeof updateApplicationStatusSchema>;

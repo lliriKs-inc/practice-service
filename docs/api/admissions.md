@@ -34,24 +34,38 @@ json
 ### POST /invitations/validate
 * **Описание:** Проверка публичного токена приглашения для регистрации в когорте.
 
-## 3. Заявки (Applications) и Анкеты
-Базовый путь: `/applications`
+## 3. Applications lifecycle
 
-### POST /applications
-* **Описание:** Подача заявки на конкретный трек (`track_id`) с массивом ответов на вопросы анкеты (`questions`).
-* **Бизнес-правило:** Один пользователь может подать только одну заявку на конкретный трек внутри когорты.
+### POST /public/invitations/:token/applications
 
-### PATCH /applications/:id/status
-* **Описание:** Изменение статуса заявки (только для ADMIN).
-* **Тело запроса при отказе:**
+Requires an authenticated `STUDENT`. The invitation token determines the cohort; the request may submit only a track and questions belonging to that cohort's survey.
 
-```
-json
+```json
 {
-"status": "rejected",
-"rejection_reason": "Недостаточный уровень владения базовым стеком"
+  "track_id": "track-id",
+  "answers": [
+    { "question_id": "question-id", "answer_value": "Answer" }
+  ]
 }
 ```
+
+The server validates the invitation window, track/question isolation, required questions and the unique `(user_id, track_id)` constraint. `Application` and `ApplicationAnswer` are created in one transaction with status `PENDING`.
+
+### GET /me/applications and GET /me/applications/:applicationId
+
+Requires `STUDENT`. Returns only the current user's applications, including track, cohort and answers.
+
+### GET /cohorts/:cohortId/applications
+
+Requires `ADMIN`. Returns applications whose `track.cohort_id` equals the route cohort.
+
+### GET /cohorts/:cohortId/applications/:applicationId
+
+Requires `ADMIN` and returns an application only when it belongs to the route cohort.
+
+### PATCH /cohorts/:cohortId/applications/:applicationId/status
+
+Requires `ADMIN`. Accepts `APPROVED` or `REJECTED`; `REJECTED` requires `rejection_reason`. On the transition to `APPROVED`, the application service invokes Backend B's public `DailyTaskCalendarService` inside the same Prisma transaction. Repeated approval is idempotent.
 ## Cohort, Track and Invitation rules
 
 ### Cohort API
