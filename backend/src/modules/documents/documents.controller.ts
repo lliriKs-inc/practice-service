@@ -8,9 +8,12 @@ import { reportStatusSchema } from "./dto/report-status.dto";
 import { LocalStorageService } from "../../shared/storage";
 import { config } from "../../shared/config";
 import {
-  DocumentGeneratorService,
   DocumentTemplate,
 } from "./documentGenerator.service";
+import {
+  DOCX_CONTENT_TYPE,
+  GeneratedDocumentService,
+} from "./generated-document.service";
 
 const readinessService =
   new DocumentReadinessService();
@@ -20,7 +23,12 @@ const reportService = new ReportService(
     rootDirectory: config.storage.uploadDir,
   })
 );
-const generatorService = new DocumentGeneratorService();
+const generatedDocumentService =
+  new GeneratedDocumentService(
+    new LocalStorageService({
+      rootDirectory: config.storage.uploadDir,
+    })
+  );
 
 export class DocumentsController {
   async getApplicationReadiness(
@@ -317,63 +325,16 @@ export class DocumentsController {
         );
       }
 
-      const documents =
-        await eavService.getForStudent(
+      const { buffer } =
+        await generatedDocumentService.generateMine(
           req.user.id,
-          applicationId
+          applicationId,
+          type
         );
-
-      const readiness =
-        await readinessService.getForStudent(
-          req.user.id,
-          applicationId
-        );
-
-      const readinessType = {
-        "individual-task": "INDIVIDUAL_TASK",
-        review: "REVIEW",
-        "title-page": "TITLE_PAGE",
-        notice: "NOTICE",
-      } as const;
-
-      const requiredReadiness =
-        readiness.documents.find(
-          (document) =>
-            document.type === readinessType[type]
-        );
-
-      if (!requiredReadiness) {
-        throw new AppError(
-          "Document readiness not found",
-          500,
-          "DOCUMENT_READINESS_NOT_FOUND"
-        );
-      }
-
-      if (!requiredReadiness.ready) {
-        throw new AppError(
-          "Document is not ready",
-          400,
-          "DOCUMENT_NOT_READY"
-        );
-      }
-
-      const data: Record<string, string> = {};
-
-      for (const document of documents) {
-        for (const field of document.fieldValues) {
-          data[field.field_key] = field.value;
-        }
-      }
-
-      const buffer = await generatorService.generate(
-        type,
-        data
-      );
 
       res.setHeader(
         "Content-Type",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        DOCX_CONTENT_TYPE
       );
 
       res.setHeader(

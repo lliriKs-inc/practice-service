@@ -9,6 +9,29 @@ import type {
   SaveFileInput,
 } from "../../shared/storage";
 
+type ReportMetadata = {
+  id: string;
+  status: ReportStatus;
+  uploaded_at: Date;
+  reviewed_at: Date | null;
+};
+
+function safeReport(
+  report: ReportMetadata,
+  applicationId: string,
+  downloadPath: string
+) {
+  return {
+    id: report.id,
+    applicationId,
+    status: report.status,
+    uploadedAt: report.uploaded_at,
+    reviewedAt: report.reviewed_at,
+    hasFile: true,
+    downloadPath,
+  };
+}
+
 export class ReportService {
   constructor(
     private readonly storage: StorageService
@@ -39,7 +62,15 @@ export class ReportService {
       );
     }
 
-    return application.report;
+    if (!application.report) {
+      return null;
+    }
+
+    return safeReport(
+      application.report,
+      application.id,
+      `/me/applications/${application.id}/report/file`
+    );
   }
 
   async replaceMine(
@@ -77,7 +108,7 @@ export class ReportService {
     });
 
     try {
-      return await prisma.report.upsert({
+      const report = await prisma.report.upsert({
         where: {
           application_id: applicationId,
         },
@@ -93,6 +124,12 @@ export class ReportService {
           status: ReportStatus.PENDING,
         },
       });
+
+      return safeReport(
+        report,
+        applicationId,
+        `/me/applications/${applicationId}/report/file`
+      );
     } catch (error) {
       await this.storage.remove(stored.key);
       throw error;
@@ -136,7 +173,7 @@ export class ReportService {
       );
     }
 
-    return prisma.report.update({
+    const report = await prisma.report.update({
       where: {
         application_id: applicationId,
       },
@@ -145,5 +182,11 @@ export class ReportService {
         reviewed_at: new Date(),
       },
     });
+
+    return safeReport(
+      report,
+      applicationId,
+      `/cohorts/${cohortId}/admin/applications/${applicationId}/report/file`
+    );
   }
 }

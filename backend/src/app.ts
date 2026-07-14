@@ -16,6 +16,7 @@ import invitationRouter from "./modules/invitation/invitation.routes";
 import applicationRouter from "./modules/application/application.routes";
 import testTaskRoutes from "./modules/test-task/test-task.routes";
 import adminRoutes from "./modules/admin/admin.routes";
+import documentFileRoutes from "./modules/documents/document-file.routes";
 
 import surveyRoutes, { publicSurveyRouter } from "./modules/survey/survey.routes";
 import {
@@ -85,12 +86,13 @@ export function createApp(options: CreateAppOptions = {}) {
 
   app.use(surveyRoutes);
   app.use(applicationRouter);
+  app.use(documentFileRoutes);
   app.use("/test-task", testTaskRoutes);
   app.use("/cohorts", cohortRoleRoutes);
   app.use("/cohorts", cohortRouter);
   app.use("/tracks", trackRouter);
   app.use("/invitations", invitationRouter);
-  app.use("/admin", adminRoutes);
+  app.use(adminRoutes);
 
   app.get("/", (_req, res) => {
     return res.status(200).json({

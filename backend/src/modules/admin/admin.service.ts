@@ -1,332 +1,599 @@
-import { prisma } from "../../shared/prisma";
+import {
+  ApplicationStatus,
+  DocumentType,
+  Prisma,
+  ReportStatus,
+} from "@prisma/client";
 import { AppError } from "../../middlewares/error.middleware";
+import { prisma } from "../../shared/prisma";
+import { buildDocumentReadiness } from "../documents/document-readiness.service";
+import type { AdminApplicationsQuery } from "./dto/admin-applications-query.dto";
+import type { AdminDocumentsQuery } from "./dto/admin-documents-query.dto";
+
+function utcToday(): Date {
+  const now = new Date();
+
+  return new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate()
+    )
+  );
+}
+
+function adminReportDownloadPath(
+  cohortId: string,
+  applicationId: string
+) {
+  return `/cohorts/${cohortId}/admin/applications/${applicationId}/report/file`;
+}
+
+function withAdminDocumentDownloadPaths<
+  T extends { type: DocumentType; generated: boolean },
+>(cohortId: string, applicationId: string, documents: T[]) {
+  return documents.map((document) => ({
+    ...document,
+    downloadPath: document.generated
+      ? `/cohorts/${cohortId}/admin/applications/${applicationId}/documents/${document.type}/file`
+      : null,
+  }));
+}
 
 export class AdminService {
-  async getApprovedStudents(cohortId: string) {
-    return prisma.application.findMany({
-      where: {
+  async getApplications(
+    cohortId: string,
+    filters: AdminApplicationsQuery = {}
+  ) {
+    await this.assertCohortExists(cohortId);
+
+    const where: Prisma.ApplicationWhereInput = {
+      track: {
         cohort_id: cohortId,
-        status: "APPROVED",
+        ...(filters.trackId ? { id: filters.trackId } : {}),
+      },
+      ...(filters.status ? { status: filters.status } : {}),
+      ...(filters.search
+        ? {
+            user: {
+              OR: [
+                {
+                  full_name: {
+                    contains: filters.search,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  email: {
+                    contains: filters.search,
+                    mode: "insensitive",
+                  },
+                },
+              ],
+            },
+          }
+        : {}),
+    };
+
+    const applications = await prisma.application.findMany({
+      where,
+      select: {
+        id: true,
+        status: true,
+        submitted_at: true,
+        rejection_reason: true,
+        user: {
+          select: {
+            id: true,
+            full_name: true,
+            email: true,
+          },
+        },
+        track: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+        testTaskSubmission: {
+          select: {
+            id: true,
+            submitted_at: true,
+          },
+        },
+        report: {
+          select: {
+            status: true,
+            uploaded_at: true,
+            reviewed_at: true,
+          },
+        },
+        dailyTasks: {
+          where: {
+            task_date: { lte: utcToday() },
+            description: null,
+          },
+          select: { id: true },
+        },
+      },
+      orderBy: [{ submitted_at: "desc" }, { id: "asc" }],
+    });
+
+    return applications.map((application) => ({
+      applicationId: application.id,
+      status: application.status,
+      submittedAt: application.submitted_at,
+      rejectionReason: application.rejection_reason,
+      student: application.user,
+      track: application.track,
+      testTaskSubmission: application.testTaskSubmission
+        ? {
+            id: application.testTaskSubmission.id,
+            submittedAt:
+              application.testTaskSubmission.submitted_at,
+          }
+        : null,
+      report: application.report
+        ? {
+            status: application.report.status,
+            uploadedAt: application.report.uploaded_at,
+            reviewedAt: application.report.reviewed_at,
+            downloadPath: adminReportDownloadPath(
+              cohortId,
+              application.id
+            ),
+          }
+        : null,
+      missedDays: application.dailyTasks.length,
+    }));
+  }
+
+  async getApplication(cohortId: string, applicationId: string) {
+    const application = await prisma.application.findFirst({
+      where: {
+        id: applicationId,
+        track: { cohort_id: cohortId },
       },
       select: {
         id: true,
         status: true,
-        created_at: true,
-        review_comment: true,
+        submitted_at: true,
+        rejection_reason: true,
         user: {
           select: {
             id: true,
+            full_name: true,
             email: true,
+            created_at: true,
           },
         },
-        role: {
-          select: {
-            id: true,
-            name: true,
-          },
+        track: {
+          select: { id: true, title: true },
         },
-        user_id: true,
-        cohort_id: true,
-        role_id: true,
-      },
-      orderBy: {
-        created_at: "desc",
-      },
-    });
-  }
-
-  async getDocuments(cohortId: string) {
-    const applications = await prisma.application.findMany({
-      where: {
-        cohort_id: cohortId,
-        status: "APPROVED",
-      },
-      select: {
-        id: true,
-        user_id: true,
-        role: {
+        answers: {
           select: {
             id: true,
-            name: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            email: true,
-            studentDocumentDatas: {
-              where: {
-                cohort_id: cohortId,
+            answer_value: true,
+            question: {
+              select: {
+                id: true,
+                label: true,
+                type: true,
+                order_index: true,
               },
-              take: 1,
             },
           },
+          orderBy: { question: { order_index: "asc" } },
         },
-      },
-      orderBy: {
-        created_at: "desc",
-      },
-    });
-
-    return applications.map((application) => {
-      const documents = application.user.studentDocumentDatas[0] ?? null;
-
-      return {
-        application_id: application.id,
-        user_id: application.user_id,
-        user: {
-          id: application.user.id,
-          email: application.user.email,
+        testTaskSubmission: {
+          select: { id: true, submitted_at: true },
         },
-        role: application.role,
-        documents,
-        readiness: this.getDocumentReadiness(
-          documents as Record<string, unknown> | null
-        ),
-      };
-    });
-  }
-
-  private getDocumentReadiness(documents: Record<string, unknown> | null) {
-    const missingFields = (fields: string[]) => {
-      if (!documents) {
-        return fields;
-      }
-
-      return fields.filter((field) => {
-        const value = documents[field];
-
-        return value === null || value === undefined || value === "";
-      });
-    };
-
-    const individualTaskFields = [
-      "student_fio",
-      "group",
-      "direction_code",
-      "direction_name",
-      "program_name",
-      "practice_topic",
-      "main_stage_tasks",
-    ];
-
-    const reviewFields = [
-      "student_fio",
-      "group",
-      "review_activities",
-      "review_characteristic",
-      "review_employed",
-      "review_next_practice",
-      "review_employment_offer",
-      "review_suggestions",
-      "review_grade",
-    ];
-
-    const titlePageFields = [
-      "student_fio",
-      "group",
-      "specialty",
-      "practice_topic",
-      "report_file_url",
-    ];
-
-    const individualTaskMissing = missingFields(individualTaskFields);
-    const reviewMissing = missingFields(reviewFields);
-    const titlePageMissing = missingFields(titlePageFields);
-
-    if (!documents?.report_admin_approved) {
-      titlePageMissing.push("report_admin_approved");
-    }
-
-    return {
-      individual_task: {
-        ready: individualTaskMissing.length === 0,
-        missingFields: individualTaskMissing,
-      },
-      review: {
-        ready: reviewMissing.length === 0,
-        missingFields: reviewMissing,
-      },
-      title_page: {
-        ready: titlePageMissing.length === 0,
-        missingFields: titlePageMissing,
-      },
-    };
-  }
-
-  async getStudentDocuments(cohortId: string, userId: string) {
-    const application = await prisma.application.findFirst({
-      where: {
-        cohort_id: cohortId,
-        user_id: userId,
-        status: "APPROVED",
-      },
-      select: {
-        id: true,
-        user_id: true,
-        role: {
+        report: {
           select: {
             id: true,
-            name: true,
+            status: true,
+            uploaded_at: true,
+            reviewed_at: true,
           },
         },
-        user: {
+        documents: {
           select: {
-            id: true,
-            email: true,
+            type: true,
+            generated_file_url: true,
+            generated_at: true,
+            fieldValues: {
+              select: {
+                field_key: true,
+                value: true,
+                filled_by: true,
+              },
+              orderBy: { field_key: "asc" },
+            },
           },
         },
       },
     });
 
     if (!application) {
-      throw new AppError("Approved student not found", 404);
+      throw new AppError(
+        "Application not found",
+        404,
+        "APPLICATION_NOT_FOUND"
+      );
     }
 
-    const documents = await prisma.studentDocumentData.findUnique({
-      where: {
-        user_id_cohort_id: {
-          user_id: userId,
-          cohort_id: cohortId,
-        },
-      },
-    });
-
     return {
-      application_id: application.id,
-      user_id: application.user_id,
-      user: application.user,
-      role: application.role,
-      documents,
-      readiness: this.getDocumentReadiness(
-        documents as Record<string, unknown> | null
+      applicationId: application.id,
+      status: application.status,
+      submittedAt: application.submitted_at,
+      rejectionReason: application.rejection_reason,
+      student: application.user,
+      track: application.track,
+      answers: application.answers.map((answer) => ({
+        id: answer.id,
+        value: answer.answer_value,
+        question: answer.question,
+      })),
+      testTaskSubmission: application.testTaskSubmission
+        ? {
+            id: application.testTaskSubmission.id,
+            submittedAt:
+              application.testTaskSubmission.submitted_at,
+          }
+        : null,
+      report: application.report
+        ? {
+            id: application.report.id,
+            status: application.report.status,
+            uploadedAt: application.report.uploaded_at,
+            reviewedAt: application.report.reviewed_at,
+            downloadPath: adminReportDownloadPath(
+              cohortId,
+              application.id
+            ),
+          }
+        : null,
+      documents: withAdminDocumentDownloadPaths(
+        cohortId,
+        application.id,
+        buildDocumentReadiness(
+          application.documents,
+          application.report
+        )
       ),
     };
   }
 
-  async getTasks(cohortId: string) {
+  async getDocuments(
+    cohortId: string,
+    filters: AdminDocumentsQuery = {}
+  ) {
+    await this.assertCohortExists(cohortId);
+
     const applications = await prisma.application.findMany({
       where: {
-        cohort_id: cohortId,
-        status: "APPROVED",
+        status: ApplicationStatus.APPROVED,
+        track: {
+          cohort_id: cohortId,
+          ...(filters.trackId ? { id: filters.trackId } : {}),
+        },
+        ...(filters.studentId
+          ? { user_id: filters.studentId }
+          : {}),
+        ...(filters.search
+          ? {
+              user: {
+                OR: [
+                  {
+                    full_name: {
+                      contains: filters.search,
+                      mode: "insensitive",
+                    },
+                  },
+                  {
+                    email: {
+                      contains: filters.search,
+                      mode: "insensitive",
+                    },
+                  },
+                ],
+              },
+            }
+          : {}),
+        ...(filters.reportStatus === "MISSING"
+          ? { report: { is: null } }
+          : filters.reportStatus
+            ? { report: { is: { status: filters.reportStatus } } }
+            : {}),
       },
       select: {
         id: true,
-        user_id: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
         user: {
           select: {
             id: true,
+            full_name: true,
             email: true,
-            taskCards: {
-              where: {
-                cohort_id: cohortId,
-              },
-              orderBy: [
-                { date: "asc" },
-                { updated_at: "desc" },
-              ],
-            },
           },
         },
+        track: {
+          select: { id: true, title: true },
+        },
+        report: {
+          select: {
+            id: true,
+            status: true,
+            uploaded_at: true,
+            reviewed_at: true,
+          },
+        },
+        documents: {
+          select: {
+            type: true,
+            generated_file_url: true,
+            generated_at: true,
+            fieldValues: {
+              select: {
+                field_key: true,
+                value: true,
+                filled_by: true,
+              },
+              orderBy: { field_key: "asc" },
+            },
+          },
+          orderBy: { type: "asc" },
+        },
       },
-      orderBy: {
-        created_at: "desc",
+      orderBy: [{ user: { full_name: "asc" } }, { id: "asc" }],
+    });
+
+    return applications
+      .map((application) => {
+        const readiness = buildDocumentReadiness(
+          application.documents,
+          application.report
+        );
+
+        return {
+          applicationId: application.id,
+          student: application.user,
+          track: application.track,
+          report: application.report
+            ? {
+                id: application.report.id,
+                status: application.report.status,
+                uploadedAt: application.report.uploaded_at,
+                reviewedAt: application.report.reviewed_at,
+                downloadPath: adminReportDownloadPath(
+                  cohortId,
+                  application.id
+                ),
+              }
+            : null,
+          documents: withAdminDocumentDownloadPaths(
+            cohortId,
+            application.id,
+            readiness
+          ),
+        };
+      })
+      .filter((application) => {
+        if (!filters.readiness) {
+          return true;
+        }
+
+        const documents = filters.documentType
+          ? application.documents.filter(
+              (document) =>
+                document.type === filters.documentType
+            )
+          : application.documents;
+        const ready = documents.every((document) => document.ready);
+
+        return filters.readiness === "READY" ? ready : !ready;
+      });
+  }
+
+  async getApplicationDocuments(
+    cohortId: string,
+    applicationId: string
+  ) {
+    const application = await prisma.application.findFirst({
+      where: {
+        id: applicationId,
+        status: ApplicationStatus.APPROVED,
+        track: { cohort_id: cohortId },
+      },
+      select: {
+        id: true,
+        user: {
+          select: {
+            id: true,
+            full_name: true,
+            email: true,
+          },
+        },
+        track: {
+          select: { id: true, title: true },
+        },
+        report: {
+          select: {
+            id: true,
+            status: true,
+            uploaded_at: true,
+            reviewed_at: true,
+          },
+        },
+        documents: {
+          select: {
+            type: true,
+            generated_file_url: true,
+            generated_at: true,
+            fieldValues: {
+              select: {
+                field_key: true,
+                value: true,
+                filled_by: true,
+              },
+              orderBy: { field_key: "asc" },
+            },
+          },
+          orderBy: { type: "asc" },
+        },
       },
     });
 
-    return applications.map((application) => ({
-      application_id: application.id,
-      user_id: application.user_id,
-      user: {
-        id: application.user.id,
-        email: application.user.email,
-      },
-      role: application.role,
-      tasks: application.user.taskCards,
-    }));
-  }
-
-  async getStats(cohortId: string) {
-    const [
-      totalApplications,
-      pendingApplications,
-      approvedApplications,
-      rejectedApplications,
-      documentsCount,
-      uploadedReports,
-      approvedReports,
-      tasksCount,
-    ] = await Promise.all([
-      prisma.application.count({
-        where: {
-          cohort_id: cohortId,
-        },
-      }),
-      prisma.application.count({
-        where: {
-          cohort_id: cohortId,
-          status: "PENDING",
-        },
-      }),
-      prisma.application.count({
-        where: {
-          cohort_id: cohortId,
-          status: "APPROVED",
-        },
-      }),
-      prisma.application.count({
-        where: {
-          cohort_id: cohortId,
-          status: "REJECTED",
-        },
-      }),
-      prisma.studentDocumentData.count({
-        where: {
-          cohort_id: cohortId,
-        },
-      }),
-      prisma.studentDocumentData.count({
-        where: {
-          cohort_id: cohortId,
-          report_file_url: {
-            not: null,
-          },
-        },
-      }),
-      prisma.studentDocumentData.count({
-        where: {
-          cohort_id: cohortId,
-          report_admin_approved: true,
-        },
-      }),
-      prisma.taskCard.count({
-        where: {
-          cohort_id: cohortId,
-        },
-      }),
-    ]);
+    if (!application) {
+      throw new AppError(
+        "Approved application not found",
+        404,
+        "APPLICATION_NOT_FOUND"
+      );
+    }
 
     return {
+      applicationId: application.id,
+      student: application.user,
+      track: application.track,
+      report: application.report
+        ? {
+            id: application.report.id,
+            status: application.report.status,
+            uploadedAt: application.report.uploaded_at,
+            reviewedAt: application.report.reviewed_at,
+            downloadPath: adminReportDownloadPath(
+              cohortId,
+              application.id
+            ),
+          }
+        : null,
+      documents: withAdminDocumentDownloadPaths(
+        cohortId,
+        application.id,
+        buildDocumentReadiness(
+          application.documents,
+          application.report
+        )
+      ),
+      fieldValues: application.documents.map((document) => ({
+        type: document.type,
+        values: document.fieldValues.map((field) => ({
+          key: field.field_key,
+          value: field.value,
+          filledBy: field.filled_by,
+        })),
+      })),
+    };
+  }
+
+  async getOverview(cohortId: string) {
+    const [applications, documents, totalTasks, missedTasks] =
+      await Promise.all([
+        this.getApplications(cohortId),
+        this.getDocuments(cohortId),
+        prisma.dailyTask.count({
+          where: {
+            application: {
+              status: ApplicationStatus.APPROVED,
+              track: { cohort_id: cohortId },
+            },
+          },
+        }),
+        prisma.dailyTask.count({
+          where: {
+            task_date: { lte: utcToday() },
+            description: null,
+            application: {
+              status: ApplicationStatus.APPROVED,
+              track: { cohort_id: cohortId },
+            },
+          },
+        }),
+      ]);
+
+    const applicationStatuses = Object.values(
+      ApplicationStatus
+    ).reduce<Record<ApplicationStatus, number>>(
+      (result, status) => ({
+        ...result,
+        [status]: applications.filter(
+          (application) => application.status === status
+        ).length,
+      }),
+      {
+        PENDING: 0,
+        APPROVED: 0,
+        REJECTED: 0,
+      }
+    );
+
+    const reportStatuses = Object.values(ReportStatus).reduce<
+      Record<ReportStatus | "MISSING", number>
+    >(
+      (result, status) => ({
+        ...result,
+        [status]: documents.filter(
+          (application) => application.report?.status === status
+        ).length,
+      }),
+      {
+        MISSING: documents.filter(
+          (application) => !application.report
+        ).length,
+        PENDING: 0,
+        APPROVED: 0,
+        REJECTED: 0,
+      }
+    );
+
+    const documentStatuses = Object.values(DocumentType).map(
+      (type) => {
+        const states = documents.flatMap((application) =>
+          application.documents.filter(
+            (document) => document.type === type
+          )
+        );
+
+        return {
+          type,
+          ready: states.filter((document) => document.ready).length,
+          generated: states.filter(
+            (document) => document.generated
+          ).length,
+          total: states.length,
+        };
+      }
+    );
+
+    return {
+      cohortId,
       applications: {
-        total: totalApplications,
-        pending: pendingApplications,
-        approved: approvedApplications,
-        rejected: rejectedApplications,
+        total: applications.length,
+        statuses: applicationStatuses,
       },
       documents: {
-        totalRecords: documentsCount,
-        uploadedReports,
-        approvedReports,
+        approvedApplications: documents.length,
+        reports: reportStatuses,
+        types: documentStatuses,
       },
-      tasks: {
-        total: tasksCount,
+      progress: {
+        totalTasks,
+        missedTasks,
       },
     };
+  }
+
+  private async assertCohortExists(cohortId: string) {
+    const cohort = await prisma.cohort.findUnique({
+      where: { id: cohortId },
+      select: { id: true },
+    });
+
+    if (!cohort) {
+      throw new AppError(
+        "Cohort not found",
+        404,
+        "COHORT_NOT_FOUND"
+      );
+    }
   }
 }

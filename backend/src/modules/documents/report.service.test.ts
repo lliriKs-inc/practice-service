@@ -45,6 +45,32 @@ describe("ReportService", () => {
     });
   });
 
+  it("returns safe report metadata without exposing the storage key", async () => {
+    vi.spyOn(prisma.application, "findFirst").mockResolvedValue({
+      id: "application-1",
+      report: {
+        id: "report-1",
+        file_url: "reports/private.pdf",
+        status: ReportStatus.PENDING,
+        uploaded_at: new Date("2026-07-14T00:00:00.000Z"),
+        reviewed_at: null,
+      },
+    } as never);
+
+    const result = await service.getMine(
+      "student-1",
+      "application-1"
+    );
+
+    expect(result).toMatchObject({
+      id: "report-1",
+      hasFile: true,
+      downloadPath: "/me/applications/application-1/report/file",
+    });
+    expect(JSON.stringify(result)).not.toContain("private.pdf");
+    expect(JSON.stringify(result)).not.toContain("file_url");
+  });
+
   it("replaces report and resets status to pending", async () => {
     vi.spyOn(
       prisma.application,
@@ -79,7 +105,7 @@ describe("ReportService", () => {
         id: "report-1",
       } as any);
 
-    await service.replaceMine(
+    const result = await service.replaceMine(
       "student-1",
       "application-1",
       {
@@ -106,6 +132,11 @@ describe("ReportService", () => {
         }),
       })
     );
+    expect(result).toMatchObject({
+      id: "report-1",
+      downloadPath: "/me/applications/application-1/report/file",
+    });
+    expect(JSON.stringify(result)).not.toContain("new-file");
   });
 
   it("reviews a report only inside the selected cohort", async () => {
