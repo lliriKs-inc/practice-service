@@ -507,3 +507,118 @@ export async function uploadReport(applicationId: string, file: File): Promise<R
     if (!res.ok) throw new Error(data.message || 'Не удалось загрузить отчёт')
     return data
 }
+
+// ── Админ (F-05): review-поля документов и решение по отчёту ──────
+
+// PUT /cohorts/:cohortId/admin/applications/:applicationId/documents/:type/fields/:fieldKey
+export async function updateAdminDocumentField(
+    cohortId: string,
+    applicationId: string,
+    type: DocumentType,
+    fieldKey: string,
+    value: string
+): Promise<DocumentFieldValue> {
+    if (USE_MOCKS) {
+        // [MOCK]
+        await mockDelay(300)
+
+        const fieldConfig = DOCUMENT_FIELD_CONFIG[type].find(f => f.key === fieldKey)
+        if (!fieldConfig) throw new Error('Поле документа не найдено')
+        if (fieldConfig.owner !== 'ADMIN') throw new Error('Это поле заполняет студент, а не куратор')
+
+        const docs = mockEnsureDocuments(applicationId)
+        const idx = docs.findIndex(d => d.application_id === applicationId && d.type === type)
+        const doc = docs[idx]
+
+        const existingFieldIdx = doc.fieldValues.findIndex(f => f.key === fieldKey)
+        const fieldValue: DocumentFieldValue = {
+            id: existingFieldIdx >= 0 ? doc.fieldValues[existingFieldIdx].id : mockUid(),
+            key: fieldKey,
+            value,
+            filledBy: 'ADMIN',
+        }
+        const updatedFieldValues =
+            existingFieldIdx >= 0
+                ? doc.fieldValues.map((f, i) => (i === existingFieldIdx ? fieldValue : f))
+                : [...doc.fieldValues, fieldValue]
+
+        docs[idx] = { ...doc, fieldValues: updatedFieldValues }
+        mockSaveDocuments(docs)
+        return fieldValue
+    }
+
+    const res = await fetch(
+        `${API_URL}/cohorts/${cohortId}/admin/applications/${applicationId}/documents/${type}/fields/${fieldKey}`,
+        { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ value }) }
+    )
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message || 'Не удалось сохранить поле')
+    return data
+}
+
+// PATCH /cohorts/:cohortId/applications/:applicationId/report/status — решение куратора по отчёту
+export async function updateReportStatus(
+    cohortId: string,
+    applicationId: string,
+    status: Exclude<ReportStatus, 'PENDING'>
+): Promise<ReportInfo> {
+    if (USE_MOCKS) {
+        // [MOCK]
+        await mockDelay(400)
+
+        const reports = mockLoadReports()
+        const idx = reports.findIndex(r => r.application_id === applicationId)
+        if (idx === -1) throw new Error('Отчёт не найден')
+
+        const report: MockReport = { ...reports[idx], status, reviewed_at: new Date().toISOString() }
+        reports[idx] = report
+        mockSaveReports(reports)
+
+        return {
+            id: report.id,
+            applicationId,
+            status: report.status,
+            uploadedAt: report.uploaded_at,
+            reviewedAt: report.reviewed_at,
+            hasFile: true,
+            downloadPath: `/cohorts/${cohortId}/admin/applications/${applicationId}/report/file`,
+        }
+    }
+
+    const res = await fetch(`${API_URL}/cohorts/${cohortId}/applications/${applicationId}/report/status`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ status }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message || 'Не удалось обновить статус отчёта')
+    return data
+}
+
+export interface AdminDocumentFieldValues {
+    type: DocumentType
+    values: DocumentFieldValue[]
+}
+
+// GET /cohorts/:cohortId/admin/documents/:applicationId — значения полей всех 4 типов документов
+export async function getAdminApplicationDocumentDetail(
+    cohortId: string,
+    applicationId: string
+): Promise<{ applicationId: string; fieldValues: AdminDocumentFieldValues[] }> {
+    if (USE_MOCKS) {
+        // [MOCK]
+        await mockDelay(200)
+        const docs = mockEnsureDocuments(applicationId)
+        return {
+            applicationId,
+            fieldValues: docs
+                .filter(d => d.application_id === applicationId)
+                .map(d => ({ type: d.type, values: d.fieldValues })),
+        }
+    }
+
+    const res = await fetch(`${API_URL}/cohorts/${cohortId}/admin/documents/${applicationId}`, { headers: authHeaders() })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message || 'Не удалось загрузить поля документов')
+    return data
+}

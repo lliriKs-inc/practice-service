@@ -8,9 +8,13 @@ import {
     DailyTaskValidationError,
     MAX_DESCRIPTION_LENGTH,
     MAX_LINKS_COUNT,
+    getCohortWeekProgress,
+    getMissedProgress,
+    getMissedDaysCount,
 } from './tasks'
 
 const APPLICATION_ID = 'app-1'
+const COHORT_ID = 'cohort-1'
 
 function loginAsStudent() {
     saveToken('mock-jwt-student-1')
@@ -117,5 +121,94 @@ describe('getMyWeekTasks / updateDailyTask (моки)', () => {
         await expect(
             updateDailyTask('any-id', { description: null, links: [{ url: 'https://a.com' }, { url: 'https://a.com' }] })
         ).rejects.toThrow(DailyTaskValidationError)
+    })
+})
+
+describe('прогресс когорты (админ)', () => {
+    const APP_2 = 'app-2'
+
+    // Практика должна лежать в ПРОШЛОМ относительно реального "сегодня" теста —
+    // иначе "пропущенный день" (task_date <= today) никогда не сработает.
+    function pastMonday(weeksAgo: number): Date {
+        const d = new Date()
+        d.setUTCHours(0, 0, 0, 0)
+        d.setUTCDate(d.getUTCDate() - weeksAgo * 7)
+        const day = d.getUTCDay()
+        const diff = day === 0 ? -6 : 1 - day
+        d.setUTCDate(d.getUTCDate() + diff)
+        return d
+    }
+
+    const practiceStart = pastMonday(2)
+    const practiceEnd = new Date(practiceStart)
+    practiceEnd.setUTCDate(practiceEnd.getUTCDate() + 11) // захватывает 2 недели включительно
+
+    function seedTwoApprovedApplications() {
+        const apps: Application[] = [
+            {
+                id: APPLICATION_ID,
+                status: 'approved',
+                submitted_at: practiceStart.toISOString(),
+                track: { id: 'track-1', title: 'Backend' },
+                cohort: { id: COHORT_ID, title: 'Практика', start_date: practiceStart.toISOString(), end_date: practiceEnd.toISOString() },
+                student: { id: 'student-1', email: 'anna@urfu.ru' },
+                answers: [],
+            },
+            {
+                id: APP_2,
+                status: 'approved',
+                submitted_at: practiceStart.toISOString(),
+                track: { id: 'track-2', title: 'Frontend' },
+                cohort: { id: COHORT_ID, title: 'Практика', start_date: practiceStart.toISOString(), end_date: practiceEnd.toISOString() },
+                student: { id: 'student-2', email: 'boris@urfu.ru' },
+                answers: [],
+            },
+        ]
+        localStorage.setItem('mock_applications', JSON.stringify(apps))
+    }
+
+    beforeEach(() => {
+        localStorage.clear()
+        loginAsStudent()
+        seedTwoApprovedApplications()
+    })
+
+    it('недельная сетка когорты включает обоих студентов', async () => {
+        const weekStart = practiceStart.toISOString().split('T')[0]
+        const progress = await getCohortWeekProgress(COHORT_ID, weekStart)
+        expect(progress.students).toHaveLength(2)
+        expect(progress.students.map(s => s.student.email).sort()).toEqual(['anna@urfu.ru', 'boris@urfu.ru'])
+        expect(progress.days).toHaveLength(5)
+    })
+
+    it('незаполненный прошедший день попадает в missed', async () => {
+        const weekStart = practiceStart.toISOString().split('T')[0]
+        const week = await getMyWeekTasks(APPLICATION_ID, weekStart)
+        expect(week.days[0].task?.description).toBeNull()
+
+        const missed = await getMissedProgress(COHORT_ID, weekStart)
+        expect(missed.missed.some(m => m.applicationId === APPLICATION_ID)).toBe(true)
+    })
+
+    it('missed можно отфильтровать по конкретному студенту', async () => {
+        const weekStart = practiceStart.toISOString().split('T')[0]
+        const missed = await getMissedProgress(COHORT_ID, weekStart, 'student-1')
+        expect(missed.missed.every(m => m.student.id === 'student-1')).toBe(true)
+    })
+
+    it('заполненный день пропадает из missed после сохранения', async () => {
+        const weekStart = practiceStart.toISOString().split('T')[0]
+        const week = await getMyWeekTasks(APPLICATION_ID, weekStart)
+        await updateDailyTask(week.days[0].task!.id, { description: 'Сделано', links: [] })
+
+        const missed = await getMissedProgress(COHORT_ID, weekStart)
+        expect(missed.missed.some(m => m.taskId === week.days[0].task!.id)).toBe(false)
+    })
+
+    it('getMissedDaysCount считает пропущенные дни по всей практике, не только по неделе', async () => {
+        const weekStart = practiceStart.toISOString().split('T')[0]
+        await getMyWeekTasks(APPLICATION_ID, weekStart) // досеивает календарь на весь период практики
+        const count = await getMissedDaysCount(APPLICATION_ID)
+        expect(count).toBeGreaterThan(0)
     })
 })
