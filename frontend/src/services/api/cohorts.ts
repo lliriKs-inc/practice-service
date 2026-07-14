@@ -10,11 +10,12 @@
 // └───────────────────────────────────────────────────────────────┘
 
 import { getToken } from './auth'
+import { apiFetch } from '@/lib/api/http'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
 
 // [MOCK-CONFIG] Единственный переключатель. false — реальные запросы к API.
-export const USE_MOCKS = true
+export const USE_MOCKS = false
 
 // [MOCK] искусственная задержка для реалистичного UX загрузки
 function mockDelay(ms = 350) {
@@ -64,6 +65,8 @@ export interface Cohort {
     status: CohortStatus
     start_date: string
     end_date: string
+    application_start?: string | null
+    application_end?: string | null
     created_at: string
     tracks: Track[]
     survey: Survey | null
@@ -74,12 +77,55 @@ export interface CreateCohortDto {
     title: string
     start_date: string
     end_date: string
+    application_start?: string
+    application_end?: string
 }
 
 function authHeaders() {
     return {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${getToken()}`,
+    }
+}
+
+async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+    return apiFetch<T>(path, { ...init, body: init.body ? JSON.parse(String(init.body)) : undefined })
+}
+
+function mapType(type: string): Question['type'] {
+    return type.toLowerCase() as Question['type']
+}
+
+function mapQuestion(question: any): Question {
+    return { ...question, type: mapType(question.type), options: Array.isArray(question.options) ? question.options : [], order_index: question.order_index ?? 0 }
+}
+
+function mapTestTask(task: any): TestTask | null {
+    if (!task) return null
+    return { title: task.title, description: task.description ?? '', fileUrl: task.file_url ?? null, publishedAt: task.published_at ?? null }
+}
+
+function mapCohort(raw: any): Cohort {
+    return {
+        id: raw.id,
+        title: raw.title,
+        status: String(raw.status).toLowerCase() as CohortStatus,
+        start_date: raw.practice_start ?? raw.start_date,
+        end_date: raw.practice_end ?? raw.end_date,
+        application_start: raw.application_start ?? null,
+        application_end: raw.application_end ?? null,
+        created_at: raw.created_at,
+        tracks: (raw.tracks ?? []).map((track: any) => ({ id: track.id, title: track.title, testTask: mapTestTask(track.testTask) })),
+        survey: raw.survey ? { id: raw.survey.id, title: raw.survey.title, questions: (raw.survey.questions ?? []).map(mapQuestion) } : null,
+        invitation: raw.invitation ? { token: raw.invitation.token, expiresAt: raw.invitation.expires_at ?? null } : null,
+    }
+}
+
+function questionPayload(question: Partial<Question>) {
+    return {
+        ...question,
+        ...(question.type ? { type: question.type.toUpperCase() } : {}),
+        ...(question.options ? { options: question.options.length ? question.options : null } : {}),
     }
 }
 
@@ -172,7 +218,47 @@ export async function saveCohortDraft(id: string, draft: Cohort): Promise<Cohort
         mockSaveCohorts(cohorts)
         return draft
     }
-    throw new Error('saveCohortDraft недоступен без моков — нужно вызывать точечные API по diff’у')
+    const current = await getCohort(id)
+    if (draft.title !== current.title || draft.start_date !== current.start_date || draft.end_date !== current.end_date || draft.application_start !== current.application_start || draft.application_end !== current.application_end) {
+        await updateCohort(id, { title: draft.title, start_date: draft.start_date, end_date: draft.end_date, application_start: draft.application_start ?? undefined, application_end: draft.application_end ?? undefined })
+    }
+    if (draft.status !== current.status) {
+        if (draft.status === 'active') await activateCohort(id)
+        else if (draft.status === 'closed') await closeCohort(id)
+        else throw new Error('Нельзя повторно открыть закрытую когорту')
+    }
+    const currentTracks = new Map(current.tracks.map(track => [track.id, track]))
+    for (const track of draft.tracks) {
+        let previous = currentTracks.get(track.id)
+        if (!previous) {
+            const created = await createTrack(id, track.title)
+            previous = created
+            currentTracks.set(created.id, created)
+        }
+        if (previous.title !== track.title) await updateTrack(id, previous.id, track.title)
+        if (JSON.stringify(previous.testTask) !== JSON.stringify(track.testTask) && track.testTask) {
+            await updateTrackTestTask(id, previous.id, { title: track.testTask.title, description: track.testTask.description })
+        }
+        if (!!previous.testTask?.publishedAt !== !!track.testTask?.publishedAt && track.testTask) await toggleTestTaskPublish(id, previous.id)
+    }
+    for (const track of current.tracks) if (!draft.tracks.some(next => next.id === track.id)) await deleteTrack(id, track.id)
+
+    const currentSurvey = current.survey
+    let surveyId = currentSurvey?.id
+    if (draft.survey && !surveyId) surveyId = (await createSurvey(id, draft.survey.title)).id
+    if (draft.survey && surveyId) {
+        const currentQuestions = new Map((currentSurvey?.questions ?? []).map(question => [question.id, question]))
+        for (const question of draft.survey.questions) {
+            const previous = currentQuestions.get(question.id)
+            if (!previous) await createQuestion(id, question)
+            else if (JSON.stringify(previous) !== JSON.stringify(question)) await updateQuestion(id, question.id, question)
+        }
+        for (const question of currentSurvey?.questions ?? []) if (!draft.survey.questions.some(next => next.id === question.id)) await deleteQuestion(id, question.id)
+    }
+    if (!draft.invitation && current.invitation) await deleteInvitation(id)
+    else if (draft.invitation && !current.invitation) await createInvitation(id)
+    else if (draft.invitation && current.invitation && draft.invitation.token !== current.invitation.token) await regenerateInvitation(id)
+    return getCohort(id)
 }
 
 // [MOCK-ONLY] обнулить когорты до дефолтного набора при ручном тестировании
@@ -201,12 +287,12 @@ export async function getCohorts(): Promise<Cohort[]> {
         await mockDelay()
         return mockLoadCohorts()
     }
-    const res = await fetch(`${API_URL}/cohorts`, { headers: authHeaders() })
-    if (!res.ok) throw new Error('Не удалось загрузить когорты')
-    const data = await res.json()
-    if (Array.isArray(data)) return data
-    if (data.success && Array.isArray(data.data)) return data.data
-    return []
+    const data = await apiRequest<any[]>('/cohorts')
+    return data.map(mapCohort)
+}
+
+export async function getCohort(id: string): Promise<Cohort> {
+    return mapCohort(await apiRequest<any>(`/cohorts/${id}`))
 }
 
 // POST /cohorts
@@ -228,15 +314,7 @@ export async function createCohort(dto: CreateCohortDto): Promise<Cohort> {
         mockSaveCohorts([cohort, ...mockLoadCohorts()])
         return cohort
     }
-    const res = await fetch(`${API_URL}/cohorts`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify(dto),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось создать когорту')
-    if (data.success && data.data) return data.data
-    return data
+    return mapCohort(await apiRequest<any>('/cohorts', { method: 'POST', body: JSON.stringify({ title: dto.title, practice_start: dto.start_date, practice_end: dto.end_date, application_start: dto.application_start, application_end: dto.application_end }) }))
 }
 
 // PATCH /cohorts/:id — общие поля (title, даты)
@@ -250,15 +328,7 @@ export async function updateCohort(id: string, dto: Partial<CreateCohortDto>): P
         mockSaveCohorts(cohorts)
         return cohort
     }
-    const res = await fetch(`${API_URL}/cohorts/${id}`, {
-        method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify(dto),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось обновить когорту')
-    if (data.success && data.data) return data.data
-    return data
+    return mapCohort(await apiRequest<any>(`/cohorts/${id}`, { method: 'PATCH', body: JSON.stringify({ title: dto.title, practice_start: dto.start_date, practice_end: dto.end_date, application_start: dto.application_start, application_end: dto.application_end }) }))
 }
 
 // POST /cohorts/:id/activate
@@ -272,14 +342,7 @@ export async function activateCohort(id: string): Promise<Cohort> {
         mockSaveCohorts(cohorts)
         return cohort
     }
-    const res = await fetch(`${API_URL}/cohorts/${id}/activate`, {
-        method: 'POST',
-        headers: authHeaders(),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось активировать когорту')
-    if (data.success && data.data) return data.data
-    return data
+    return mapCohort(await apiRequest<any>(`/cohorts/${id}/activate`, { method: 'PATCH' }))
 }
 
 // POST /cohorts/:id/close
@@ -293,14 +356,7 @@ export async function closeCohort(id: string): Promise<Cohort> {
         mockSaveCohorts(cohorts)
         return cohort
     }
-    const res = await fetch(`${API_URL}/cohorts/${id}/close`, {
-        method: 'POST',
-        headers: authHeaders(),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось закрыть когорту')
-    if (data.success && data.data) return data.data
-    return data
+    return mapCohort(await apiRequest<any>(`/cohorts/${id}/close`, { method: 'PATCH' }))
 }
 
 // ── Треки ──────────────────────────────────────────────────────
@@ -317,15 +373,13 @@ export async function createTrack(cohortId: string, title: string): Promise<Trac
         mockSaveCohorts(cohorts)
         return track
     }
-    const res = await fetch(`${API_URL}/cohorts/${cohortId}/tracks`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ title }),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось создать трек')
-    if (data.success && data.data) return data.data
-    return data
+    const data = await apiRequest<any>(`/cohorts/${cohortId}/tracks`, { method: 'POST', body: JSON.stringify({ title }) })
+    return { id: data.id, title: data.title, testTask: mapTestTask(data.testTask) }
+}
+
+export async function updateTrack(cohortId: string, trackId: string, title: string): Promise<Track> {
+    const data = await apiRequest<any>(`/cohorts/${cohortId}/tracks/${trackId}`, { method: 'PATCH', body: JSON.stringify({ title }) })
+    return { id: data.id, title: data.title, testTask: mapTestTask(data.testTask) }
 }
 
 // DELETE /cohorts/:id/tracks/:trackId
@@ -339,11 +393,7 @@ export async function deleteTrack(cohortId: string, trackId: string): Promise<vo
         mockSaveCohorts(cohorts)
         return
     }
-    const res = await fetch(`${API_URL}/cohorts/${cohortId}/tracks/${trackId}`, {
-        method: 'DELETE',
-        headers: authHeaders(),
-    })
-    if (!res.ok) throw new Error('Не удалось удалить трек')
+    await apiRequest<void>(`/cohorts/${cohortId}/tracks/${trackId}`, { method: 'DELETE' })
 }
 
 // PUT /cohorts/:id/tracks/:trackId/test-task
@@ -366,15 +416,7 @@ export async function updateTrackTestTask(
         mockSaveCohorts(cohorts)
         return track.testTask
     }
-    const res = await fetch(`${API_URL}/cohorts/${cohortId}/tracks/${trackId}/test-task`, {
-        method: 'PUT',
-        headers: authHeaders(),
-        body: JSON.stringify(patch),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось обновить тестовое задание')
-    if (data.success && data.data) return data.data
-    return data
+    return mapTestTask(await apiRequest<any>(`/cohorts/${cohortId}/tracks/${trackId}/test-task`, { method: 'PUT', body: JSON.stringify(patch) }))!
 }
 
 // POST /cohorts/:id/tracks/:trackId/test-task/publish
@@ -390,14 +432,7 @@ export async function toggleTestTaskPublish(cohortId: string, trackId: string): 
         mockSaveCohorts(cohorts)
         return track.testTask
     }
-    const res = await fetch(`${API_URL}/cohorts/${cohortId}/tracks/${trackId}/test-task/publish`, {
-        method: 'POST',
-        headers: authHeaders(),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось опубликовать задание')
-    if (data.success && data.data) return data.data
-    return data
+    return mapTestTask(await apiRequest<any>(`/cohorts/${cohortId}/tracks/${trackId}/test-task/publish`, { method: 'POST' }))!
 }
 
 // ── Анкета / вопросы ──────────────────────────────────────────
@@ -415,15 +450,12 @@ export async function createQuestion(cohortId: string, question: Omit<Question, 
         mockSaveCohorts(cohorts)
         return q
     }
-    const res = await fetch(`${API_URL}/cohorts/${cohortId}/survey/questions`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify(question),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось создать вопрос')
-    if (data.success && data.data) return data.data
-    return data
+    return mapQuestion(await apiRequest<any>(`/cohorts/${cohortId}/survey/questions`, { method: 'POST', body: JSON.stringify(questionPayload(question)) }))
+}
+
+async function createSurvey(cohortId: string, title: string): Promise<Survey> {
+    const data = await apiRequest<any>(`/cohorts/${cohortId}/survey`, { method: 'POST', body: JSON.stringify({ title }) })
+    return { id: data.id, title: data.title, questions: (data.questions ?? []).map(mapQuestion) }
 }
 
 // PATCH /cohorts/:id/survey/questions/:questionId
@@ -443,15 +475,7 @@ export async function updateQuestion(
         mockSaveCohorts(cohorts)
         return q
     }
-    const res = await fetch(`${API_URL}/cohorts/${cohortId}/survey/questions/${questionId}`, {
-        method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify(patch),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось обновить вопрос')
-    if (data.success && data.data) return data.data
-    return data
+    return mapQuestion(await apiRequest<any>(`/cohorts/${cohortId}/survey/questions/${questionId}`, { method: 'PATCH', body: JSON.stringify(questionPayload(patch)) }))
 }
 
 // DELETE /cohorts/:id/survey/questions/:questionId
@@ -467,11 +491,7 @@ export async function deleteQuestion(cohortId: string, questionId: string): Prom
         mockSaveCohorts(cohorts)
         return
     }
-    const res = await fetch(`${API_URL}/cohorts/${cohortId}/survey/questions/${questionId}`, {
-        method: 'DELETE',
-        headers: authHeaders(),
-    })
-    if (!res.ok) throw new Error('Не удалось удалить вопрос')
+    await apiRequest<void>(`/cohorts/${cohortId}/survey/questions/${questionId}`, { method: 'DELETE' })
 }
 
 // ── Приглашение ────────────────────────────────────────────────
@@ -487,14 +507,8 @@ export async function createInvitation(cohortId: string): Promise<Invitation> {
         mockSaveCohorts(cohorts)
         return cohort.invitation
     }
-    const res = await fetch(`${API_URL}/cohorts/${cohortId}/invitation`, {
-        method: 'POST',
-        headers: authHeaders(),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось создать приглашение')
-    if (data.success && data.data) return data.data
-    return data
+    const data = await apiRequest<any>(`/cohorts/${cohortId}/invitation`, { method: 'POST' })
+    return { token: data.token, expiresAt: data.expires_at ?? null }
 }
 
 // POST /cohorts/:id/invitation/regenerate
@@ -508,12 +522,10 @@ export async function regenerateInvitation(cohortId: string): Promise<Invitation
         mockSaveCohorts(cohorts)
         return cohort.invitation
     }
-    const res = await fetch(`${API_URL}/cohorts/${cohortId}/invitation/regenerate`, {
-        method: 'POST',
-        headers: authHeaders(),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось перегенерировать токен')
-    if (data.success && data.data) return data.data
-    return data
+    const data = await apiRequest<any>(`/cohorts/${cohortId}/invitation/regenerate`, { method: 'POST' })
+    return { token: data.token, expiresAt: data.expires_at ?? null }
+}
+
+export async function deleteInvitation(cohortId: string): Promise<void> {
+    await apiRequest<void>(`/cohorts/${cohortId}/invitation`, { method: 'DELETE' })
 }

@@ -51,7 +51,7 @@ export default function AdminCohortsPage() {
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [createLoading, setCreateLoading] = useState(false)
     const [createError, setCreateError] = useState('')
-    const [newCohort, setNewCohort] = useState({ title: '', start_date: '', end_date: '' })
+    const [newCohort, setNewCohort] = useState({ title: '', application_start: '', application_end: '', start_date: '', end_date: '' })
 
     // ── Редактирование: локальный черновик ────────────────────────
     // Все правки в модалке применяются только к editDraft. Ничего не
@@ -70,12 +70,14 @@ export default function AdminCohortsPage() {
         try {
             await createCohort({
                 title: newCohort.title,
+                application_start: newCohort.application_start || undefined,
+                application_end: newCohort.application_end || undefined,
                 start_date: newCohort.start_date || new Date().toISOString().slice(0, 10),
                 end_date: newCohort.end_date || new Date().toISOString().slice(0, 10),
             })
             await refetchCohorts()
             setShowCreateModal(false)
-            setNewCohort({ title: '', start_date: '', end_date: '' })
+            setNewCohort({ title: '', application_start: '', application_end: '', start_date: '', end_date: '' })
         } catch (err: unknown) {
             setCreateError(err instanceof Error ? err.message : 'Ошибка создания когорты')
         } finally {
@@ -361,6 +363,21 @@ export default function AdminCohortsPage() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-medium text-[#1C1A3A]">Начало приёма заявок</label>
+                                    <input type="date" value={newCohort.application_start}
+                                        onChange={e => setNewCohort(prev => ({ ...prev, application_start: e.target.value }))}
+                                        className="w-full text-sm" />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-medium text-[#1C1A3A]">Конец приёма заявок</label>
+                                    <input type="date" value={newCohort.application_end}
+                                        onChange={e => setNewCohort(prev => ({ ...prev, application_end: e.target.value }))}
+                                        className="w-full text-sm" />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-[#1C1A3A]">Начало практики</label>
                                     <input type="date" value={newCohort.start_date}
                                         onChange={e => setNewCohort(prev => ({ ...prev, start_date: e.target.value }))}
@@ -473,7 +490,22 @@ export default function AdminCohortsPage() {
                                             className="w-full text-sm" />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-medium text-[#1C1A3A]">Начало приёма заявок</label>
+                                    <input type="date" value={toDateInput(editDraft.application_start ?? '')}
+                                        onChange={e => patchDraft({ application_start: e.target.value })}
+                                        className="w-full text-sm" />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-medium text-[#1C1A3A]">Конец приёма заявок</label>
+                                    <input type="date" value={toDateInput(editDraft.application_end ?? '')}
+                                        onChange={e => patchDraft({ application_end: e.target.value })}
+                                        className="w-full text-sm" />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-sm font-medium text-[#1C1A3A]">Начало практики</label>
                                             <input type="date" value={toDateInput(editDraft.start_date)}

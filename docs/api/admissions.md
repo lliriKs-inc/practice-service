@@ -79,6 +79,8 @@ Requires `ADMIN`. Accepts `APPROVED` or `REJECTED`; `REJECTED` requires `rejecti
 
 `POST /cohorts` requires `ADMIN`. The server validates `title`, `practice_start`, `practice_end` and the optional application window. Date ranges must not be reversed, and `created_by` is taken from the authenticated user.
 
+Administrative management is available through `GET /cohorts`, `GET /cohorts/:cohortId`, and `PATCH /cohorts/:cohortId`. Status transitions use `PATCH /cohorts/:cohortId/activate` and `PATCH /cohorts/:cohortId/close`; only `DRAFT -> ACTIVE -> CLOSED` is accepted, and only one cohort may be active at a time.
+
 Cohort statuses are `DRAFT`, `ACTIVE`, and `CLOSED`. Closed cohorts do not accept new invitations or applications.
 
 ### Track API
@@ -87,11 +89,18 @@ Cohort statuses are `DRAFT`, `ACTIVE`, and `CLOSED`. Closed cohorts do not accep
 
 `GET /tracks` requires authentication and an explicitly verified cohort context. It returns tracks from that cohort only; cross-cohort resources must not be exposed or accepted.
 
+The admin workspace may use the explicit equivalents `GET/POST /cohorts/:cohortId/tracks`, `PATCH /cohorts/:cohortId/tracks/:trackId`, and `DELETE /cohorts/:cohortId/tracks/:trackId`. Track deletion is rejected when applications already exist for the track.
+
 ### Invitation API
 
 `POST /invitations` requires `ADMIN`, validates a positive `expires_in_days`, and generates the token server-side using a cryptographically secure random generator. A new invitation replaces the previous invitation for the same cohort.
 
 `POST /invitations/validate` is public. The server checks token existence, expiration, linked cohort status, and the application window. The response exposes only public cohort data required for registration.
+
+The admin workspace may use `POST /cohorts/:cohortId/invitation` and `POST /cohorts/:cohortId/invitation/regenerate`; both generate a server-side token and replace the previous invitation for that cohort.
+`DELETE /cohorts/:cohortId/invitation` removes the current invitation when the admin explicitly removes the application link.
+
+For survey editing, the explicit cohort routes are `GET/POST /cohorts/:cohortId/survey` and `POST/PATCH/DELETE /cohorts/:cohortId/survey/questions/...`. They resolve the survey through the cohort and enforce question ownership.
 
 ### Authorization, context and errors
 

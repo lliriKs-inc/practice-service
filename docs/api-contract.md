@@ -47,6 +47,11 @@ JWT middleware использует `AUTH_TOKEN_MISSING`, `AUTH_TOKEN_INVALID_FO
 | GET | `/api/v1/auth/me` | Authenticated | 200 | Профиль текущего пользователя |
 | POST | `/api/v1/auth/register` | Public | 201 | Зарегистрировать student account |
 | POST | `/api/v1/cohorts` | ADMIN | 201 | Создать cohort |
+| GET | `/api/v1/cohorts` | ADMIN | 200 | Список cohort с tracks/survey/invitation |
+| GET | `/api/v1/cohorts/:cohortId` | ADMIN | 200 | Детали cohort |
+| PATCH | `/api/v1/cohorts/:cohortId` | ADMIN | 200 | Обновить поля cohort |
+| PATCH | `/api/v1/cohorts/:cohortId/activate` | ADMIN | 200 | Перевести DRAFT cohort в ACTIVE |
+| PATCH | `/api/v1/cohorts/:cohortId/close` | ADMIN | 200 | Перевести ACTIVE cohort в CLOSED |
 | GET | `/api/v1/cohorts/:cohortId/admin/applications` | ADMIN | 200 | Admin application list/read model |
 | GET | `/api/v1/cohorts/:cohortId/admin/applications/:applicationId` | ADMIN | 200 | Admin application detail |
 | PUT | `/api/v1/cohorts/:cohortId/admin/applications/:applicationId/documents/:type/fields/:fieldKey` | ADMIN | 200 | Autosave admin-owned document field |
@@ -62,6 +67,15 @@ JWT middleware использует `AUTH_TOKEN_MISSING`, `AUTH_TOKEN_INVALID_FO
 | GET | `/api/v1/cohorts/:cohortId/applications/:applicationId/test-task-submission` | ADMIN | 200 | Submission metadata |
 | GET | `/api/v1/cohorts/:cohortId/progress` | ADMIN | 200 | Weekly cohort progress |
 | GET | `/api/v1/cohorts/:cohortId/progress/missed` | ADMIN | 200 | Missed daily tasks |
+| GET | `/api/v1/cohorts/:cohortId/survey` | ADMIN | 200 | Survey cohort с вопросами |
+| POST | `/api/v1/cohorts/:cohortId/survey` | ADMIN | 201 | Создать survey cohort |
+| POST | `/api/v1/cohorts/:cohortId/survey/questions` | ADMIN | 201 | Создать вопрос cohort survey |
+| DELETE | `/api/v1/cohorts/:cohortId/survey/questions/:questionId` | ADMIN | 204 | Удалить вопрос cohort survey |
+| PATCH | `/api/v1/cohorts/:cohortId/survey/questions/:questionId` | ADMIN | 200 | Обновить вопрос cohort survey |
+| GET | `/api/v1/cohorts/:cohortId/tracks` | ADMIN | 200 | Tracks cohort |
+| POST | `/api/v1/cohorts/:cohortId/tracks` | ADMIN | 201 | Создать track cohort |
+| DELETE | `/api/v1/cohorts/:cohortId/tracks/:trackId` | ADMIN | 204 | Удалить track cohort |
+| PATCH | `/api/v1/cohorts/:cohortId/tracks/:trackId` | ADMIN | 200 | Обновить track cohort |
 | DELETE | `/api/v1/cohorts/:cohortId/tracks/:trackId/test-task` | ADMIN | 200 | Delete test task |
 | GET | `/api/v1/cohorts/:cohortId/tracks/:trackId/test-task` | ADMIN | 200 | Admin test task metadata |
 | PUT | `/api/v1/cohorts/:cohortId/tracks/:trackId/test-task` | ADMIN | 200 | Create/update test task |
@@ -70,6 +84,9 @@ JWT middleware использует `AUTH_TOKEN_MISSING`, `AUTH_TOKEN_INVALID_FO
 | GET | `/api/v1/cohorts/public/current` | Public | 200 | Current accepting cohort |
 | GET | `/api/v1/files/:category/:fileName` | STUDENT or ADMIN | 200 | Protected task/submission file |
 | POST | `/api/v1/invitations` | ADMIN | 201 | Create/replace invitation |
+| POST | `/api/v1/cohorts/:cohortId/invitation` | ADMIN | 201 | Создать/заменить invitation cohort |
+| POST | `/api/v1/cohorts/:cohortId/invitation/regenerate` | ADMIN | 201 | Перегенерировать invitation cohort |
+| DELETE | `/api/v1/cohorts/:cohortId/invitation` | ADMIN | 204 | Удалить invitation cohort |
 | POST | `/api/v1/invitations/validate` | Public | 200 | Validate invitation |
 | GET | `/api/v1/me/applications` | STUDENT | 200 | Own application archive |
 | GET | `/api/v1/me/applications/:applicationId` | STUDENT | 200 | Own application detail |

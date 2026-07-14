@@ -7,7 +7,7 @@
 
 import { clearSession, getToken } from './session'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
 
 // Единый формат ошибки API — вместо того, чтобы каждый вызывающий код сам
 // разбирал res.ok/res.json()/err.message.

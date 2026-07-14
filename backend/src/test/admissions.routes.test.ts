@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import authRoutes from "../modules/auth/auth.routes";
 import cohortRoutes from "../modules/cohort/cohort.routes";
-import trackRoutes from "../modules/track/track.routes";
+import trackRoutes, { nestedTrackRoutes } from "../modules/track/track.routes";
 import invitationRoutes from "../modules/invitation/invitation.routes";
-import surveyRoutes, { publicSurveyRouter } from "../modules/survey/survey.routes";
+import surveyRoutes, { nestedSurveyRouter, publicSurveyRouter } from "../modules/survey/survey.routes";
 import applicationRoutes from "../modules/application/application.routes";
 import testTaskRoutes from "../modules/test-task/test-task.routes";
 
@@ -22,8 +22,17 @@ describe("Admissions route registry", () => {
     expect(routePaths(invitationRoutes)).toContain("POST /validate");
     expect(routePaths(publicSurveyRouter)).toContain("GET /public/invitations/:token/form");
     expect(routePaths(trackRoutes)).toEqual(expect.arrayContaining(["POST /", "GET /"]));
+    expect(routePaths(nestedTrackRoutes)).toEqual(expect.arrayContaining([
+      "GET /cohorts/:cohortId/tracks", "POST /cohorts/:cohortId/tracks",
+      "PATCH /cohorts/:cohortId/tracks/:trackId", "DELETE /cohorts/:cohortId/tracks/:trackId",
+    ]));
     expect(routePaths(surveyRoutes)).toEqual(expect.arrayContaining([
       "POST /surveys", "GET /surveys/:surveyId", "POST /surveys/:surveyId/questions",
+    ]));
+    expect(routePaths(nestedSurveyRouter)).toEqual(expect.arrayContaining([
+      "GET /cohorts/:cohortId/survey", "POST /cohorts/:cohortId/survey",
+      "POST /cohorts/:cohortId/survey/questions", "PATCH /cohorts/:cohortId/survey/questions/:questionId",
+      "DELETE /cohorts/:cohortId/survey/questions/:questionId",
     ]));
   });
 

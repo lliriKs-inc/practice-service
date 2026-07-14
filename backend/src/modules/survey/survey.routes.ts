@@ -3,7 +3,7 @@ import { authenticateJWT } from "../../middlewares/auth.middleware";
 import { requireRole } from "../../middlewares/role.middleware";
 import { UserRole } from "@prisma/client";
 import { copySurvey, createQuestion, createSurvey, deleteQuestion, deleteSurvey, getQuestion, getQuestions, getSurvey, reorderQuestions, updateQuestion, updateSurvey } from "./survey.controller";
-import { getPublicForm } from "./survey.controller";
+import { createCohortQuestion, createCohortSurvey, deleteCohortQuestion, getCohortSurvey, getPublicForm, updateCohortQuestion } from "./survey.controller";
 
 const router = Router();
 const adminOnly = [authenticateJWT, requireRole(UserRole.ADMIN)];
@@ -22,3 +22,11 @@ export default router;
 
 export const publicSurveyRouter = Router();
 publicSurveyRouter.get("/public/invitations/:token/form", getPublicForm);
+
+export const nestedSurveyRouter = Router();
+const nestedAdminOnly = [authenticateJWT, requireRole(UserRole.ADMIN)];
+nestedSurveyRouter.get("/cohorts/:cohortId/survey", ...nestedAdminOnly, getCohortSurvey);
+nestedSurveyRouter.post("/cohorts/:cohortId/survey", ...nestedAdminOnly, createCohortSurvey);
+nestedSurveyRouter.post("/cohorts/:cohortId/survey/questions", ...nestedAdminOnly, createCohortQuestion);
+nestedSurveyRouter.patch("/cohorts/:cohortId/survey/questions/:questionId", ...nestedAdminOnly, updateCohortQuestion);
+nestedSurveyRouter.delete("/cohorts/:cohortId/survey/questions/:questionId", ...nestedAdminOnly, deleteCohortQuestion);
