@@ -15,4 +15,9 @@ describe("TrackService", () => {
     await new TrackService().getTracksByCohort("cohort-1");
     expect(findMany).toHaveBeenCalledWith({ where: { cohort_id: "cohort-1" } });
   });
+
+  it("rejects deleting a track that already has applications", async () => {
+    vi.spyOn(prisma.track, "findFirst").mockResolvedValue({ id: "track-1", cohort_id: "cohort-1", _count: { applications: 1 } } as any);
+    await expect(new TrackService().deleteTrack("cohort-1", "track-1")).rejects.toMatchObject({ code: "TRACK_HAS_APPLICATIONS" });
+  });
 });

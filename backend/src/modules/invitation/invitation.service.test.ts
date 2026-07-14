@@ -38,4 +38,11 @@ describe("InvitationService", () => {
     vi.spyOn(prisma.invitation, "findUnique").mockResolvedValue({ token: "valid", cohort_id: "cohort-1", expires_at: new Date(Date.now() + 1000), cohort } as any);
     await expect(new InvitationService().validateToken("valid")).resolves.toEqual({ valid: true, cohort_id: "cohort-1", cohort_title: "Cohort" });
   });
+
+  it("deletes the invitation for a cohort", async () => {
+    vi.spyOn(prisma.invitation, "findUnique").mockResolvedValue({ id: "inv-1", cohort_id: "cohort-1" } as any);
+    const remove = vi.spyOn(prisma.invitation, "delete").mockResolvedValue({} as any);
+    await new InvitationService().deleteInvitation("cohort-1");
+    expect(remove).toHaveBeenCalledWith({ where: { cohort_id: "cohort-1" } });
+  });
 });

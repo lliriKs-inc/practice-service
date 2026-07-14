@@ -1,9 +1,10 @@
 import type { Router } from "express";
 import authRoutes from "../modules/auth/auth.routes";
 import cohortRoutes from "../modules/cohort/cohort.routes";
-import trackRoutes from "../modules/track/track.routes";
-import invitationRoutes from "../modules/invitation/invitation.routes";
+import trackRoutes, { nestedTrackRoutes } from "../modules/track/track.routes";
+import invitationRoutes, { nestedInvitationRoutes } from "../modules/invitation/invitation.routes";
 import surveyRoutes, {
+  nestedSurveyRouter,
   publicSurveyRouter,
 } from "../modules/survey/survey.routes";
 import applicationRoutes from "../modules/application/application.routes";
@@ -27,9 +28,12 @@ export const API_V1_MOUNTS: readonly ApiMount[] = [
   { id: "auth", prefix: "/auth", phase: "public", router: authRoutes },
   { id: "cohorts", prefix: "/cohorts", phase: "public", router: cohortRoutes },
   { id: "invitations", prefix: "/invitations", phase: "public", router: invitationRoutes },
+  { id: "cohort-invitations", prefix: "/", phase: "private", router: nestedInvitationRoutes },
   { id: "public-survey", prefix: "/", phase: "public", router: publicSurveyRouter },
   { id: "tracks", prefix: "/tracks", phase: "private", router: trackRoutes },
+  { id: "cohort-tracks", prefix: "/", phase: "private", router: nestedTrackRoutes },
   { id: "survey", prefix: "/", phase: "private", router: surveyRoutes },
+  { id: "cohort-survey", prefix: "/", phase: "private", router: nestedSurveyRouter },
   { id: "application-practice", prefix: "/", phase: "private", router: applicationRoutes },
   { id: "test-task", prefix: "/", phase: "private", router: testTaskRoutes },
   { id: "document-files", prefix: "/", phase: "private", router: documentFileRoutes },

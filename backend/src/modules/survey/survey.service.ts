@@ -6,6 +6,13 @@ import type { CreateQuestionDto, CreateSurveyDto, UpdateQuestionDto } from "./dt
 const surveyWithQuestions = { questions: { orderBy: { order_index: "asc" as const } } } satisfies Prisma.SurveyInclude;
 
 export class SurveyService {
+  async getSurveyByCohort(cohortId: string) {
+    return prisma.survey.findUnique({ where: { cohort_id: cohortId }, include: surveyWithQuestions });
+  }
+
+  async createSurveyForCohort(cohortId: string, title: string) {
+    return this.createSurvey({ cohort_id: cohortId, title });
+  }
   async createSurvey(data: CreateSurveyDto) {
     const cohort = await prisma.cohort.findUnique({ where: { id: data.cohort_id } });
     if (!cohort) throw new AppError("Cohort not found", 404, "COHORT_NOT_FOUND");

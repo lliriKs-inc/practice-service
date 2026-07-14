@@ -6,3 +6,9 @@ export const createTrackSchema = z.object({
 });
 
 export type CreateTrackDto = z.infer<typeof createTrackSchema>;
+
+export const updateTrackSchema = z.object({
+  title: z.string().trim().min(1),
+});
+
+export type UpdateTrackDto = z.infer<typeof updateTrackSchema>;

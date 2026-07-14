@@ -19,4 +19,19 @@ describe("CohortService", () => {
     await new CohortService().findCurrentPublicCohort();
     expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: CohortStatus.ACTIVE, application_start: expect.any(Object), application_end: expect.any(Object) }) }));
   });
+
+  it("activates a draft only when no other cohort is active", async () => {
+    const service = new CohortService();
+    vi.spyOn(service, "getCohort").mockResolvedValue({ id: "cohort-1", status: CohortStatus.DRAFT, application_start: new Date("2026-06-01"), application_end: new Date("2026-06-30") } as any);
+    vi.spyOn(prisma.cohort, "findFirst").mockResolvedValue(null);
+    const update = vi.spyOn(prisma.cohort, "update").mockResolvedValue({ id: "cohort-1", status: CohortStatus.ACTIVE } as any);
+    await service.activateCohort("cohort-1");
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "cohort-1" }, data: { status: CohortStatus.ACTIVE } }));
+  });
+
+  it("rejects closing a non-active cohort", async () => {
+    const service = new CohortService();
+    vi.spyOn(service, "getCohort").mockResolvedValue({ id: "cohort-1", status: CohortStatus.DRAFT } as any);
+    await expect(service.closeCohort("cohort-1")).rejects.toMatchObject({ code: "INVALID_COHORT_STATUS" });
+  });
 });

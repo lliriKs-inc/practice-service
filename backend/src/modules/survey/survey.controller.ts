@@ -19,3 +19,34 @@ export async function deleteQuestion(req: Request, res: Response, next: NextFunc
 export async function reorderQuestions(req: Request, res: Response, next: NextFunction) { try { const data = parse(reorderQuestionsSchema.safeParse(req.body)); return res.json(await service.reorderQuestions(id(req, "surveyId"), data.question_ids)); } catch (e) { return next(e); } }
 export async function copySurvey(req: Request, res: Response, next: NextFunction) { try { const data = parse(copySurveySchema.safeParse(req.body)); return res.status(201).json(await service.copySurvey(id(req, "surveyId"), data.target_cohort_id, data.title)); } catch (e) { return next(e); } }
 export async function getPublicForm(req: Request, res: Response, next: NextFunction) { try { return res.json(await service.getPublicFormByInvitationToken(id(req, "token"))); } catch (e) { return next(e); } }
+
+export async function getCohortSurvey(req: Request, res: Response, next: NextFunction) {
+  try {
+    const survey = await service.getSurveyByCohort(id(req, "cohortId"));
+    if (!survey) return next(new AppError("Survey not found", 404, "SURVEY_NOT_FOUND"));
+    return res.json(survey);
+  } catch (e) { return next(e); }
+}
+
+export async function createCohortSurvey(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = parse(createSurveySchema.omit({ cohort_id: true }).safeParse(req.body));
+    return res.status(201).json(await service.createSurveyForCohort(id(req, "cohortId"), data.title));
+  } catch (e) { return next(e); }
+}
+
+async function cohortSurveyId(req: Request) {
+  const survey = await service.getSurveyByCohort(id(req, "cohortId"));
+  if (!survey) throw new AppError("Survey not found", 404, "SURVEY_NOT_FOUND");
+  return survey.id;
+}
+
+export async function createCohortQuestion(req: Request, res: Response, next: NextFunction) {
+  try { return res.status(201).json(await service.createQuestion(await cohortSurveyId(req), parse(createQuestionSchema.safeParse(req.body)))); } catch (e) { return next(e); }
+}
+export async function updateCohortQuestion(req: Request, res: Response, next: NextFunction) {
+  try { return res.json(await service.updateQuestion(await cohortSurveyId(req), id(req, "questionId"), parse(updateQuestionSchema.safeParse(req.body)))); } catch (e) { return next(e); }
+}
+export async function deleteCohortQuestion(req: Request, res: Response, next: NextFunction) {
+  try { await service.deleteQuestion(await cohortSurveyId(req), id(req, "questionId")); return res.status(204).send(); } catch (e) { return next(e); }
+}

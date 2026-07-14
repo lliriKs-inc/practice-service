@@ -25,4 +25,10 @@ export class InvitationService {
     if (invitation.cohort.application_end && now > invitation.cohort.application_end) throw new AppError("Application window is closed", 400, "APPLICATION_WINDOW_CLOSED");
     return { valid: true, cohort_id: invitation.cohort_id, cohort_title: invitation.cohort.title };
   }
+
+  async deleteInvitation(cohortId: string) {
+    const invitation = await prisma.invitation.findUnique({ where: { cohort_id: cohortId } });
+    if (!invitation) throw new AppError("Invitation not found", 404, "INVITATION_NOT_FOUND");
+    await prisma.invitation.delete({ where: { cohort_id: cohortId } });
+  }
 }
