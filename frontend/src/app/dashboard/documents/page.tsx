@@ -1,21 +1,208 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { getMyApplications, type Application } from '@/services/api/invitation'
+import {
+    getReadiness,
+    getDocuments,
+    updateDocumentField,
+    generateDocument,
+    getReport,
+    uploadReport,
+    describeMissingField,
+    validateReportFile,
+    MAX_REPORT_SIZE_BYTES,
+    DOCUMENT_TYPES,
+    DOCUMENT_TYPE_LABELS,
+    DOCUMENT_FIELD_CONFIG,
+    DocumentValidationError,
+    type DocumentType,
+    type DocumentData,
+    type ReadinessResponse,
+    type ReportInfo,
+} from '@/services/api/documents'
 
-// ── Документы: моковые данные (пока не подключены к новой архитектуре) ──
-const docFields = [
-    { id: 'fio', label: 'ФИО студента', value: 'Иванов Иван Иванович', filled: true },
-    { id: 'group', label: 'Группа', value: 'РИ-330948', filled: true },
-    { id: 'direction_code', label: 'Код направления', value: '09.03.04', filled: true },
-    { id: 'direction_name', label: 'Наименование направления', value: 'Программная инженерия', filled: true },
-    { id: 'program_name', label: 'Наименование образовательной программы', value: '', filled: false },
-    { id: 'practice_topic', label: 'Тема индивидуального задания', value: '', filled: false },
-    { id: 'main_stage_tasks', label: 'Перечень работ основного этапа', value: '', filled: false },
-]
+const REPORT_STATUS_CONFIG: Record<ReportInfo['status'], { label: string; className: string }> = {
+    PENDING: { label: 'На проверке', className: 'bg-[#FFF8ED] border-[#F5D9A0] text-[#7A5C1A]' },
+    APPROVED: { label: 'Одобрен', className: 'bg-[#EDFBF4] border-[#7EE8B8] text-[#1A7A5A]' },
+    REJECTED: { label: 'Отклонён', className: 'bg-[#FFF5F5] border-[#F0BABA] text-[#D94F4F]' },
+}
 
 export default function DashboardDocumentsPage() {
-    const [fields, setFields] = useState(docFields)
-    const allDocFilled = fields.every(f => f.filled)
+    const [applications, setApplications] = useState<Application[]>([])
+    const [applicationsLoading, setApplicationsLoading] = useState(true)
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const data = await getMyApplications()
+                setApplications(data)
+            } finally {
+                setApplicationsLoading(false)
+            }
+        })()
+    }, [])
+
+    const approvedApplication = applications.find(a => a.status === 'approved') ?? null
+
+    const [readiness, setReadiness] = useState<ReadinessResponse | null>(null)
+    const [documents, setDocuments] = useState<DocumentData[]>([])
+    const [report, setReport] = useState<ReportInfo | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState('')
+
+    const [fieldDrafts, setFieldDrafts] = useState<Record<string, string>>({})
+    const [savingKey, setSavingKey] = useState<string | null>(null)
+    const [fieldError, setFieldError] = useState<{ key: string; message: string } | null>(null)
+    const [generatingType, setGeneratingType] = useState<DocumentType | null>(null)
+    const [generateError, setGenerateError] = useState<{ type: DocumentType; message: string } | null>(null)
+
+    const [reportUploading, setReportUploading] = useState(false)
+    const [reportError, setReportError] = useState('')
+
+    const load = useCallback(async () => {
+        if (!approvedApplication) return
+        setLoading(true)
+        setError('')
+        try {
+            const [readinessData, documentsData, reportData] = await Promise.all([
+                getReadiness(approvedApplication.id),
+                getDocuments(approvedApplication.id),
+                getReport(approvedApplication.id),
+            ])
+            setReadiness(readinessData)
+            setDocuments(documentsData)
+            setReport(reportData)
+
+            const drafts: Record<string, string> = {}
+            for (const doc of documentsData) {
+                for (const field of doc.fieldValues) {
+                    drafts[draftKey(doc.type, field.key)] = field.value
+                }
+            }
+            setFieldDrafts(drafts)
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Не удалось загрузить документы')
+        } finally {
+            setLoading(false)
+        }
+    }, [approvedApplication])
+
+    useEffect(() => {
+        (async () => {
+            if (applicationsLoading || !approvedApplication) return
+            await load()
+        })()
+    }, [applicationsLoading, approvedApplication, load])
+
+    function draftKey(type: DocumentType, fieldKey: string): string {
+        return `${type}__${fieldKey}`
+    }
+
+    function handleFieldChange(type: DocumentType, fieldKey: string, value: string) {
+        setFieldDrafts(prev => ({ ...prev, [draftKey(type, fieldKey)]: value }))
+    }
+
+    async function handleFieldBlur(type: DocumentType, fieldKey: string) {
+        if (!approvedApplication) return
+        const key = draftKey(type, fieldKey)
+        const value = fieldDrafts[key] ?? ''
+
+        const doc = documents.find(d => d.type === type)
+        const original = doc?.fieldValues.find(f => f.key === fieldKey)?.value ?? ''
+        if (value === original) return // ничего не поменялось — не дёргаем сеть
+
+        setSavingKey(key)
+        setFieldError(null)
+        try {
+            await updateDocumentField(approvedApplication.id, type, fieldKey, value)
+            const [readinessData, documentsData] = await Promise.all([
+                getReadiness(approvedApplication.id),
+                getDocuments(approvedApplication.id),
+            ])
+            setReadiness(readinessData)
+            setDocuments(documentsData)
+        } catch (err: unknown) {
+            setFieldError({ key, message: err instanceof Error ? err.message : 'Не удалось сохранить поле' })
+        } finally {
+            setSavingKey(null)
+        }
+    }
+
+    async function handleGenerate(type: DocumentType) {
+        if (!approvedApplication) return
+        setGeneratingType(type)
+        setGenerateError(null)
+        try {
+            await generateDocument(approvedApplication.id, type)
+            const readinessData = await getReadiness(approvedApplication.id)
+            setReadiness(readinessData)
+        } catch (err: unknown) {
+            setGenerateError({ type, message: err instanceof Error ? err.message : 'Не удалось сгенерировать документ' })
+        } finally {
+            setGeneratingType(null)
+        }
+    }
+
+    async function handleReportUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0]
+        e.target.value = ''
+        if (!file || !approvedApplication) return
+
+        setReportError('')
+        try {
+            validateReportFile(file)
+        } catch (err: unknown) {
+            setReportError(err instanceof DocumentValidationError ? err.message : 'Не удалось загрузить отчёт')
+            return
+        }
+
+        setReportUploading(true)
+        try {
+            const updated = await uploadReport(approvedApplication.id, file)
+            setReport(updated)
+            const readinessData = await getReadiness(approvedApplication.id)
+            setReadiness(readinessData)
+        } catch (err: unknown) {
+            setReportError(err instanceof Error ? err.message : 'Не удалось загрузить отчёт')
+        } finally {
+            setReportUploading(false)
+        }
+    }
+
+    if (applicationsLoading) return (
+        <div className="flex items-center gap-2 text-sm text-[#6B6880]">
+            <div className="w-4 h-4 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
+            Загружаем…
+        </div>
+    )
+
+    if (!approvedApplication) {
+        return (
+            <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
+                <div className="text-4xl mb-4">🔒</div>
+                <p className="font-semibold text-[#1C1A3A] mb-1">Документы пока недоступны</p>
+                <p className="text-sm text-[#6B6880] max-w-sm mb-4">
+                    Они откроются, как только одна из твоих заявок будет одобрена.
+                </p>
+                <a href="/dashboard/applications"
+                    className="text-xs font-semibold px-4 py-2 rounded-lg border border-[#6C63FF] text-[#6C63FF] hover:bg-[#EBE9FF]">
+                    Посмотреть мои заявки
+                </a>
+            </div>
+        )
+    }
+
+    if (loading && !readiness) return (
+        <div className="flex items-center gap-2 text-sm text-[#6B6880]">
+            <div className="w-4 h-4 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
+            Загружаем документы…
+        </div>
+    )
+
+    function readinessFor(type: DocumentType) {
+        return readiness?.documents.find(d => d.type === type)
+    }
 
     return (
         <div className="flex flex-col gap-6">
@@ -24,67 +211,141 @@ export default function DashboardDocumentsPage() {
                 <p className="text-sm text-[#6B6880]">Заполни поля — документы сформируются автоматически.</p>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm p-7">
-                <p className="text-[10px] font-bold tracking-widest uppercase text-[#6C63FF] mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-[#E4E2F4]">
-                    Данные для документов
-                </p>
-                <div className="grid grid-cols-2 gap-4">
-                    {fields.map(f => (
-                        <div key={f.id} className={`flex flex-col gap-1.5 ${f.id === 'main_stage_tasks' ? 'col-span-2' : ''}`}>
-                            <label className="text-xs font-medium text-[#6B6880]">{f.label}</label>
-                            <div className="relative">
-                                {f.id === 'main_stage_tasks' ? (
-                                    <textarea
-                                        defaultValue={f.value}
-                                        placeholder="Перечислите задачи через точку с запятой"
-                                        rows={3}
-                                        onChange={e => setFields(prev => prev.map(x => x.id === f.id ? { ...x, value: e.target.value, filled: e.target.value.trim() !== '' } : x))}
-                                        className="w-full text-sm"
-                                        style={{ resize: 'vertical' }}
-                                    />
-                                ) : (
-                                    <input
-                                        type="text"
-                                        defaultValue={f.value}
-                                        placeholder={`Введите ${f.label.toLowerCase()}`}
-                                        onChange={e => setFields(prev => prev.map(x => x.id === f.id ? { ...x, value: e.target.value, filled: e.target.value.trim() !== '' } : x))}
-                                        className="w-full text-sm"
-                                    />
-                                )}
-                                {f.filled && (
-                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm">✅</span>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+            {error && (
+                <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
+                    <p className="text-sm text-[#D94F4F]">⚠️ {error}</p>
                 </div>
+            )}
+
+            {/* ── Отчёт о практике ── */}
+            <div className="bg-white rounded-2xl shadow-sm p-7 flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-[10px] font-bold tracking-widest uppercase text-[#6C63FF] mb-1">Отчёт о практике</p>
+                        <p className="text-xs text-[#A9A7BB]">PDF, DOC или DOCX, до {MAX_REPORT_SIZE_BYTES / (1024 * 1024)} МБ</p>
+                    </div>
+                    {report && (
+                        <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border ${REPORT_STATUS_CONFIG[report.status].className}`}>
+                            <span className="text-xs font-semibold">{REPORT_STATUS_CONFIG[report.status].label}</span>
+                        </div>
+                    )}
+                </div>
+
+                {report ? (
+                    <p className="text-sm text-[#1C1A3A]">
+                        Загружен {new Date(report.uploadedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                ) : (
+                    <p className="text-sm text-[#7A5C1A]">Отчёт ещё не загружен</p>
+                )}
+
+                {reportError && (
+                    <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
+                        <p className="text-sm text-[#D94F4F]">⚠️ {reportError}</p>
+                    </div>
+                )}
+
+                <label className="self-start text-sm font-semibold px-5 py-2.5 rounded-lg text-white shadow-sm cursor-pointer disabled:opacity-60"
+                    style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                    {reportUploading ? 'Загружаем…' : report ? '🔄 Заменить отчёт' : '📤 Загрузить отчёт'}
+                    <input type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={handleReportUpload} disabled={reportUploading} />
+                </label>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-7 py-5 border-b border-[#E4E2F4]">
-                    <p className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB] mb-1">Готовые документы</p>
-                    <h2 className="font-bold text-lg text-[#1C1A3A]">Сформировать и скачать</h2>
-                </div>
-                {[
-                    { title: 'Индивидуальное задание', desc: 'Формируется автоматически после заполнения всех полей', ready: allDocFilled },
-                    { title: 'Отзыв руководителя', desc: 'Доступен после того как руководитель заполнит отзыв', ready: false },
-                    { title: 'Титульный лист отчёта', desc: 'Доступен после загрузки отчёта и одобрения руководителем', ready: false },
-                    { title: 'Извещение', desc: 'Формируется вместе с остальными документами', ready: false },
-                ].map((doc, i) => (
-                    <div key={i} className="px-7 py-5 border-b border-[#E4E2F4] last:border-b-0 flex items-center justify-between gap-4">
-                        <div>
-                            <p className="text-sm font-semibold text-[#1C1A3A] mb-0.5">{doc.title}</p>
-                            <p className="text-xs text-[#A9A7BB]">{doc.desc}</p>
+            {/* ── Документы ── */}
+            <div className="flex flex-col gap-4">
+                {DOCUMENT_TYPES.map(type => {
+                    const fields = DOCUMENT_FIELD_CONFIG[type]
+                    const isStudentEditable = fields.every(f => f.owner === 'STUDENT')
+                    const itemReadiness = readinessFor(type)
+
+                    return (
+                        <div key={type} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                            <div className="px-7 py-5 border-b border-[#E4E2F4] flex items-center justify-between gap-4">
+                                <div>
+                                    <h2 className="font-bold text-lg text-[#1C1A3A]">{DOCUMENT_TYPE_LABELS[type]}</h2>
+                                    {itemReadiness && (
+                                        <p className="text-xs mt-1">
+                                            {itemReadiness.ready ? (
+                                                <span className="text-[#1A7A5A]">✅ Готов к формированию</span>
+                                            ) : (
+                                                <span className="text-[#A9A7BB]">
+                                                    Не хватает: {itemReadiness.missingFields.map(m => describeMissingField(type, m)).join(', ')}
+                                                </span>
+                                            )}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                                    {itemReadiness?.generated && itemReadiness.downloadPath && (
+                                        <a href={itemReadiness.downloadPath} target="_blank" rel="noopener noreferrer"
+                                            className="text-xs font-semibold text-[#6C63FF] hover:underline">
+                                            ⬇ Скачать
+                                        </a>
+                                    )}
+                                    <button
+                                        disabled={!itemReadiness?.ready || generatingType === type}
+                                        onClick={() => handleGenerate(type)}
+                                        className={`text-sm font-semibold px-5 py-2 rounded-lg flex-shrink-0 transition-all
+                                            ${itemReadiness?.ready
+                                                ? 'bg-[#6C63FF] text-white shadow-md hover:bg-[#4A42D4] disabled:opacity-60'
+                                                : 'bg-[#F5F4FD] text-[#A9A7BB] border border-[#E4E2F4] cursor-not-allowed'}`}>
+                                        {generatingType === type ? 'Формируем…' : itemReadiness?.generated ? '🔄 Сформировать заново' : 'Сформировать'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {generateError?.type === type && (
+                                <div className="mx-7 mt-4 bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
+                                    <p className="text-sm text-[#D94F4F]">⚠️ {generateError.message}</p>
+                                </div>
+                            )}
+
+                            {isStudentEditable ? (
+                                <div className="px-7 py-5 grid grid-cols-2 gap-4">
+                                    {fields.map(field => {
+                                        const key = draftKey(type, field.key)
+                                        return (
+                                            <div key={field.key} className={`flex flex-col gap-1.5 ${field.multiline ? 'col-span-2' : ''}`}>
+                                                <label htmlFor={key} className="text-xs font-medium text-[#6B6880] flex items-center gap-2">
+                                                    {field.label}
+                                                    {savingKey === key && <span className="text-[10px] text-[#A9A7BB]">сохраняем…</span>}
+                                                </label>
+                                                {field.multiline ? (
+                                                    <textarea
+                                                        id={key}
+                                                        value={fieldDrafts[key] ?? ''}
+                                                        onChange={e => handleFieldChange(type, field.key, e.target.value)}
+                                                        onBlur={() => handleFieldBlur(type, field.key)}
+                                                        rows={3}
+                                                        className="w-full text-sm"
+                                                        style={{ resize: 'vertical' }}
+                                                    />
+                                                ) : (
+                                                    <input
+                                                        id={key}
+                                                        type="text"
+                                                        value={fieldDrafts[key] ?? ''}
+                                                        onChange={e => handleFieldChange(type, field.key, e.target.value)}
+                                                        onBlur={() => handleFieldBlur(type, field.key)}
+                                                        className="w-full text-sm"
+                                                    />
+                                                )}
+                                                {fieldError?.key === key && (
+                                                    <span className="text-xs text-[#D94F4F]">⚠️ {fieldError.message}</span>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="px-7 py-5">
+                                    <p className="text-sm text-[#A9A7BB]">Заполняется куратором практики — доступно только для просмотра.</p>
+                                </div>
+                            )}
                         </div>
-                        <button disabled={!doc.ready}
-                            className={`text-sm font-semibold px-5 py-2 rounded-lg flex-shrink-0 transition-all
-                                ${doc.ready
-                                    ? 'bg-[#6C63FF] text-white shadow-md hover:bg-[#4A42D4]'
-                                    : 'bg-[#F5F4FD] text-[#A9A7BB] border border-[#E4E2F4] cursor-not-allowed'}`}>
-                            {doc.ready ? '⬇ Скачать' : 'Не готов'}
-                        </button>
-                    </div>
-                ))}
+                    )
+                })}
             </div>
         </div>
     )
