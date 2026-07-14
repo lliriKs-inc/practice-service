@@ -6,15 +6,16 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { isAuthenticated } from '@/services/api/auth'
+import { isAuthenticated, getUser } from '@/services/api/auth'
 import {
     getInvitationForm,
     submitApplication,
+    hasActiveApplication,
     type InvitationForm,
     type Question,
 } from '@/services/api/invitation'
 
-type PageState = 'loading' | 'invalid' | 'need-auth' | 'form' | 'submitted' | 'submit-error'
+type PageState = 'loading' | 'invalid' | 'need-auth' | 'admin-blocked' | 'already-applied' | 'form' | 'submitted' | 'submit-error'
 
 export default function ApplyByInvitationPage() {
     const params = useParams()
@@ -32,15 +33,32 @@ export default function ApplyByInvitationPage() {
     // ── Загрузка анкеты по токену ──────────────────────────────────
     useEffect(() => {
         getInvitationForm(token)
-            .then(data => {
+            .then(async data => {
                 setForm(data)
                 if (data.tracks.length === 1) setTrackId(data.tracks[0].id)
 
                 if (!isAuthenticated()) {
                     setState('need-auth')
-                } else {
-                    setState('form')
+                    return
                 }
+
+                // [FIX] Ссылка-приглашение предназначена кандидатам, а не
+                // организаторам — раньше залогиненный админ мог заполнить
+                // и отправить анкету от своего имени.
+                if (getUser()?.role === 'ADMIN') {
+                    setState('admin-blocked')
+                    return
+                }
+
+                // [FIX] Пока по одной из заявок студента ещё нет решения
+                // (или она уже одобрена), подавать новую нельзя — иначе
+                // непонятно, какая заявка ведёт дневник задач.
+                if (await hasActiveApplication()) {
+                    setState('already-applied')
+                    return
+                }
+
+                setState('form')
             })
             .catch(err => {
                 setLoadError(err instanceof Error ? err.message : 'Ссылка недействительна')
@@ -151,6 +169,44 @@ export default function ApplyByInvitationPage() {
         )
     }
 
+    // ── Залогинен админ — ссылка не для него ────────────────────────
+    if (state === 'admin-blocked') {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-[#F5F4FD] px-6">
+                <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
+                    <div className="w-14 h-14 rounded-full bg-[#FFF5F5] flex items-center justify-center text-2xl mb-5">🚫</div>
+                    <h2 className="font-extrabold text-xl text-[#1C1A3A] mb-2">Ссылка не для организаторов</h2>
+                    <p className="text-sm text-[#6B6880] mb-6">
+                        Ты вошёл(-ла) под аккаунтом администратора — заявки на практику подают кандидаты.
+                        Выйди и открой ссылку под аккаунтом практиканта, если нужно проверить анкету.
+                    </p>
+                    <a href="/admin/cohorts" className="text-sm font-semibold text-[#6C63FF] hover:underline">
+                        Перейти в панель администратора →
+                    </a>
+                </div>
+            </div>
+        )
+    }
+
+    // ── У студента уже есть активная заявка ─────────────────────────
+    if (state === 'already-applied') {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-[#F5F4FD] px-6">
+                <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
+                    <div className="w-14 h-14 rounded-full bg-[#EBE9FF] flex items-center justify-center text-2xl mb-5">📋</div>
+                    <h2 className="font-extrabold text-xl text-[#1C1A3A] mb-2">У тебя уже есть активная заявка</h2>
+                    <p className="text-sm text-[#6B6880] mb-6">
+                        Пока по ней не приняли решение (или она уже одобрена), подать новую заявку нельзя.
+                        Если её отклонят — сможешь заполнить анкету заново по этой же ссылке.
+                    </p>
+                    <a href="/dashboard/applications" className="text-sm font-semibold text-[#6C63FF] hover:underline">
+                        Посмотреть мои заявки →
+                    </a>
+                </div>
+            </div>
+        )
+    }
+
     // ── Успешно отправлено ──────────────────────────────────────────
     if (state === 'submitted') {
         return (
@@ -227,7 +283,7 @@ export default function ApplyByInvitationPage() {
                     </div>
 
                     <div className="bg-white rounded-2xl shadow-sm p-9">
-                        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+                        <form onSubmit={handleSubmit} autoComplete="off" className="flex flex-col gap-6">
 
                             {/* ВЫБОР ТРЕКА */}
                             {form.tracks.length > 1 && (
@@ -335,7 +391,7 @@ function QuestionInput({
             <div className="flex flex-col gap-1.5">
                 {label}
                 <Textarea value={value} onChange={e => onChange(e.target.value)}
-                    placeholder="Ваш ответ" rows={3}
+                    placeholder="Ваш ответ" rows={3} autoComplete="off"
                     required={question.required} className="resize-none" />
             </div>
         )
@@ -396,7 +452,7 @@ function QuestionInput({
         <div className="flex flex-col gap-1.5">
             {label}
             <Input type="text" value={value} onChange={e => onChange(e.target.value)}
-                placeholder="Ваш ответ" required={question.required} />
+                placeholder="Ваш ответ" autoComplete="off" required={question.required} />
         </div>
     )
 }

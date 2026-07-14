@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { getAllApplications, updateApplicationStatus, type Application } from '@/services/api/invitation'
+import { getSubmissionForApplication, type SubmissionInfo } from '@/services/api/test-task'
 import { useCohortWorkspace } from '../cohort-context'
 
 export default function AdminApplicationsPage() {
@@ -11,6 +12,7 @@ export default function AdminApplicationsPage() {
     const [applicationsLoading, setApplicationsLoading] = useState(true)
     const [applicationsError, setApplicationsError] = useState('')
     const [applicationActionId, setApplicationActionId] = useState<string | null>(null)
+    const [submissions, setSubmissions] = useState<Record<string, SubmissionInfo | null>>({})
 
     async function loadApplications() {
         setApplicationsLoading(true)
@@ -18,6 +20,10 @@ export default function AdminApplicationsPage() {
         try {
             const data = await getAllApplications()
             setApplications(data)
+            const entries = await Promise.all(
+                data.map(async app => [app.id, await getSubmissionForApplication(app.id)] as const)
+            )
+            setSubmissions(Object.fromEntries(entries))
         } catch (err: unknown) {
             setApplicationsError(err instanceof Error ? err.message : 'Ошибка загрузки заявок')
         } finally {
@@ -137,9 +143,15 @@ export default function AdminApplicationsPage() {
                                         {trackTestTask.description && (
                                             <p className="text-xs text-[#6B6880] leading-relaxed">{trackTestTask.description}</p>
                                         )}
-                                        <p className="text-[11px] text-[#A9A7BB] mt-1">
-                                            Загрузка решения кандидатом пока не реализована — эта часть появится отдельно.
-                                        </p>
+                                        {submissions[app.id] ? (
+                                            <p className="text-[11px] text-[#1A7A5A] mt-1 flex items-center gap-1">
+                                                ✅ Решение загружено: {submissions[app.id]!.fileName}
+                                                {' · '}
+                                                {new Date(submissions[app.id]!.submittedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                            </p>
+                                        ) : (
+                                            <p className="text-[11px] text-[#A9A7BB] mt-1">Решение пока не загружено кандидатом.</p>
+                                        )}
                                     </div>
                                 )}
 

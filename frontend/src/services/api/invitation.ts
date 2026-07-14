@@ -21,7 +21,7 @@
 // └───────────────────────────────────────────────────────────────┘
 
 import { getToken, getUser } from './auth'
-import { mockPeekCohorts, type TestTask } from './cohorts'
+import { mockPeekCohorts } from './cohorts'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
@@ -132,6 +132,23 @@ export function resetMockApplications() {
     localStorage.removeItem(MOCK_APPS_KEY)
 }
 
+// У студента может быть только одна "активная" заявка одновременно —
+// на рассмотрении или уже одобренная. Пока она не отклонена, подать новую
+// анкету нельзя (иначе непонятно, какая заявка ведёт дневник задач).
+// Отклонённые заявки в счёт не идут — по ним можно попробовать снова.
+export async function hasActiveApplication(): Promise<boolean> {
+    const currentUser = getUser()
+    if (!currentUser) return false
+    if (USE_MOCKS) {
+        await mockDelay(150)
+        return mockLoadApplications().some(
+            a => a.student?.id === currentUser.id && (a.status === 'pending' || a.status === 'approved')
+        )
+    }
+    const apps = await getMyApplications()
+    return apps.some(a => a.status === 'pending' || a.status === 'approved')
+}
+
 // ════════════════════════════════════════════════════════════════
 // [MOCK-DATA] конец блока
 // ════════════════════════════════════════════════════════════════
@@ -179,8 +196,15 @@ export async function submitApplication(
         const cohort = mockFindCohortByToken(token)
         if (!cohort) throw new Error('Ссылка недействительна')
 
-        const track = cohort.tracks.find(t => t.id === trackId)
         const currentUser = getUser()
+        const alreadyActive = mockLoadApplications().some(
+            a => a.student?.id === currentUser?.id && (a.status === 'pending' || a.status === 'approved')
+        )
+        if (alreadyActive) {
+            throw new Error('У тебя уже есть активная заявка (на рассмотрении или одобренная). Новую можно подать только после отказа по текущей.')
+        }
+
+        const track = cohort.tracks.find(t => t.id === trackId)
 
         // [MOCK] резолвим label вопроса на момент подачи, чтобы не джойнить повторно
         const resolvedAnswers: ApplicationAnswer[] = answers
@@ -250,25 +274,6 @@ export async function getMyApplication(applicationId: string): Promise<Applicati
 
     const res = await fetch(`${API_URL}/me/applications/${applicationId}`, { headers: authHeaders() })
     if (!res.ok) throw new Error('Заявка не найдена')
-    const data = await res.json()
-    if (data.success && data.data) return data.data
-    return data
-}
-
-// GET /me/applications/:id/test-task — тестовое задание выбранного трека этой заявки
-export async function getApplicationTestTask(applicationId: string): Promise<TestTask | null> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay()
-        const app = mockLoadApplications().find(a => a.id === applicationId)
-        if (!app) throw new Error('Заявка не найдена')
-        const cohort = mockPeekCohorts().find(c => c.id === app.cohort.id)
-        const track = cohort?.tracks.find(t => t.id === app.track.id)
-        return track?.testTask ?? null
-    }
-
-    const res = await fetch(`${API_URL}/me/applications/${applicationId}/test-task`, { headers: authHeaders() })
-    if (!res.ok) throw new Error('Не удалось загрузить тестовое задание')
     const data = await res.json()
     if (data.success && data.data) return data.data
     return data
