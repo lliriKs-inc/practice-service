@@ -20,6 +20,7 @@ function RegisterForm() {
     const searchParams = useSearchParams()
     const redirect = searchParams.get('redirect')
 
+    const [fullName, setFullName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [passwordConfirm, setPasswordConfirm] = useState('')
@@ -41,7 +42,7 @@ function RegisterForm() {
 
         setLoading(true)
         try {
-            await register({ email, password })
+            await register({ email, password, full_name: fullName })
             // [FIX] Раньше после регистрации кидало на /login, где нужно было
             // ещё раз вводить только что придуманный пароль. Раз пароль уже
             // известен — сразу логинимся и идём прямиком по назначению.
@@ -69,7 +70,7 @@ function RegisterForm() {
                 <Link href="/" className="group flex items-center gap-3 mb-10" title="На главную">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm transition-transform group-hover:scale-105"
                         style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>🎓</div>
-                    <span className="font-extrabold text-lg tracking-tight text-[#1C1A3A] group-hover:text-[#6C63FF] transition-colors">Практика УрФУ</span>
+                    <span className="font-extrabold text-lg tracking-tight text-[#1C1A3A] group-hover:text-[#4A42D4] transition-colors">Практика УрФУ</span>
                 </Link>
 
                 {redirect && (
@@ -91,17 +92,23 @@ function RegisterForm() {
 
                     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                         <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="fullName">ФИО</Label>
+                            <Input id="fullName" type="text" placeholder="Иванов Иван Иванович"
+                                value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
                             <Label htmlFor="email">E-mail</Label>
                             <Input id="email" type="email" placeholder="ivan@urfu.ru"
                                 value={email} onChange={(e) => setEmail(e.target.value)} required />
-                            <span className="text-xs text-[#A9A7BB]">Используется для входа в систему</span>
+                            <span className="text-xs text-[#6B6880]">Используется для входа в систему</span>
                         </div>
 
                         <div className="flex flex-col gap-1.5">
                             <Label htmlFor="password">Пароль</Label>
                             <Input id="password" type="password" placeholder="••••••••"
                                 value={password} onChange={(e) => setPassword(e.target.value)} required />
-                            <span className="text-xs text-[#A9A7BB]">Минимум 8 символов</span>
+                            <span className="text-xs text-[#6B6880]">Минимум 8 символов</span>
                         </div>
 
                         <div className="flex flex-col gap-1.5">
@@ -113,7 +120,7 @@ function RegisterForm() {
                         {error && (
                             <div className="flex items-center gap-2 bg-[#FFF5F5] border-[1.5px] border-[#F0BABA] rounded-xl px-4 py-3">
                                 <span className="text-sm">⚠️</span>
-                                <p className="text-sm text-[#D94F4F]">{error}</p>
+                                <p className="text-sm text-[#C93B3B]">{error}</p>
                             </div>
                         )}
 
@@ -127,7 +134,7 @@ function RegisterForm() {
 
                 <div className="flex items-center gap-2 mt-6 text-sm text-[#6B6880]">
                     <span>Уже есть аккаунт?</span>
-                    <a href={loginHref} className="text-[#6C63FF] font-semibold hover:underline">Войти →</a>
+                    <a href={loginHref} className="text-[#4A42D4] font-semibold hover:underline">Войти →</a>
                 </div>
             </div>
         </div>

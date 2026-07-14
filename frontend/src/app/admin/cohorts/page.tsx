@@ -22,7 +22,7 @@ const STATUS_LABELS: Record<CohortStatus, string> = {
 const STATUS_STYLES: Record<CohortStatus, string> = {
     draft: 'bg-[#F5F4FD] border-[#E4E2F4] text-[#6B6880]',
     active: 'bg-[#EDFBF4] border-[#7EE8B8] text-[#1A7A5A]',
-    closed: 'bg-[#FFF5F5] border-[#F0BABA] text-[#D94F4F]',
+    closed: 'bg-[#FFF5F5] border-[#F0BABA] text-[#C93B3B]',
 }
 
 const QUESTION_TYPES = [
@@ -250,7 +250,7 @@ export default function AdminCohortsPage() {
 
                 {cohortsError && (
                     <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
-                        <p className="text-sm text-[#D94F4F]">⚠️ {cohortsError}</p>
+                        <p className="text-sm text-[#C93B3B]">⚠️ {cohortsError}</p>
                     </div>
                 )}
 
@@ -274,7 +274,7 @@ export default function AdminCohortsPage() {
                                         {STATUS_LABELS[cohort.status]}
                                     </span>
                                     {isWorking && (
-                                        <span className="text-xs font-semibold px-3 py-1 rounded-full border border-[#6C63FF] text-[#6C63FF] bg-[#EBE9FF]">
+                                        <span className="text-xs font-semibold px-3 py-1 rounded-full border border-[#6C63FF] text-[#4A42D4] bg-[#EBE9FF]">
                                             ⭐ Рабочая когорта
                                         </span>
                                     )}
@@ -287,7 +287,7 @@ export default function AdminCohortsPage() {
                                         </button>
                                     )}
                                     <button onClick={() => openEdit(cohort)}
-                                        className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#6C63FF] text-[#6C63FF] hover:bg-[#EBE9FF] transition-all inline-flex items-center gap-1.5">
+                                        className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF] transition-all inline-flex items-center gap-1.5">
                                         <span className="text-sm leading-none">✎</span> Редактировать
                                     </button>
                                 </div>
@@ -299,7 +299,7 @@ export default function AdminCohortsPage() {
                                     { label: 'Конец практики', value: new Date(cohort.end_date).toLocaleDateString('ru') },
                                 ].map((item, i) => (
                                     <div key={i} className="px-6 py-4 flex flex-col gap-1">
-                                        <span className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB]">{item.label}</span>
+                                        <span className="text-[10px] font-bold tracking-widest uppercase text-[#6B6880]">{item.label}</span>
                                         <span className="text-sm font-semibold text-[#1C1A3A]">{item.value}</span>
                                     </div>
                                 ))}
@@ -307,7 +307,7 @@ export default function AdminCohortsPage() {
 
                             {cohort.tracks.length > 0 && (
                                 <div className="px-7 py-4 flex items-center gap-2 flex-wrap border-t border-[#E4E2F4]">
-                                    <span className="text-xs text-[#A9A7BB] font-medium mr-1">Треки:</span>
+                                    <span className="text-xs text-[#6B6880] font-medium mr-1">Треки:</span>
                                     {cohort.tracks.map(track => (
                                         <span key={track.id} className="text-xs font-medium px-3 py-1 bg-[#F5F4FD] border border-[#E4E2F4] rounded-full text-[#6B6880] inline-flex items-center gap-1.5">
                                             {track.title}
@@ -321,10 +321,10 @@ export default function AdminCohortsPage() {
 
                             {cohort.invitation && (
                                 <div className="px-7 py-3 border-t border-[#E4E2F4] flex items-center gap-3 bg-[#F5F4FD]">
-                                    <span className="text-xs text-[#A9A7BB]">🔗 Ссылка для кандидатов:</span>
+                                    <span className="text-xs text-[#6B6880]">🔗 Ссылка для кандидатов:</span>
                                     <code className="text-xs text-[#4A42D4] flex-1 truncate">/apply/{cohort.invitation.token}</code>
                                     <button onClick={() => copyInvitation(cohort.invitation!.token)}
-                                        className="text-xs font-semibold text-[#6C63FF] hover:underline shrink-0">
+                                        className="text-xs font-semibold text-[#4A42D4] hover:underline shrink-0">
                                         Копировать
                                     </button>
                                     {cohort.status !== 'active' && (
@@ -349,7 +349,7 @@ export default function AdminCohortsPage() {
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="font-bold text-xl text-[#1C1A3A]">Новая когорта</h3>
                             <button onClick={() => setShowCreateModal(false)}
-                                className="text-[#A9A7BB] hover:text-[#1C1A3A] text-2xl leading-none">×</button>
+                                className="text-[#6B6880] hover:text-[#1C1A3A] text-2xl leading-none">×</button>
                         </div>
 
                         <div className="flex flex-col gap-5">
@@ -400,7 +400,7 @@ export default function AdminCohortsPage() {
 
                             {createError && (
                                 <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
-                                    <p className="text-sm text-[#D94F4F]">⚠️ {createError}</p>
+                                    <p className="text-sm text-[#C93B3B]">⚠️ {createError}</p>
                                 </div>
                             )}
 
@@ -434,7 +434,7 @@ export default function AdminCohortsPage() {
                                     <h3 className="font-bold text-xl text-[#1C1A3A]">{editDraft.title}</h3>
                                     <p className="text-sm text-[#6B6880] mt-0.5">Редактирование потока практики</p>
                                 </div>
-                                <button onClick={closeEdit} className="text-[#A9A7BB] hover:text-[#1C1A3A] text-2xl leading-none">×</button>
+                                <button onClick={closeEdit} className="text-[#6B6880] hover:text-[#1C1A3A] text-2xl leading-none">×</button>
                             </div>
 
                             <div className="flex gap-1">
@@ -478,7 +478,7 @@ export default function AdminCohortsPage() {
                                                 </button>
                                             ))}
                                         </div>
-                                        <p className="text-xs text-[#A9A7BB]">
+                                        <p className="text-xs text-[#6B6880]">
                                             Черновик — невидим для кандидатов · Активна — принимаются заявки · Закрыта — только архив
                                         </p>
                                     </div>
@@ -544,7 +544,7 @@ export default function AdminCohortsPage() {
 
                                     {editDraft.tracks.length === 0 ? (
                                         <div className="rounded-xl border border-dashed border-[#E4E2F4] px-4 py-8 text-center">
-                                            <p className="text-sm text-[#A9A7BB]">Треков пока нет. Добавьте первое направление.</p>
+                                            <p className="text-sm text-[#6B6880]">Треков пока нет. Добавьте первое направление.</p>
                                         </div>
                                     ) : (
                                         <div className="flex flex-col gap-4">
@@ -569,14 +569,14 @@ export default function AdminCohortsPage() {
                                     <div className="flex items-center justify-between">
                                         <p className="text-sm text-[#6B6880]">Вопросы публичной анкеты когорты.</p>
                                         <button onClick={addQuestion}
-                                            className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#6C63FF] text-[#6C63FF] hover:bg-[#EBE9FF] transition-all whitespace-nowrap">
+                                            className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF] transition-all whitespace-nowrap">
                                             + Вопрос
                                         </button>
                                     </div>
 
                                     {(!editDraft.survey || editDraft.survey.questions.length === 0) ? (
                                         <div className="rounded-xl border border-dashed border-[#E4E2F4] px-4 py-8 text-center">
-                                            <p className="text-sm text-[#A9A7BB]">Вопросов пока нет. Добавьте первый.</p>
+                                            <p className="text-sm text-[#6B6880]">Вопросов пока нет. Добавьте первый.</p>
                                         </div>
                                     ) : (
                                         <div className="flex flex-col gap-3">
@@ -610,11 +610,11 @@ export default function AdminCohortsPage() {
                                                         value={getInvitationUrl(editDraft.invitation.token)}
                                                         className="flex-1 text-sm font-mono bg-[#F5F4FD]" />
                                                     <button onClick={() => copyInvitation(editDraft.invitation!.token)}
-                                                        className="px-4 py-2 text-sm font-semibold border border-[#6C63FF] text-[#6C63FF] rounded-lg hover:bg-[#EBE9FF] shrink-0">
+                                                        className="px-4 py-2 text-sm font-semibold border border-[#6C63FF] text-[#4A42D4] rounded-lg hover:bg-[#EBE9FF] shrink-0">
                                                         Копировать
                                                     </button>
                                                 </div>
-                                                <span className="text-xs text-[#A9A7BB]">Появится по этому адресу только после сохранения.</span>
+                                                <span className="text-xs text-[#6B6880]">Появится по этому адресу только после сохранения.</span>
                                             </div>
                                             <div className="flex gap-3">
                                                 <button onClick={regenerateDraftInvitation}
@@ -622,7 +622,7 @@ export default function AdminCohortsPage() {
                                                     🔄 Перегенерировать токен
                                                 </button>
                                                 <button onClick={deleteDraftInvitation}
-                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#F0BABA] text-[#D94F4F] hover:bg-[#FFF5F5] transition-all">
+                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#F0BABA] text-[#C93B3B] hover:bg-[#FFF5F5] transition-all">
                                                     🗑 Удалить ссылку
                                                 </button>
                                             </div>
@@ -635,7 +635,7 @@ export default function AdminCohortsPage() {
                                     ) : (
                                         <div className="flex flex-col gap-3">
                                             <div className="rounded-xl border border-dashed border-[#E4E2F4] px-4 py-8 text-center">
-                                                <p className="text-sm text-[#A9A7BB]">Ссылка ещё не создана.</p>
+                                                <p className="text-sm text-[#6B6880]">Ссылка ещё не создана.</p>
                                             </div>
                                             <button onClick={createDraftInvitation}
                                                 className="self-start text-sm font-semibold text-white px-5 py-2.5 rounded-xl shadow-md"
@@ -649,7 +649,7 @@ export default function AdminCohortsPage() {
 
                             {editError && (
                                 <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3 mt-5">
-                                    <p className="text-sm text-[#D94F4F]">⚠️ {editError}</p>
+                                    <p className="text-sm text-[#C93B3B]">⚠️ {editError}</p>
                                 </div>
                             )}
                         </div>
@@ -693,15 +693,15 @@ function TrackEditor({
     return (
         <div className="rounded-xl border border-[#E4E2F4] bg-[#FBFAFF] p-5 flex flex-col gap-4">
             <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-[#EBE9FF] flex items-center justify-center text-[#6C63FF] text-sm font-bold shrink-0">🛤</div>
+                <div className="w-7 h-7 rounded-lg bg-[#EBE9FF] flex items-center justify-center text-[#4A42D4] text-sm font-bold shrink-0">🛤</div>
                 <input type="text" value={track.title} onChange={e => onTitleChange(e.target.value)}
                     className="flex-1 text-sm font-semibold" />
-                <button onClick={onRemove} className="text-[#A9A7BB] hover:text-[#D94F4F] text-xl leading-none px-1">×</button>
+                <button onClick={onRemove} className="text-[#6B6880] hover:text-[#C93B3B] text-xl leading-none px-1">×</button>
             </div>
 
             <div className="flex flex-col gap-3 pl-10">
                 <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold tracking-widest uppercase text-[#A9A7BB]">Тестовое задание</span>
+                    <span className="text-xs font-bold tracking-widest uppercase text-[#6B6880]">Тестовое задание</span>
                     {track.testTask?.publishedAt && (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EDFBF4] border border-[#7EE8B8] text-[#1A7A5A]">
                             Опубликовано
@@ -721,8 +721,8 @@ function TrackEditor({
                 <button onClick={onTogglePublish} disabled={!title && !description}
                     className={`self-start text-xs font-semibold px-4 py-1.5 rounded-lg border transition-all disabled:opacity-40
                         ${track.testTask?.publishedAt
-                            ? 'border-[#D94F4F] text-[#D94F4F] hover:bg-[#FFF5F5]'
-                            : 'border-[#6C63FF] text-[#6C63FF] hover:bg-[#EBE9FF]'}`}>
+                            ? 'border-[#D94F4F] text-[#C93B3B] hover:bg-[#FFF5F5]'
+                            : 'border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF]'}`}>
                     {track.testTask?.publishedAt ? 'Снять с публикации' : 'Опубликовать'}
                 </button>
             </div>
@@ -759,7 +759,7 @@ function QuestionEditor({
     return (
         <div className="rounded-xl border border-[#E4E2F4] bg-[#FBFAFF] p-4 flex flex-col gap-3">
             <div className="flex items-start gap-2">
-                <span className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB] pt-2.5 w-6 shrink-0">
+                <span className="text-[10px] font-bold tracking-widest uppercase text-[#6B6880] pt-2.5 w-6 shrink-0">
                     {String(index + 1).padStart(2, '0')}
                 </span>
                 <div className="flex-1 flex flex-col gap-2">
@@ -787,13 +787,13 @@ function QuestionEditor({
                             <div className="flex items-center justify-between">
                                 <label className="text-xs font-medium text-[#6B6880]">Варианты ответа</label>
                                 <button type="button" onClick={addOption}
-                                    className="text-xs font-semibold text-[#6C63FF] hover:underline">
+                                    className="text-xs font-semibold text-[#4A42D4] hover:underline">
                                     + Вариант
                                 </button>
                             </div>
 
                             {question.options.length === 0 && (
-                                <p className="text-xs text-[#A9A7BB]">Вариантов пока нет — добавь первый.</p>
+                                <p className="text-xs text-[#6B6880]">Вариантов пока нет — добавь первый.</p>
                             )}
 
                             <div className="flex flex-col gap-2">
@@ -804,7 +804,7 @@ function QuestionEditor({
                                             placeholder={`Вариант ${i + 1}`}
                                             className="flex-1 text-sm" />
                                         <button type="button" onClick={() => removeOption(i)}
-                                            className="text-[#A9A7BB] hover:text-[#D94F4F] text-lg leading-none px-1 shrink-0"
+                                            className="text-[#6B6880] hover:text-[#C93B3B] text-lg leading-none px-1 shrink-0"
                                             aria-label="Удалить вариант">
                                             ×
                                         </button>
@@ -814,7 +814,7 @@ function QuestionEditor({
                         </div>
                     )}
                 </div>
-                <button onClick={onRemove} className="text-[#A9A7BB] hover:text-[#D94F4F] text-xl leading-none px-1 shrink-0">×</button>
+                <button onClick={onRemove} className="text-[#6B6880] hover:text-[#C93B3B] text-xl leading-none px-1 shrink-0">×</button>
             </div>
         </div>
     )

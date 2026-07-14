@@ -8,6 +8,8 @@ export default defineConfig({
         environment: 'jsdom',
         setupFiles: ['./vitest.setup.ts'],
         globals: true,
+        // e2e/ — спеки Playwright (F-06), у них свой раннер и конфиг
+        exclude: ['**/node_modules/**', 'e2e/**'],
     },
     resolve: {
         alias: {

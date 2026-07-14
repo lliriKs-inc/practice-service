@@ -14,11 +14,11 @@ export function CohortSwitcher({
     onChange: (id: string) => void
 }) {
     if (loading) {
-        return <span className="text-xs text-[#A9A7BB]">Загружаем когорты…</span>
+        return <span className="text-xs text-[#6B6880]">Загружаем когорты…</span>
     }
 
     if (cohorts.length === 0) {
-        return <span className="text-xs text-[#A9A7BB]">Когорт пока нет</span>
+        return <span className="text-xs text-[#6B6880]">Когорт пока нет</span>
     }
 
     return (

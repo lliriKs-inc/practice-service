@@ -9,6 +9,10 @@ export interface SessionUser {
     email: string
     role: 'ADMIN' | 'STUDENT'
     created_at: string
+    // Реальный /auth/me отдаёт их тоже — опциональны, чтобы не трогать все
+    // моковые фикстуры в тестах (там они не нужны, везде показываем email)
+    full_name?: string
+    active_cohort_id?: string | null
 }
 
 export function saveToken(token: string) {

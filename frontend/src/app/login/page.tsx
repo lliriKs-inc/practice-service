@@ -64,13 +64,13 @@ function LoginForm() {
                 <Link href="/" className="group flex items-center gap-3 mb-10" title="На главную">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm transition-transform group-hover:scale-105"
                         style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>🎓</div>
-                    <span className="font-extrabold text-lg tracking-tight text-[#1C1A3A] group-hover:text-[#6C63FF] transition-colors">Практика УрФУ</span>
+                    <span className="font-extrabold text-lg tracking-tight text-[#1C1A3A] group-hover:text-[#4A42D4] transition-colors">Практика УрФУ</span>
                 </Link>
 
                 {sessionExpired && (
                     <div className="w-full flex items-center gap-2.5 bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3 mb-5">
                         <span className="text-base">⚠️</span>
-                        <p className="text-xs text-[#D94F4F] leading-relaxed">
+                        <p className="text-xs text-[#C93B3B] leading-relaxed">
                             Сессия истекла или недействительна. Войдите снова.
                         </p>
                     </div>
@@ -79,7 +79,7 @@ function LoginForm() {
                 {forbidden && (
                     <div className="w-full flex items-center gap-2.5 bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3 mb-5">
                         <span className="text-base">🚫</span>
-                        <p className="text-xs text-[#D94F4F] leading-relaxed">
+                        <p className="text-xs text-[#C93B3B] leading-relaxed">
                             У этого аккаунта нет доступа к запрошенному разделу. Войдите под подходящим аккаунтом.
                         </p>
                     </div>
@@ -111,7 +111,7 @@ function LoginForm() {
                         <div className="flex flex-col gap-1.5">
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="password">Пароль</Label>
-                                <a href="#" className="text-xs text-[#6C63FF] hover:underline font-medium">Забыл пароль?</a>
+                                <a href="#" className="text-xs text-[#4A42D4] hover:underline font-medium">Забыл пароль?</a>
                             </div>
                             <Input id="password" type="password" placeholder="••••••••"
                                 value={password} onChange={(e) => setPassword(e.target.value)} required />
@@ -120,7 +120,7 @@ function LoginForm() {
                         {error && (
                             <div className="flex items-center gap-2 bg-[#FFF5F5] border-[1.5px] border-[#F0BABA] rounded-xl px-4 py-3">
                                 <span className="text-sm">⚠️</span>
-                                <p className="text-sm text-[#D94F4F]">{error}</p>
+                                <p className="text-sm text-[#C93B3B]">{error}</p>
                             </div>
                         )}
 
@@ -134,7 +134,7 @@ function LoginForm() {
 
                 <div className="flex items-center gap-2 mt-6 text-sm text-[#6B6880]">
                     <span>Ещё нет аккаунта?</span>
-                    <a href={registerHref} className="text-[#6C63FF] font-semibold hover:underline">
+                    <a href={registerHref} className="text-[#4A42D4] font-semibold hover:underline">
                         Зарегистрироваться →
                     </a>
                 </div>

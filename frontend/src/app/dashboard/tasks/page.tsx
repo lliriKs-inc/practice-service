@@ -2,16 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-    getWeekTasks,
-    createTask,
-    updateTask,
-    deleteTask,
-    type Task,
-    type WeekTasksResponse,
+    getMyWeekTasks,
+    updateDailyTask,
+    DailyTaskValidationError,
+    type StudentWeekResponse,
+    type DailyTask,
 } from '@/services/api/tasks'
 import { getMyApplications, type Application } from '@/services/api/invitation'
 
-// ── Утилиты дат (UTC — согласовано с мок-хранилищем задач) ─────────
+// ── Утилиты дат (UTC — согласовано с бэком: даты обрабатываются как UTC date-only) ─
 function getMondayOfWeek(date: Date): Date {
     const d = new Date(date)
     d.setUTCHours(0, 0, 0, 0)
@@ -31,8 +30,30 @@ function addDays(date: Date, n: number): Date {
     return d
 }
 
-function sameDate(a: string, b: string): boolean {
-    return a.slice(0, 10) === b.slice(0, 10)
+function isWeekendUTC(date: Date): boolean {
+    const day = date.getUTCDay()
+    return day === 0 || day === 6
+}
+
+// [FIX] Если период практики начинается в выходной (например, суббота),
+// Monday-of-week этой даты попадает на ПРЕДЫДУЩУЮ неделю целиком до начала
+// практики — вся неделя выходила бы пустой ("—" на все 5 ячеек). Вместо
+// этого ищем первый будний день ОТ начала практики и берём понедельник его недели.
+function firstPracticeWeekMonday(practiceStartIso: string): Date {
+    let d = new Date(practiceStartIso)
+    d.setUTCHours(0, 0, 0, 0)
+    while (isWeekendUTC(d)) d = addDays(d, 1)
+    return getMondayOfWeek(d)
+}
+
+// Симметричный случай для конца практики: если период заканчивается в выходной,
+// берём последний будний день ДО конца практики и понедельник его недели —
+// чтобы не показывать лишнюю неделю целиком после окончания практики.
+function lastPracticeWeekMonday(practiceEndIso: string): Date {
+    let d = new Date(practiceEndIso)
+    d.setUTCHours(0, 0, 0, 0)
+    while (isWeekendUTC(d)) d = addDays(d, -1)
+    return getMondayOfWeek(d)
 }
 
 function formatWeekLabel(weekStart: string, weekEnd: string): string {
@@ -62,21 +83,18 @@ export default function DashboardTasksPage() {
         })()
     }, [])
 
-    // [FIX] Дневник задач имеет смысл только после того, как заявку
-    // одобрили — до этого момента у практиканта нет ни роли, ни
-    // согласованных дат практики. approvedApplication — источник дат
-    // для сетки (вместо общей заглушки, не привязанной к когорте).
+    // Дневник задач имеет смысл только после того, как заявку одобрили —
+    // до этого момента нет ни роли, ни согласованных дат практики.
     const approvedApplication = applications.find(a => a.status === 'approved') ?? null
 
     const [weekStart, setWeekStart] = useState<string>(() => toISODate(getMondayOfWeek(new Date())))
-    const [weekData, setWeekData] = useState<WeekTasksResponse | null>(null)
+    const [weekData, setWeekData] = useState<StudentWeekResponse | null>(null)
     const [tasksLoading, setTasksLoading] = useState(false)
     const [tasksError, setTasksError] = useState('')
 
-    const [popup, setPopup] = useState<{ mode: 'create' | 'edit'; date: string; task?: Task } | null>(null)
-    const [popupTitle, setPopupTitle] = useState('')
+    const [popup, setPopup] = useState<{ date: string; task: DailyTask } | null>(null)
     const [popupDesc, setPopupDesc] = useState('')
-    const [popupLink, setPopupLink] = useState('')
+    const [popupLinks, setPopupLinks] = useState<string[]>([])
     const [popupSaving, setPopupSaving] = useState(false)
     const [popupError, setPopupError] = useState('')
 
@@ -85,10 +103,7 @@ export default function DashboardTasksPage() {
         setTasksLoading(true)
         setTasksError('')
         try {
-            const data = await getWeekTasks(weekStart, {
-                practiceStart: approvedApplication.cohort.start_date,
-                practiceEnd: approvedApplication.cohort.end_date,
-            })
+            const data = await getMyWeekTasks(approvedApplication.id, weekStart)
             setWeekData(data)
         } catch (err: unknown) {
             setTasksError(err instanceof Error ? err.message : 'Ошибка загрузки задач')
@@ -108,8 +123,8 @@ export default function DashboardTasksPage() {
     useEffect(() => {
         (() => {
             if (!weekData) return
-            const practiceMonday = toISODate(getMondayOfWeek(new Date(weekData.practiceStart)))
-            const practiceLastMonday = toISODate(getMondayOfWeek(new Date(weekData.practiceEnd)))
+            const practiceMonday = toISODate(firstPracticeWeekMonday(weekData.cohort.practice_start))
+            const practiceLastMonday = toISODate(lastPracticeWeekMonday(weekData.cohort.practice_end))
             if (weekStart < practiceMonday) {
                 setWeekStart(practiceMonday)
             } else if (weekStart > practiceLastMonday) {
@@ -123,19 +138,19 @@ export default function DashboardTasksPage() {
     useEffect(() => {
         (() => {
             if (!approvedApplication) return
-            const practiceMonday = toISODate(getMondayOfWeek(new Date(approvedApplication.cohort.start_date)))
+            const practiceMonday = toISODate(firstPracticeWeekMonday(approvedApplication.cohort.start_date))
             setWeekStart(prev => (prev === toISODate(getMondayOfWeek(new Date())) ? practiceMonday : prev))
         })()
     }, [approvedApplication])
 
     function canGoPrev(): boolean {
         if (!weekData) return true
-        return weekStart > toISODate(getMondayOfWeek(new Date(weekData.practiceStart)))
+        return weekStart > toISODate(firstPracticeWeekMonday(weekData.cohort.practice_start))
     }
 
     function canGoNext(): boolean {
         if (!weekData) return true
-        return weekStart < toISODate(getMondayOfWeek(new Date(weekData.practiceEnd)))
+        return weekStart < toISODate(lastPracticeWeekMonday(weekData.cohort.practice_end))
     }
 
     function goPrevWeek() {
@@ -148,19 +163,10 @@ export default function DashboardTasksPage() {
         setWeekStart(prev => toISODate(addDays(new Date(prev), 7)))
     }
 
-    function openCreate(date: string) {
-        setPopup({ mode: 'create', date })
-        setPopupTitle('')
-        setPopupDesc('')
-        setPopupLink('')
-        setPopupError('')
-    }
-
-    function openEdit(task: Task) {
-        setPopup({ mode: 'edit', date: task.date, task })
-        setPopupTitle(task.title)
-        setPopupDesc(task.description)
-        setPopupLink(task.artifact_link ?? '')
+    function openCell(date: string, task: DailyTask) {
+        setPopup({ date, task })
+        setPopupDesc(task.description ?? '')
+        setPopupLinks(task.links.map(l => l.url))
         setPopupError('')
     }
 
@@ -170,62 +176,51 @@ export default function DashboardTasksPage() {
         setPopupError('')
     }
 
+    function addLinkField() {
+        setPopupLinks(prev => [...prev, ''])
+    }
+
+    function updateLinkField(i: number, value: string) {
+        setPopupLinks(prev => prev.map((l, idx) => (idx === i ? value : l)))
+    }
+
+    function removeLinkField(i: number) {
+        setPopupLinks(prev => prev.filter((_, idx) => idx !== i))
+    }
+
     async function handleSave() {
-        if (!popupTitle.trim() || !popupDesc.trim()) {
-            setPopupError('Заполни название и описание')
-            return
-        }
         if (!popup) return
         setPopupSaving(true)
         setPopupError('')
         try {
-            if (popup.mode === 'create') {
-                await createTask({
-                    date: new Date(popup.date).toISOString(),
-                    title: popupTitle.trim(),
-                    description: popupDesc.trim(),
-                    artifact_link: popupLink.trim() || null,
-                })
-            } else if (popup.task) {
-                await updateTask(popup.task.id, {
-                    title: popupTitle.trim(),
-                    description: popupDesc.trim(),
-                    artifact_link: popupLink.trim() || null,
-                })
+            await updateDailyTask(popup.task.id, {
+                description: popupDesc.trim() || null,
+                links: popupLinks.filter(l => l.trim() !== '').map(url => ({ url: url.trim() })),
+            })
+            closePopup()
+            await loadWeek()
+        } catch (err: unknown) {
+            if (err instanceof DailyTaskValidationError || err instanceof Error) {
+                setPopupError(err.message)
+            } else {
+                setPopupError('Ошибка сохранения')
             }
-            closePopup()
-            await loadWeek()
-        } catch (err: unknown) {
-            setPopupError(err instanceof Error ? err.message : 'Ошибка сохранения')
             setPopupSaving(false)
         }
     }
 
-    async function handleDelete() {
-        if (!popup?.task) return
+    async function handleClear() {
+        if (!popup) return
         setPopupSaving(true)
+        setPopupError('')
         try {
-            await deleteTask(popup.task.id)
+            await updateDailyTask(popup.task.id, { description: null, links: [] })
             closePopup()
             await loadWeek()
         } catch (err: unknown) {
-            setPopupError(err instanceof Error ? err.message : 'Ошибка удаления')
+            setPopupError(err instanceof Error ? err.message : 'Ошибка очистки')
             setPopupSaving(false)
         }
-    }
-
-    function buildGridDays(): { date: string; dayLabel: string; shortDate: string }[] {
-        const monday = new Date(weekStart)
-        return Array.from({ length: 5 }, (_, i) => {
-            const d = addDays(monday, i)
-            const day = d.getUTCDate()
-            const month = d.getUTCMonth() + 1
-            return { date: toISODate(d), dayLabel: DAYS_RU[i], shortDate: `${day}.${String(month).padStart(2, '0')}` }
-        })
-    }
-
-    function getTaskForDate(date: string): Task | undefined {
-        return weekData?.tasks.find(t => sameDate(t.date, date))
     }
 
     if (applicationsLoading) return (
@@ -245,14 +240,12 @@ export default function DashboardTasksPage() {
                     тогда даты практики подставятся автоматически.
                 </p>
                 <a href="/dashboard/applications"
-                    className="text-xs font-semibold px-4 py-2 rounded-lg border border-[#6C63FF] text-[#6C63FF] hover:bg-[#EBE9FF]">
+                    className="text-xs font-semibold px-4 py-2 rounded-lg border border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF]">
                     Посмотреть мои заявки
                 </a>
             </div>
         )
     }
-
-    const gridDays = buildGridDays()
 
     return (
         <div className="flex flex-col gap-6">
@@ -277,47 +270,51 @@ export default function DashboardTasksPage() {
 
             {tasksError && (
                 <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
-                    <p className="text-sm text-[#D94F4F]">⚠️ {tasksError}</p>
+                    <p className="text-sm text-[#C93B3B]">⚠️ {tasksError}</p>
                 </div>
             )}
 
             <div className={`bg-white rounded-2xl shadow-sm overflow-hidden transition-opacity ${tasksLoading ? 'opacity-50' : ''}`}>
                 <div className="grid grid-cols-5 border-b border-[#E4E2F4]">
-                    {gridDays.map(({ dayLabel, shortDate }, i) => (
-                        <div key={i} className="px-5 py-3 border-r border-[#E4E2F4] last:border-r-0">
-                            <span className="text-xs font-bold text-[#A9A7BB] uppercase tracking-wide">{dayLabel} {shortDate}</span>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="grid grid-cols-5 divide-x divide-[#E4E2F4] min-h-[240px]">
-                    {gridDays.map(({ date }) => {
-                        const task = getTaskForDate(date)
+                    {weekData?.days.map(({ date }, i) => {
+                        const d = new Date(date)
                         return (
-                            <div key={date} className="p-4 flex flex-col gap-3 relative group">
-                                {task ? (
-                                    <button onClick={() => openEdit(task)} className="flex flex-col gap-2 text-left w-full">
-                                        <div className="inline-flex self-start items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#EBE9FF] text-[#4A42D4]">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-[#6C63FF]" />
-                                            Заполнено
-                                        </div>
-                                        <p className="text-xs font-semibold text-[#1C1A3A] leading-snug line-clamp-2">{task.title}</p>
-                                        {task.description && (
-                                            <p className="text-xs text-[#6B6880] leading-relaxed line-clamp-2">{task.description}</p>
-                                        )}
-                                        {task.artifact_link && (
-                                            <span className="text-[10px] text-[#6C63FF] truncate max-w-full">🔗 Артефакт</span>
-                                        )}
-                                    </button>
-                                ) : (
-                                    <button onClick={() => openCreate(date)}
-                                        className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <div className="w-8 h-8 rounded-full bg-[#EBE9FF] border-[1.5px] border-[#6C63FF] text-[#6C63FF] text-lg flex items-center justify-center">+</div>
-                                    </button>
-                                )}
+                            <div key={i} className="px-5 py-3 border-r border-[#E4E2F4] last:border-r-0">
+                                <span className="text-xs font-bold text-[#6B6880] uppercase tracking-wide">
+                                    {DAYS_RU[i]} {d.getUTCDate()}.{String(d.getUTCMonth() + 1).padStart(2, '0')}
+                                </span>
                             </div>
                         )
                     })}
+                </div>
+
+                <div className="grid grid-cols-5 divide-x divide-[#E4E2F4] min-h-[240px]">
+                    {weekData?.days.map(({ date, task }) => (
+                        <div key={date} className="p-4 flex flex-col gap-3 relative group">
+                            {task ? (
+                                <button onClick={() => openCell(date, task)} className="flex flex-col gap-2 text-left w-full h-full">
+                                    {task.description ? (
+                                        <>
+                                            <div className="inline-flex self-start items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#EBE9FF] text-[#4A42D4]">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-[#6C63FF]" />
+                                                Заполнено
+                                            </div>
+                                            <p className="text-xs text-[#1C1A3A] leading-relaxed line-clamp-3">{task.description}</p>
+                                            {task.links.length > 0 && (
+                                                <span className="text-[10px] text-[#4A42D4] truncate max-w-full">
+                                                    🔗 {task.links.length === 1 ? 'Ссылка' : `Ссылок: ${task.links.length}`}
+                                                </span>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <span className="text-xs text-[#6B6880] group-hover:text-[#4A42D4]">+ Заполнить день</span>
+                                    )}
+                                </button>
+                            ) : (
+                                <span className="text-xs text-[#D9D7E8]">—</span>
+                            )}
+                        </div>
+                    ))}
                 </div>
             </div>
 
@@ -329,62 +326,65 @@ export default function DashboardTasksPage() {
             )}
 
             {weekData && (
-                <p className="text-xs text-[#A9A7BB]">
-                    Период практики: {new Date(weekData.practiceStart).toLocaleDateString('ru')} — {new Date(weekData.practiceEnd).toLocaleDateString('ru')}
-                    {' '}· Нажми на пустую ячейку чтобы добавить задачу, на заполненную — чтобы изменить
+                <p className="text-xs text-[#6B6880]">
+                    Период практики: {new Date(weekData.cohort.practice_start).toLocaleDateString('ru')} — {new Date(weekData.cohort.practice_end).toLocaleDateString('ru')}
+                    {' '}· Нажми на день, чтобы описать выполненную работу и прикрепить ссылки
                 </p>
             )}
 
-            {/* ── ПОПАП ЗАДАЧИ ── */}
+            {/* ── ПОПАП ДНЯ ── */}
             {popup && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={closePopup}>
                     <div className="bg-white rounded-2xl shadow-xl p-7 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-5">
                             <div>
                                 <h3 className="font-bold text-lg text-[#1C1A3A]">
-                                    {popup.mode === 'create' ? 'Новая задача' : 'Редактировать задачу'}
-                                </h3>
-                                <p className="text-xs text-[#A9A7BB]">
                                     {new Date(popup.date).toLocaleDateString('ru', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}
-                                </p>
+                                </h3>
+                                {popup.task.saved_at && (
+                                    <p className="text-xs text-[#6B6880]">
+                                        Сохранено {new Date(popup.task.saved_at).toLocaleDateString('ru', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                )}
                             </div>
-                            <button onClick={closePopup} className="text-[#A9A7BB] hover:text-[#1C1A3A] text-xl leading-none">×</button>
+                            <button onClick={closePopup} className="text-[#6B6880] hover:text-[#1C1A3A] text-xl leading-none">×</button>
                         </div>
 
                         <div className="flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-sm font-medium text-[#1C1A3A]">Название задачи <span className="text-[#6C63FF]">*</span></label>
-                                <input type="text" value={popupTitle} onChange={e => setPopupTitle(e.target.value)}
-                                    placeholder="Что делал сегодня?" className="w-full text-sm" />
-                            </div>
-
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-sm font-medium text-[#1C1A3A]">Описание <span className="text-[#6C63FF]">*</span></label>
+                                <label className="text-sm font-medium text-[#1C1A3A]">Что делал сегодня?</label>
                                 <textarea value={popupDesc} onChange={e => setPopupDesc(e.target.value)}
-                                    placeholder="Опиши выполненную работу подробнее…" rows={4}
+                                    placeholder="Опиши выполненную работу…" rows={4}
                                     className="w-full text-sm" style={{ resize: 'none' }} />
                             </div>
 
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-sm font-medium text-[#1C1A3A]">Ссылка на артефакт</label>
-                                <input type="text" value={popupLink} onChange={e => setPopupLink(e.target.value)}
-                                    placeholder="GitHub, Figma, Google Drive…" className="w-full text-sm" />
-                                <span className="text-xs text-[#A9A7BB]">Необязательно</span>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-medium text-[#1C1A3A]">Ссылки на артефакты</label>
+                                {popupLinks.map((link, i) => (
+                                    <div key={i} className="flex gap-2">
+                                        <input type="text" value={link} onChange={e => updateLinkField(i, e.target.value)}
+                                            placeholder="GitHub, Figma, Google Drive…" className="w-full text-sm" />
+                                        <button onClick={() => removeLinkField(i)}
+                                            className="px-3 text-[#C93B3B] hover:bg-[#FFF5F5] rounded-lg text-sm">✕</button>
+                                    </div>
+                                ))}
+                                <button onClick={addLinkField}
+                                    className="self-start text-xs font-semibold text-[#4A42D4] hover:underline">
+                                    + Добавить ссылку
+                                </button>
                             </div>
 
                             {popupError && (
                                 <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
-                                    <p className="text-sm text-[#D94F4F]">⚠️ {popupError}</p>
+                                    <p className="text-sm text-[#C93B3B]">⚠️ {popupError}</p>
                                 </div>
                             )}
 
                             <div className="flex justify-between items-center mt-2">
-                                {popup.mode === 'edit' ? (
-                                    <button onClick={handleDelete} disabled={popupSaving}
-                                        className="px-4 py-2 text-sm font-medium text-[#D94F4F] hover:bg-[#FFF5F5] rounded-lg disabled:opacity-50">
-                                        🗑 Удалить
-                                    </button>
-                                ) : <span />}
+                                <button onClick={handleClear} disabled={popupSaving}
+                                    className="px-4 py-2 text-sm font-medium text-[#C93B3B] hover:bg-[#FFF5F5] rounded-lg disabled:opacity-50">
+                                    Очистить день
+                                </button>
                                 <div className="flex gap-3">
                                     <button onClick={closePopup} className="px-5 py-2 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-lg">
                                         Отмена

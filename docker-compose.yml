@@ -30,6 +30,16 @@ services:
       - PORT=3000
       - DATABASE_URL=postgresql://practice_user:practice_secure_password@postgres:5432/practice_main
       - JWT_SECRET=${JWT_SECRET}
+      # Локальный frontend dev-сервер (npm run dev) поднимается на 3002, если
+      # 3000/3001 заняты — без этого браузерные fetch-запросы (register/login)
+      # блокируются CORS (curl/node fetch этого не показывают, т.к. не следуют CORS).
+      - CORS_ORIGIN=http://localhost:3002
+      # /auth/* (включая /auth/me, который useAuth() дёргает при каждом
+      # заходе на защищённую страницу) rate-limited по умолчанию 10 req/15мин —
+      # для локальной разработки/E2E этого мало, поднимаем без изменения кода.
+      # См. BACKEND_GAP_COHORT_API.md: стоит ли /auth/me лимитировать так же
+      # жёстко, как login/register — вопрос к backend-команде.
+      - AUTH_RATE_LIMIT_MAX_REQUESTS=1000
     depends_on:
       postgres:
         condition: service_healthy

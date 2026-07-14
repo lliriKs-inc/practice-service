@@ -18,7 +18,7 @@ export default function HomePage() {
                     </nav>
 
                     <div className="flex items-center gap-3">
-                        <a href="/login" className="text-sm font-semibold text-[#1C1A3A] hover:text-[#6C63FF] transition-colors">
+                        <a href="/login" className="text-sm font-semibold text-[#1C1A3A] hover:text-[#4A42D4] transition-colors">
                             Войти
                         </a>
                         <a href="/register"
@@ -59,12 +59,12 @@ export default function HomePage() {
                                 style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
                                 Войти в кабинет →
                             </a>
-                            <a href="#how" className="text-sm font-semibold text-[#1C1A3A] hover:text-[#6C63FF] transition-colors">
+                            <a href="#how" className="text-sm font-semibold text-[#1C1A3A] hover:text-[#4A42D4] transition-colors">
                                 Как это устроено
                             </a>
                         </div>
 
-                        <p className="text-xs text-[#A9A7BB] mt-1">
+                        <p className="text-xs text-[#6B6880] mt-1">
                             Заявку можно подать только по персональной ссылке-приглашению от организатора практики.
                         </p>
                     </div>
@@ -78,7 +78,7 @@ export default function HomePage() {
                                 <span className="w-2.5 h-2.5 rounded-full bg-[#F0BABA]" />
                                 <span className="w-2.5 h-2.5 rounded-full bg-[#F5D9A0]" />
                                 <span className="w-2.5 h-2.5 rounded-full bg-[#7EE8B8]" />
-                                <span className="ml-3 text-[11px] font-medium text-[#A9A7BB]">Личный кабинет</span>
+                                <span className="ml-3 text-[11px] font-medium text-[#6B6880]">Личный кабинет</span>
                             </div>
 
                             <div className="p-5 flex flex-col gap-3">
@@ -86,7 +86,7 @@ export default function HomePage() {
                                 <div className="rounded-xl border border-[#E4E2F4] overflow-hidden">
                                     <div className="px-4 py-3 flex items-center justify-between bg-[#FBFAFF]">
                                         <div>
-                                            <p className="text-[9px] font-bold tracking-widest uppercase text-[#A9A7BB]">Практика 2026</p>
+                                            <p className="text-[9px] font-bold tracking-widest uppercase text-[#6B6880]">Практика 2026</p>
                                             <p className="text-sm font-bold text-[#1C1A3A]">Backend-разработчик</p>
                                         </div>
                                         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EDFBF4] border border-[#7EE8B8]">
@@ -101,7 +101,7 @@ export default function HomePage() {
                                     <div className="grid grid-cols-5 border-b border-[#E4E2F4]">
                                         {['Пн', 'Вт', 'Ср', 'Чт', 'Пт'].map(d => (
                                             <div key={d} className="px-2 py-2 border-r border-[#E4E2F4] last:border-r-0">
-                                                <span className="text-[9px] font-bold uppercase text-[#A9A7BB]">{d}</span>
+                                                <span className="text-[9px] font-bold uppercase text-[#6B6880]">{d}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -111,7 +111,7 @@ export default function HomePage() {
                                             <span className="text-[9px] text-[#1C1A3A] font-medium leading-tight">Настройка окружения</span>
                                         </div>
                                         <div className="p-2 flex items-center justify-center">
-                                            <span className="w-5 h-5 rounded-full border border-dashed border-[#C4BEFF] text-[#6C63FF] text-[10px] flex items-center justify-center">+</span>
+                                            <span className="w-5 h-5 rounded-full border border-dashed border-[#C4BEFF] text-[#4A42D4] text-[10px] flex items-center justify-center">+</span>
                                         </div>
                                         <div className="p-2 flex flex-col gap-1">
                                             <span className="w-fit text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#EBE9FF] text-[#4A42D4]">Готово</span>
@@ -134,7 +134,7 @@ export default function HomePage() {
                         <div className="absolute -bottom-5 -left-5 bg-white rounded-xl shadow-lg border border-[#E4E2F4] px-4 py-3 hidden sm:flex items-center gap-2.5">
                             <span className="text-lg">✅</span>
                             <div>
-                                <p className="text-[10px] text-[#A9A7BB] leading-none mb-0.5">Задача сохранена</p>
+                                <p className="text-[10px] text-[#6B6880] leading-none mb-0.5">Задача сохранена</p>
                                 <p className="text-xs font-semibold text-[#1C1A3A] leading-none">2 минуты назад</p>
                             </div>
                         </div>
@@ -146,7 +146,7 @@ export default function HomePage() {
             <section id="how" className="bg-[#F5F4FD] py-24">
                 <div className="max-w-6xl mx-auto px-6">
                     <div className="max-w-xl mb-14">
-                        <p className="text-xs font-bold tracking-widest uppercase text-[#6C63FF] mb-3">Процесс</p>
+                        <p className="text-xs font-bold tracking-widest uppercase text-[#4A42D4] mb-3">Процесс</p>
                         <h2 className="text-3xl font-extrabold tracking-tight text-[#1C1A3A] mb-3">Три шага от ссылки до практики</h2>
                         <p className="text-[#6B6880] leading-relaxed">
                             Организатор присылает персональную ссылку — дальше всё происходит в личном кабинете,
@@ -173,7 +173,7 @@ export default function HomePage() {
                             },
                         ].map(step => (
                             <div key={step.n} className="bg-white rounded-2xl p-7 border border-[#E4E2F4] flex flex-col gap-4">
-                                <span className="text-3xl font-extrabold text-[#C4BEFF]">{step.n}</span>
+                                <span className="text-3xl font-extrabold text-[#4A42D4]">{step.n}</span>
                                 <h3 className="text-lg font-bold text-[#1C1A3A]">{step.title}</h3>
                                 <p className="text-sm text-[#6B6880] leading-relaxed">{step.desc}</p>
                             </div>
@@ -186,7 +186,7 @@ export default function HomePage() {
             <section id="features" className="py-24">
                 <div className="max-w-6xl mx-auto px-6">
                     <div className="max-w-xl mb-14">
-                        <p className="text-xs font-bold tracking-widest uppercase text-[#6C63FF] mb-3">Возможности</p>
+                        <p className="text-xs font-bold tracking-widest uppercase text-[#4A42D4] mb-3">Возможности</p>
                         <h2 className="text-3xl font-extrabold tracking-tight text-[#1C1A3A] mb-3">Всё нужное — в личном кабинете</h2>
                     </div>
 
@@ -219,7 +219,7 @@ export default function HomePage() {
                             Подавай заявку, проходи тестовое задание, следи за статусом и веди дневник практики —
                             всё в одном личном кабинете, доступном с любого устройства.
                         </p>
-                        <a href="/login" className="text-sm font-semibold text-[#6C63FF] hover:underline mt-1">Войти в кабинет →</a>
+                        <a href="/login" className="text-sm font-semibold text-[#4A42D4] hover:underline mt-1">Войти в кабинет →</a>
                     </div>
 
                     <div className="bg-white rounded-2xl p-8 border border-[#E4E2F4] flex flex-col gap-4">
@@ -229,7 +229,7 @@ export default function HomePage() {
                             Создавай когорты и треки, настраивай анкету и тестовые задания, рассылай ссылку-приглашение
                             и веди все заявки в одном месте.
                         </p>
-                        <a href="/login" className="text-sm font-semibold text-[#6C63FF] hover:underline mt-1">Панель администратора →</a>
+                        <a href="/login" className="text-sm font-semibold text-[#4A42D4] hover:underline mt-1">Панель администратора →</a>
                     </div>
 
                 </div>
@@ -248,7 +248,7 @@ export default function HomePage() {
                             Войди в личный кабинет, чтобы проверить статус заявки или продолжить дневник практики.
                         </p>
                         <a href="/login"
-                            className="relative text-sm font-semibold text-[#6C63FF] bg-white px-7 py-3.5 rounded-xl shadow-md hover:opacity-90 transition-opacity mt-2">
+                            className="relative text-sm font-semibold text-[#4A42D4] bg-white px-7 py-3.5 rounded-xl shadow-md hover:opacity-90 transition-opacity mt-2">
                             Войти →
                         </a>
                     </div>
@@ -263,7 +263,7 @@ export default function HomePage() {
                             style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>🎓</div>
                         <span className="font-bold text-sm text-[#1C1A3A]">Практика УрФУ</span>
                     </div>
-                    <p className="text-xs text-[#A9A7BB]">© 2026 · Сервис организации практики</p>
+                    <p className="text-xs text-[#6B6880]">© 2026 · Сервис организации практики</p>
                 </div>
             </footer>
 
