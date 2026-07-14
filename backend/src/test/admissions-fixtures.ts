@@ -127,6 +127,18 @@ export async function cleanupAdmissionsFixture(
         select: { file_url: true },
       })
     : [];
+  const storedReports = applicationIds.length > 0
+    ? await prisma.report.findMany({
+        where: { application_id: { in: applicationIds } },
+        select: { file_url: true },
+      })
+    : [];
+  const storedDocuments = applicationIds.length > 0
+    ? await prisma.document.findMany({
+        where: { application_id: { in: applicationIds } },
+        select: { generated_file_url: true },
+      })
+    : [];
 
   if (applicationIds.length > 0) {
     await prisma.dailyTaskLink.deleteMany({ where: { dailyTask: { application_id: { in: applicationIds } } } });
@@ -137,6 +149,13 @@ export async function cleanupAdmissionsFixture(
   }
 
   await Promise.all(storedSubmissions.map(({ file_url }) => storage.remove(file_url).catch(() => undefined)));
+  await Promise.all(storedReports.map(({ file_url }) => storage.remove(file_url).catch(() => undefined)));
+  await Promise.all(
+    storedDocuments
+      .map(({ generated_file_url }) => generated_file_url)
+      .filter((fileUrl): fileUrl is string => Boolean(fileUrl))
+      .map((fileUrl) => storage.remove(fileUrl).catch(() => undefined)),
+  );
 
   await prisma.testTask.deleteMany({ where: { track_id: { in: [fixture.trackId, fixture.foreignTrackId] } } });
   await prisma.invitation.deleteMany({ where: { cohort_id: fixture.cohortId } });

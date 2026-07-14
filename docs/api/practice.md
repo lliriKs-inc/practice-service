@@ -2,6 +2,8 @@
 
 Контракт B-03/B-05 для ежедневного прогресса и административных read models.
 
+Все пути ниже являются относительными к production prefix `/api/v1`.
+
 Все защищённые endpoints требуют JWT в заголовке:
 
 ```http
@@ -327,4 +329,4 @@ GET /cohorts/:cohortId/admin/overview
 
 `active_cohort_id` не используется как источник авторизации. Каждый detail/list query содержит явное ограничение выбранной когорты. Admin read endpoints не изменяют Application, Report, Document или DailyTask.
 
-Admin router смонтирован без дополнительного `/admin` prefix, поэтому текущий относительный путь совпадает с документированным `/cohorts/:cohortId/admin/...`. Добавление общего `/api/v1` prefix для всех модулей остаётся финальным шагом B-06.
+Admin router смонтирован без дополнительного `/admin` prefix. Полный production путь имеет вид `/api/v1/cohorts/:cohortId/admin/...`.

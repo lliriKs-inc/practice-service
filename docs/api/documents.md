@@ -1,43 +1,33 @@
 # Documents API
 
-## Readiness
+Все пути ниже доступны с production prefix `/api/v1` и требуют JWT. Student endpoints проверяют владельца approved application; admin endpoints требуют роль `ADMIN` и ограничивают заявку через `Application.track.cohort_id`.
 
-`GET /api/applications/me/documents` returns readiness for `INDIVIDUAL_TASK`, `TITLE_PAGE`, `REVIEW`, and `NOTICE`.
+## Readiness и EAV autosave
 
-Each document includes `ready`, `missingFields`, and `requiresApprovedReport`.
+- `GET /me/applications/:applicationId/documents/readiness` — readiness для `INDIVIDUAL_TASK`, `TITLE_PAGE`, `REVIEW`, `NOTICE`.
+- `GET /me/applications/:applicationId/documents` — EAV-значения и безопасная metadata документов.
+- `PUT /me/applications/:applicationId/documents/:type/fields/:fieldKey` — autosave student-owned поля, body `{ "value": "..." }`.
+- `PUT /cohorts/:cohortId/admin/applications/:applicationId/documents/:type/fields/:fieldKey` — autosave admin-owned поля, включая поля `REVIEW`.
 
-## EAV autosave
-
-`PUT /api/applications/me/documents/:type/fields`
-
-```json
-{ "field": "review_grade", "value": "A" }
-```
-
-Only the authenticated student's own application is updated.
+Для EAV endpoints `:type` передаётся как Prisma enum (`INDIVIDUAL_TASK`, `TITLE_PAGE`, `REVIEW`, `NOTICE`). Неверный владелец поля получает `403`.
 
 ## Report workflow
 
-- `GET /api/applications/me/applications/:applicationId/report`
-- `PUT /api/applications/me/applications/:applicationId/report`
-- `PATCH /api/applications/cohorts/:cohortId/applications/:applicationId/report/status`
+- `GET /me/applications/:applicationId/report` — безопасная metadata отчёта.
+- `PUT /me/applications/:applicationId/report` — замена multipart-файла в поле `report`.
+- `PATCH /cohorts/:cohortId/applications/:applicationId/report/status` — решение ADMIN.
+- `GET /me/applications/:applicationId/report/file` — скачивание владельцем.
+- `GET /cohorts/:cohortId/admin/applications/:applicationId/report/file` — cohort-scoped скачивание ADMIN.
 
-Report statuses are `PENDING`, `APPROVED`, and `REJECTED`. Replacing a report resets its status to `PENDING`.
-
-Report responses expose safe metadata and a resource-based `downloadPath`; the underlying `file_url` is never returned. Protected downloads:
-
-- `GET /me/applications/:applicationId/report/file` — owning student;
-- `GET /cohorts/:cohortId/admin/applications/:applicationId/report/file` — ADMIN scoped to the cohort.
+Статусы отчёта: `PENDING`, `APPROVED`, `REJECTED`. Замена файла сбрасывает статус в `PENDING`. `file_url` наружу не возвращается.
 
 ## DOCX generation
 
-Supported templates: `individual-task`, `review`, `title-page`, and `notice`.
+`GET /me/applications/:applicationId/documents/:type/generate` генерирует DOCX. Для генерации используются slug-типы `individual-task`, `review`, `title-page`, `notice`.
 
-Templates are stored in `backend/templates/documents/` and generation returns a DOCX buffer.
-
-Generation also stores the DOCX through `StorageService`, updates `Document.generated_file_url/generated_at`, and replaces the previous generated file. Stored documents are downloaded through:
+Сгенерированный файл сохраняется через `StorageService`; повторная генерация заменяет предыдущий. Скачать его можно через:
 
 - `GET /me/applications/:applicationId/documents/:type/file`;
 - `GET /cohorts/:cohortId/admin/applications/:applicationId/documents/:type/file`.
 
-The download endpoints resolve files from application/document resource IDs and never require clients to send a storage key.
+Download endpoints принимают enum-тип документа и разрешают файл по resource ID, не раскрывая `generated_file_url`.

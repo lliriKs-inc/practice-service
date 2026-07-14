@@ -23,7 +23,7 @@ describe("B-05 application mount", () => {
     const app = createApp({ readinessCheck: async () => undefined });
 
     const response = await request(app)
-      .get("/cohorts/cohort-1/admin/overview")
+      .get("/api/v1/cohorts/cohort-1/admin/overview")
       .set("Authorization", `Bearer ${token}`);
 
     expect(response.status).toBe(200);
@@ -48,7 +48,7 @@ describe("B-05 application mount", () => {
 
     const response = await request(app)
       .get(
-        "/cohorts/cohort-1/admin/applications/application-1/report/file"
+        "/api/v1/cohorts/cohort-1/admin/applications/application-1/report/file"
       )
       .set("Authorization", `Bearer ${token}`);
 

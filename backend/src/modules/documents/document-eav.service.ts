@@ -219,4 +219,90 @@ export class DocumentEavService {
       },
     });
   }
+
+  async updateAdminField(
+    cohortId: string,
+    applicationId: string,
+    typeValue: string,
+    fieldKey: string,
+    value: string
+  ) {
+    const type = parseDocumentType(typeValue);
+    const application = await prisma.application.findFirst({
+      where: {
+        id: applicationId,
+        status: ApplicationStatus.APPROVED,
+        track: { cohort_id: cohortId },
+      },
+      select: { id: true },
+    });
+
+    if (!application) {
+      throw new AppError(
+        "Application not found",
+        404,
+        "APPLICATION_NOT_FOUND"
+      );
+    }
+
+    const field = getDocumentConfig(type).fields.find(
+      (item) => item.key === fieldKey
+    );
+
+    if (!field) {
+      throw new AppError(
+        "Document field not found",
+        404,
+        "DOCUMENT_FIELD_NOT_FOUND"
+      );
+    }
+
+    if (field.owner !== UserRole.ADMIN) {
+      throw new AppError(
+        "Admin cannot edit this field",
+        403,
+        "DOCUMENT_FIELD_FORBIDDEN"
+      );
+    }
+
+    const document = await prisma.document.upsert({
+      where: {
+        application_id_type: {
+          application_id: applicationId,
+          type,
+        },
+      },
+      update: {},
+      create: {
+        application_id: applicationId,
+        type,
+      },
+    });
+
+    const saved = await prisma.documentFieldValue.upsert({
+      where: {
+        document_id_field_key: {
+          document_id: document.id,
+          field_key: fieldKey,
+        },
+      },
+      update: {
+        value,
+        filled_by: UserRole.ADMIN,
+      },
+      create: {
+        document_id: document.id,
+        field_key: fieldKey,
+        value,
+        filled_by: UserRole.ADMIN,
+      },
+    });
+
+    return {
+      id: saved.id,
+      key: saved.field_key,
+      value: saved.value,
+      filledBy: saved.filled_by,
+    };
+  }
 }
