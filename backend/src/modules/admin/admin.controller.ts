@@ -1,83 +1,107 @@
 import { NextFunction, Request, Response } from "express";
 import { AppError } from "../../middlewares/error.middleware";
 import { AdminService } from "./admin.service";
+import { adminApplicationsQuerySchema } from "./dto/admin-applications-query.dto";
+import { adminDocumentsQuerySchema } from "./dto/admin-documents-query.dto";
 
-const service = new AdminService();
+function param(req: Request, name: string): string {
+  const value = req.params[name];
+
+  if (typeof value !== "string" || !value) {
+    throw new AppError(
+      `Invalid ${name}`,
+      400,
+      "VALIDATION_ERROR"
+    );
+  }
+
+  return value;
+}
 
 export class AdminController {
-  async getStudents(req: Request, res: Response, next: NextFunction) {
+  constructor(private readonly service = new AdminService()) {}
+
+  async getApplications(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     try {
-      if (!req.cohortId) {
-        throw new AppError("No active cohort selected", 400);
-      }
+      const result = await this.service.getApplications(
+        param(req, "cohortId"),
+        adminApplicationsQuerySchema.parse(req.query)
+      );
 
-      const students = await service.getApprovedStudents(req.cohortId);
-
-      return res.json(students);
+      return res.json(result);
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 
-  async getDocuments(req: Request, res: Response, next: NextFunction) {
+  async getApplication(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     try {
-        if (!req.cohortId) {
-        throw new AppError("No active cohort selected", 400);
-        }
+      const result = await this.service.getApplication(
+        param(req, "cohortId"),
+        param(req, "applicationId")
+      );
 
-        const documents = await service.getDocuments(req.cohortId);
-
-      return res.json(documents);
+      return res.json(result);
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 
-  async getStudentDocuments(req: Request, res: Response, next: NextFunction) {
+  async getDocuments(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     try {
-      if (!req.cohortId) {
-        throw new AppError("No active cohort selected", 400);
-      }
+      const result = await this.service.getDocuments(
+        param(req, "cohortId"),
+        adminDocumentsQuerySchema.parse(req.query)
+      );
 
-      const userId = req.params.userId;
-
-      if (typeof userId !== "string") {
-        throw new AppError("userId is required", 400);
-      }
-
-      const documents = await service.getStudentDocuments(req.cohortId, userId);
-
-      return res.json(documents);
+      return res.json(result);
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 
-  async getTasks(req: Request, res: Response, next: NextFunction) {
+  async getApplicationDocuments(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     try {
-      if (!req.cohortId) {
-        throw new AppError("No active cohort selected", 400);
-      }
+      const result = await this.service.getApplicationDocuments(
+        param(req, "cohortId"),
+        param(req, "applicationId")
+      );
 
-      const tasks = await service.getTasks(req.cohortId);
-
-      return res.json(tasks);
+      return res.json(result);
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 
-  async getStats(req: Request, res: Response, next: NextFunction) {
+  async getOverview(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     try {
-      if (!req.cohortId) {
-        throw new AppError("No active cohort selected", 400);
-      }
+      const result = await this.service.getOverview(
+        param(req, "cohortId")
+      );
 
-      const stats = await service.getStats(req.cohortId);
-
-      return res.json(stats);
+      return res.json(result);
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 }

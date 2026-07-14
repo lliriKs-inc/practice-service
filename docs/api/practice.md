@@ -1,6 +1,6 @@
-# Practice Progress API
+# Practice Progress and Admin Read API
 
-Контракт B-03 для ежедневного прогресса на моделях `DailyTask` и `DailyTaskLink`.
+Контракт B-03/B-05 для ежедневного прогресса и административных read models.
 
 Все защищённые endpoints требуют JWT в заголовке:
 
@@ -121,6 +121,8 @@ GET /cohorts/:cohortId/progress?weekStart=2026-07-13
 
 Доступ: администратор. Возвращаются только одобренные заявки выбранной когорты. Данные других когорт не выдаются.
 
+B-05 официально переиспользует этот B-03 read model как недельную таблицу административной вкладки прогресса. Отдельная копия progress service в `modules/admin` не создаётся.
+
 ### Response `200`
 
 ```json
@@ -236,3 +238,93 @@ GET /cohorts/:cohortId/progress/missed?weekStart=2026-07-13&studentId=student-id
 - Ссылки принадлежат конкретному DailyTask и заменяются атомарно вместе с описанием.
 - `saved_at` обновляется при каждом успешном сохранении ячейки.
 - Все даты календаря обрабатываются как UTC date-only.
+
+## 7. Административные заявки B-05
+
+```http
+GET /cohorts/:cohortId/admin/applications?status=&trackId=&search=
+GET /cohorts/:cohortId/admin/applications/:applicationId
+```
+
+Доступ: только `ADMIN`. Список поддерживает фильтры по статусу заявки, треку и регистронезависимый поиск по ФИО или email. Ответ строится через `Application -> Track -> Cohort` и содержит студента, трек, metadata решения тестового задания, статус отчёта и число пропущенных дней.
+
+Detail дополнительно возвращает ответы анкеты в порядке вопросов и вычисляемую готовность документов. Физические storage keys отчёта и решения в read model не раскрываются; скачивание выполняется только через защищённые endpoints соответствующих доменных модулей.
+
+`applicationId` является идентификатором административной карточки. `userId` не используется, поскольку студент может иметь несколько заявок в одной когорте на разные треки.
+
+## 8. Административные документы B-05
+
+```http
+GET /cohorts/:cohortId/admin/documents?trackId=&studentId=&search=&reportStatus=&documentType=&readiness=
+GET /cohorts/:cohortId/admin/documents/:applicationId
+```
+
+Доступ: только `ADMIN`. В выборку входят только заявки со статусом `APPROVED` из указанной когорты.
+
+Допустимые фильтры:
+
+- `reportStatus`: `MISSING`, `PENDING`, `APPROVED`, `REJECTED`;
+- `documentType`: `INDIVIDUAL_TASK`, `TITLE_PAGE`, `REVIEW`, `NOTICE`;
+- `readiness`: `READY` или `INCOMPLETE`;
+- `trackId`, `studentId`, `search`.
+
+Каждая заявка содержит четыре вычисляемых состояния документов:
+
+```json
+{
+  "type": "TITLE_PAGE",
+  "ready": false,
+  "missingFields": ["report.status:APPROVED"],
+  "generated": false,
+  "generatedAt": null
+}
+```
+
+Правила readiness общие со student API B-04 и читаются из `DOCUMENT_CONFIG`; они не дублируются в admin-модуле и не сохраняются в БД. Detail также возвращает EAV-значения как `{ key, value, filledBy }`.
+
+Для существующего файла read model возвращает resource-based `downloadPath`, но никогда не возвращает `file_url` или `generated_file_url`.
+
+## 9. Защищённое скачивание отчётов и документов
+
+```http
+GET /me/applications/:applicationId/report/file
+GET /me/applications/:applicationId/documents/:type/file
+GET /cohorts/:cohortId/admin/applications/:applicationId/report/file
+GET /cohorts/:cohortId/admin/applications/:applicationId/documents/:type/file
+```
+
+Student endpoints проверяют владельца одобренной заявки. Admin endpoints требуют роль `ADMIN` и проверяют принадлежность заявки выбранной когорте через `Application.track.cohort_id`.
+
+Файл открывается через B-01 `StorageService` только после доменной проверки. Отсутствующий файл, чужая заявка и заявка другой когорты возвращают одинаковый `404 DOCUMENT_FILE_NOT_FOUND`. Ответ содержит `Cache-Control: private, no-store` и `X-Content-Type-Options: nosniff`.
+
+Сгенерированный DOCX сохраняется в категории `generated-documents`; после успешной генерации обновляются `Document.generated_file_url` и `Document.generated_at`. Повторная генерация заменяет предыдущий файл через storage abstraction.
+
+## 10. Административная сводка B-05
+
+```http
+GET /cohorts/:cohortId/admin/overview
+```
+
+Ответ содержит:
+
+- количество заявок по `ApplicationStatus`;
+- количество отсутствующих и загруженных отчётов по `ReportStatus`;
+- ready/generated/total для каждого `DocumentType`;
+- общее число DailyTask и число пропусков до текущей UTC-даты.
+
+Все агрегаты ограничены `cohortId` через связь `Application.track.cohort_id`.
+
+## 11. Ошибки и изоляция B-05
+
+| Code | HTTP | Значение |
+|---|---:|---|
+| `AUTH_REQUIRED` | 401 | JWT отсутствует или не прошёл проверку |
+| `INSUFFICIENT_PERMISSIONS` | 403 | Endpoint вызван не администратором |
+| `VALIDATION_ERROR` | 400 | Некорректный route/query параметр |
+| `COHORT_NOT_FOUND` | 404 | Когорта не существует |
+| `APPLICATION_NOT_FOUND` | 404 | Заявка отсутствует, не одобрена для document detail или относится к другой когорте |
+| `DOCUMENT_FILE_NOT_FOUND` | 404 | Файл отсутствует или недоступен в выбранном application/cohort context |
+
+`active_cohort_id` не используется как источник авторизации. Каждый detail/list query содержит явное ограничение выбранной когорты. Admin read endpoints не изменяют Application, Report, Document или DailyTask.
+
+Admin router смонтирован без дополнительного `/admin` prefix, поэтому текущий относительный путь совпадает с документированным `/cohorts/:cohortId/admin/...`. Добавление общего `/api/v1` prefix для всех модулей остаётся финальным шагом B-06.

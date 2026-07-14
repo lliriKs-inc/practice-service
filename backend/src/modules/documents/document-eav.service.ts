@@ -68,9 +68,21 @@ export class DocumentEavService {
       )
     );
 
-    return this.getForApplication(
-      applicationId
-    );
+    return prisma.document.findMany({
+      where: {
+        application_id: applicationId,
+      },
+      include: {
+        fieldValues: {
+          orderBy: {
+            field_key: "asc",
+          },
+        },
+      },
+      orderBy: {
+        type: "asc",
+      },
+    });
   }
 
   async getForStudent(
@@ -97,29 +109,30 @@ export class DocumentEavService {
       );
     }
 
-    return this.getForApplication(application.id);
+    const documents = await this.getForApplication(application.id);
+
+    return documents.map((document) => ({
+      id: document.id,
+      applicationId: document.application_id,
+      type: document.type,
+      generated: Boolean(document.generated_file_url),
+      generatedAt: document.generated_at,
+      downloadPath: document.generated_file_url
+        ? `/me/applications/${application.id}/documents/${document.type}/file`
+        : null,
+      fieldValues: document.fieldValues.map((field) => ({
+        id: field.id,
+        key: field.field_key,
+        value: field.value,
+        filledBy: field.filled_by,
+      })),
+    }));
   }
 
   async getForApplication(
     applicationId: string
   ) {
-    await this.ensureForApplication(applicationId);
-
-    return prisma.document.findMany({
-      where: {
-        application_id: applicationId,
-      },
-      include: {
-        fieldValues: {
-          orderBy: {
-            field_key: "asc",
-          },
-        },
-      },
-      orderBy: {
-        type: "asc",
-      },
-    });
+    return this.ensureForApplication(applicationId);
   }
 
   async updateStudentField(
