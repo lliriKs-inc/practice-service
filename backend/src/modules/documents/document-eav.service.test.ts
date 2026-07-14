@@ -155,4 +155,72 @@ describe("DocumentEavService", () => {
 
     expect(result).toEqual(fieldValue);
   });
+
+  it("upserts an admin-owned review field inside the selected cohort", async () => {
+    const findFirst = vi
+      .spyOn(prisma.application, "findFirst")
+      .mockResolvedValue({ id: "application-1" } as any);
+    vi.spyOn(prisma.document, "upsert").mockResolvedValue({
+      id: "document-1",
+    } as any);
+    const upsert = vi
+      .spyOn(prisma.documentFieldValue, "upsert")
+      .mockResolvedValue({
+        id: "field-1",
+        document_id: "document-1",
+        field_key: "review_grade",
+        value: "A",
+        filled_by: UserRole.ADMIN,
+      } as any);
+
+    const result = await service.updateAdminField(
+      "cohort-1",
+      "application-1",
+      DocumentType.REVIEW,
+      "review_grade",
+      "A"
+    );
+
+    expect(findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "application-1",
+        status: ApplicationStatus.APPROVED,
+        track: { cohort_id: "cohort-1" },
+      },
+      select: { id: true },
+    });
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: {
+          value: "A",
+          filled_by: UserRole.ADMIN,
+        },
+      })
+    );
+    expect(result).toEqual({
+      id: "field-1",
+      key: "review_grade",
+      value: "A",
+      filledBy: UserRole.ADMIN,
+    });
+  });
+
+  it("rejects admin writes to student-owned fields", async () => {
+    vi.spyOn(prisma.application, "findFirst").mockResolvedValue({
+      id: "application-1",
+    } as any);
+
+    await expect(
+      service.updateAdminField(
+        "cohort-1",
+        "application-1",
+        DocumentType.NOTICE,
+        "student_fio",
+        "Changed"
+      )
+    ).rejects.toMatchObject({
+      code: "DOCUMENT_FIELD_FORBIDDEN",
+      statusCode: 403,
+    });
+  });
 });

@@ -6,18 +6,18 @@ import { copySurvey, createQuestion, createSurvey, deleteQuestion, deleteSurvey,
 import { getPublicForm } from "./survey.controller";
 
 const router = Router();
-router.use(authenticateJWT, requireRole(UserRole.ADMIN));
-router.post("/surveys", createSurvey);
-router.get("/surveys/:surveyId", getSurvey);
-router.get("/surveys/:surveyId/questions", getQuestions);
-router.get("/surveys/:surveyId/questions/:questionId", getQuestion);
-router.patch("/surveys/:surveyId", updateSurvey);
-router.delete("/surveys/:surveyId", deleteSurvey);
-router.post("/surveys/:surveyId/questions", createQuestion);
-router.patch("/surveys/:surveyId/questions/reorder", reorderQuestions);
-router.patch("/surveys/:surveyId/questions/:questionId", updateQuestion);
-router.delete("/surveys/:surveyId/questions/:questionId", deleteQuestion);
-router.post("/surveys/:surveyId/copy", copySurvey);
+const adminOnly = [authenticateJWT, requireRole(UserRole.ADMIN)];
+router.post("/surveys", ...adminOnly, createSurvey);
+router.get("/surveys/:surveyId", ...adminOnly, getSurvey);
+router.get("/surveys/:surveyId/questions", ...adminOnly, getQuestions);
+router.get("/surveys/:surveyId/questions/:questionId", ...adminOnly, getQuestion);
+router.patch("/surveys/:surveyId", ...adminOnly, updateSurvey);
+router.delete("/surveys/:surveyId", ...adminOnly, deleteSurvey);
+router.post("/surveys/:surveyId/questions", ...adminOnly, createQuestion);
+router.patch("/surveys/:surveyId/questions/reorder", ...adminOnly, reorderQuestions);
+router.patch("/surveys/:surveyId/questions/:questionId", ...adminOnly, updateQuestion);
+router.delete("/surveys/:surveyId/questions/:questionId", ...adminOnly, deleteQuestion);
+router.post("/surveys/:surveyId/copy", ...adminOnly, copySurvey);
 export default router;
 
 export const publicSurveyRouter = Router();

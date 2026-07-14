@@ -111,7 +111,7 @@ describe("platform HTTP foundation", () => {
     });
 
     const response = await request(app)
-      .get("/")
+      .get("/api/v1/me/applications")
       .set("X-Request-Id", "auth-test-request");
 
     expect(response.status).toBe(401);
@@ -129,7 +129,7 @@ describe("platform HTTP foundation", () => {
     });
 
     const response = await request(app)
-      .post("/auth/login")
+      .post("/api/v1/auth/login")
       .set("Content-Type", "application/json")
       .send('{"email":');
 
@@ -254,7 +254,7 @@ describe("platform HTTP foundation", () => {
         `/uploads/${fileName}`
       );
 
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(404);
       expect(response.text).not.toContain(privateContent);
     } finally {
       await rm(filePath, {

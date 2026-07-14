@@ -4,12 +4,16 @@ import { requireRole } from "../../middlewares/role.middleware";
 import { getForCohort, getMine, listForCohort, listMine, submitApplication, updateStatus } from "./application.controller";
 import { TasksController } from "../tasks/tasks.controller";
 import { DocumentsController } from "../documents/documents.controller";
-import { reportUpload } from "../../shared/upload";
+import { createSingleFileUpload } from "../../shared/upload/index";
 
 const router = Router();
 const tasksController = new TasksController();
 const documentsController =
   new DocumentsController();
+const reportUpload = createSingleFileUpload({
+  category: "reports",
+  fieldName: "report",
+});
 
 router.post("/public/invitations/:token/applications", requireRole(UserRole.STUDENT), submitApplication);
 router.get("/me/applications", requireRole(UserRole.STUDENT), listMine);
@@ -76,7 +80,7 @@ router.get(
 router.put(
   "/me/applications/:applicationId/report",
   requireRole(UserRole.STUDENT),
-  reportUpload.single("report"),
+  reportUpload,
   documentsController.replaceApplicationReport.bind(
     documentsController
   )

@@ -1,7 +1,11 @@
 # Локальный API Contract: Контур Admissions (Backend 1)
 
+Все production endpoints в этом документе доступны с общим префиксом
+`/api/v1`. Например, локальный путь `/auth/login` вызывается как
+`POST /api/v1/auth/login`.
+
 ## 1. Аутентификация и контекст пользователя
-Базовый путь: `/auth`
+Базовый путь внутри API: `/auth`
 
 ### POST /auth/register
 * **Описание:** Регистрация нового пользователя в системе.
@@ -183,8 +187,7 @@ Private endpoints require:
 Authorization: Bearer <jwt>
 ```
 
-The local router contract uses paths without `/api/v1`; Backend B adds the
-production prefix during final route mounting. A request without a token or
+The production router exposes every path below `/api/v1`. A request without a token or
 with an invalid token receives `401`. A valid token with an insufficient role
 receives `403`.
 
@@ -207,7 +210,7 @@ authorization source.
 
 ## Integration ownership
 
-The A-07 test harness composes the domain routers in the target public/private
-order without changing production `app.ts` or `index.ts`. Backend B owns the
-final `/api/v1` mount, public middleware ordering in production and the central
-`docs/api-contract.md` consolidation.
+The A-07 test harness remains an isolated module test. B-06 additionally runs
+the candidate and practice scenario through production `createApp()` and the
+real `/api/v1` registry. Central `docs/api-contract.md` consolidation remains
+the B-07 scope.

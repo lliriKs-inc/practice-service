@@ -4,21 +4,7 @@ import {
   createErrorHandler,
 } from "./middlewares/error.middleware";
 import { requestIdMiddleware } from "./middlewares/requestId.middleware";
-import { authenticateJWT } from "./middlewares/auth.middleware";
-import { cohortContextMiddleware } from "./middlewares/cohortContext.middleware";
 import { config } from "./shared/config";
-
-import authRoutes from "./modules/auth/auth.routes";
-import cohortRouter from "./modules/cohort/cohort.routes";
-import cohortRoleRoutes from "./modules/cohort-role/cohortRole.routes";
-import trackRouter from "./modules/track/track.routes";
-import invitationRouter from "./modules/invitation/invitation.routes";
-import applicationRouter from "./modules/application/application.routes";
-import testTaskRoutes from "./modules/test-task/test-task.routes";
-import adminRoutes from "./modules/admin/admin.routes";
-import documentFileRoutes from "./modules/documents/document-file.routes";
-
-import surveyRoutes, { publicSurveyRouter } from "./modules/survey/survey.routes";
 import {
   createHealthRouter,
   ReadinessCheck,
@@ -31,10 +17,10 @@ import type {
 } from "./shared/logger/logger.types";
 
 import {
-  createAuthRateLimiter,
   createGeneralRateLimiter,
   createSecurityHeaders,
 } from "./middlewares/security.middleware";
+import { createApiV1Router } from "./routes/api-v1.routes";
 
 export interface CreateAppOptions {
   readinessCheck?: ReadinessCheck;
@@ -72,27 +58,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use(createHealthRouter(options.readinessCheck));
   app.use(createGeneralRateLimiter(logger));
 
-  app.use(
-    "/auth",
-    createAuthRateLimiter(logger),
-    authRoutes
-  );
-
-
-  app.use(publicSurveyRouter);
-
-  app.use(authenticateJWT);
-  app.use(cohortContextMiddleware);
-
-  app.use(surveyRoutes);
-  app.use(applicationRouter);
-  app.use(documentFileRoutes);
-  app.use("/test-task", testTaskRoutes);
-  app.use("/cohorts", cohortRoleRoutes);
-  app.use("/cohorts", cohortRouter);
-  app.use("/tracks", trackRouter);
-  app.use("/invitations", invitationRouter);
-  app.use(adminRoutes);
+  app.use("/api/v1", createApiV1Router(logger));
 
   app.get("/", (_req, res) => {
     return res.status(200).json({
