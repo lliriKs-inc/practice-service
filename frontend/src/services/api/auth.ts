@@ -13,8 +13,6 @@
 // │ админом — удобно если хочешь завести своего.                  │
 // └───────────────────────────────────────────────────────────────┘
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-
 // [MOCK-CONFIG] Единственный переключатель. false — реальные запросы к API.
 export const USE_MOCKS = true
 
@@ -33,54 +31,34 @@ export interface RegisterDto {
     password: string
 }
 
-export interface User {
-    id: string
-    email: string
-    role: 'ADMIN' | 'STUDENT'
-    created_at: string
-}
+// ── localStorage helpers — вынесены в lib/api/session.ts, чтобы общий
+// transport (lib/api/http.ts) мог их использовать без циклического импорта
+// на services/api/auth.ts. Реэкспортируются здесь для обратной совместимости
+// с существующими импортами из '@/services/api/auth'.
+import {
+    type SessionUser as User,
+    saveToken,
+    getToken,
+    saveUser,
+    getUser,
+    isAuthenticated,
+    clearSession,
+} from '@/lib/api/session'
+import { apiFetch } from '@/lib/api/http'
 
-// ── localStorage helpers (используются и в мок-, и в реальном режиме) ──
-
-export function saveToken(token: string) {
-    localStorage.setItem('jwt', token)
-}
-
-export function getToken(): string | null {
-    return localStorage.getItem('jwt')
-}
-
-export function saveUser(user: User) {
-    localStorage.setItem('user', JSON.stringify(user))
-}
-
-export function getUser(): User | null {
-    const raw = localStorage.getItem('user')
-    if (!raw) return null
-    try { return JSON.parse(raw) } catch { return null }
-}
-
-export function isAuthenticated(): boolean {
-    return !!getToken()
-}
-
-export function removeToken() {
-    localStorage.removeItem('jwt')
-    localStorage.removeItem('user')
+export {
+    type User,
+    saveToken,
+    getToken,
+    saveUser,
+    getUser,
+    isAuthenticated,
+    clearSession as removeToken,
 }
 
 export function logout() {
-    removeToken()
+    clearSession()
     window.location.href = '/login'
-}
-
-// ── API helpers ───────────────────────────────
-
-function authHeaders() {
-    return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getToken()}`,
-    }
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -168,16 +146,7 @@ export async function register(dto: RegisterDto): Promise<User> {
         return publicUser
     }
 
-    const res = await fetch(`${API_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dto),
-    })
-    if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message || 'Ошибка регистрации')
-    }
-    return res.json()
+    return apiFetch<User>('/auth/register', { method: 'POST', body: dto, skipAuthRedirect: true })
 }
 
 // POST /auth/login
@@ -196,16 +165,7 @@ export async function login(dto: LoginDto): Promise<void> {
         return
     }
 
-    const res = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dto),
-    })
-    if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message || 'Неверный email или пароль')
-    }
-    const data = await res.json()
+    const data = await apiFetch<{ token: string }>('/auth/login', { method: 'POST', body: dto, skipAuthRedirect: true })
     saveToken(data.token)
 
     // получаем данные юзера отдельным запросом
@@ -223,9 +183,5 @@ export async function getMe(): Promise<User> {
         return user
     }
 
-    const res = await fetch(`${API_URL}/auth/me`, { headers: authHeaders() })
-    if (!res.ok) {
-        throw new Error('Не удалось получить данные пользователя')
-    }
-    return res.json()
+    return apiFetch<User>('/auth/me')
 }

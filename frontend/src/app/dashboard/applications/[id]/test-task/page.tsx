@@ -1,15 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { useAuth } from '@/hooks/useAuth'
-import { logout } from '@/services/api/auth'
 import {
     getMyApplication,
-    getApplicationTestTask,
     type Application,
 } from '@/services/api/invitation'
-import type { TestTask } from '@/services/api/cohorts'
+import {
+    getMyTestTask,
+    uploadSubmission,
+    ALLOWED_SUBMISSION_EXTENSIONS,
+    MAX_SUBMISSION_SIZE_BYTES,
+    SubmissionValidationError,
+    type MyTestTask,
+} from '@/services/api/test-task'
 
 const STATUS_CONFIG: Record<Application['status'], { label: string; className: string; dot: string }> = {
     pending: { label: 'На рассмотрении', className: 'bg-[#FFF8ED] border-[#F5D9A0] text-[#7A5C1A]', dot: 'bg-[#F59E0B]' },
@@ -18,51 +22,77 @@ const STATUS_CONFIG: Record<Application['status'], { label: string; className: s
 }
 
 export default function ApplicationTestTaskPage() {
-    const { user, loading } = useAuth()
     const params = useParams()
     const applicationId = params.id as string
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     const [application, setApplication] = useState<Application | null>(null)
-    const [testTask, setTestTask] = useState<TestTask | null>(null)
+    const [testTask, setTestTask] = useState<MyTestTask | null>(null)
     const [pageLoading, setPageLoading] = useState(true)
     const [error, setError] = useState('')
 
+    const [uploading, setUploading] = useState(false)
+    const [uploadError, setUploadError] = useState('')
+
+    const loadTestTask = useCallback(async () => {
+        const task = await getMyTestTask(applicationId)
+        setTestTask(task)
+    }, [applicationId])
+
     useEffect(() => {
         (async () => {
-            if (loading) return
             try {
-                const [app, task] = await Promise.all([
-                    getMyApplication(applicationId),
-                    getApplicationTestTask(applicationId),
-                ])
+                const app = await getMyApplication(applicationId)
                 setApplication(app)
-                setTestTask(task)
+                await loadTestTask()
             } catch (err: unknown) {
                 setError(err instanceof Error ? err.message : 'Не удалось загрузить заявку')
             } finally {
                 setPageLoading(false)
             }
         })()
-    }, [loading, applicationId])
+    }, [applicationId, loadTestTask])
 
-    if (loading || pageLoading) return (
-        <div className="min-h-screen flex items-center justify-center bg-[#F5F4FD]">
-            <div className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
-                <p className="text-sm text-[#6B6880]">Загружаем…</p>
-            </div>
+    function openFilePicker() {
+        setUploadError('')
+        fileInputRef.current?.click()
+    }
+
+    async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0]
+        e.target.value = '' // чтобы повторный выбор того же файла тоже сработал
+        if (!file) return
+
+        setUploadError('')
+        setUploading(true)
+        try {
+            await uploadSubmission(applicationId, file)
+            await loadTestTask()
+        } catch (err: unknown) {
+            if (err instanceof SubmissionValidationError || err instanceof Error) {
+                setUploadError(err.message)
+            } else {
+                setUploadError('Не удалось загрузить решение')
+            }
+        } finally {
+            setUploading(false)
+        }
+    }
+
+    if (pageLoading) return (
+        <div className="flex items-center gap-3">
+            <div className="w-5 h-5 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
+            <p className="text-sm text-[#6B6880]">Загружаем…</p>
         </div>
     )
 
     if (error || !application) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#F5F4FD] px-6">
-                <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
-                    <div className="w-14 h-14 rounded-full bg-[#FFF5F5] flex items-center justify-center text-2xl mb-5">⚠️</div>
-                    <h2 className="font-extrabold text-xl text-[#1C1A3A] mb-2">Не удалось открыть заявку</h2>
-                    <p className="text-sm text-[#6B6880] mb-6">{error || 'Заявка не найдена'}</p>
-                    <a href="/dashboard" className="text-sm font-semibold text-[#6C63FF] hover:underline">← Вернуться в личный кабинет</a>
-                </div>
+            <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center mx-auto">
+                <div className="w-14 h-14 rounded-full bg-[#FFF5F5] flex items-center justify-center text-2xl mb-5">⚠️</div>
+                <h2 className="font-extrabold text-xl text-[#1C1A3A] mb-2">Не удалось открыть заявку</h2>
+                <p className="text-sm text-[#6B6880] mb-6">{error || 'Заявка не найдена'}</p>
+                <a href="/dashboard/applications" className="text-sm font-semibold text-[#6C63FF] hover:underline">← Вернуться в личный кабинет</a>
             </div>
         )
     }
@@ -70,28 +100,9 @@ export default function ApplicationTestTaskPage() {
     const status = STATUS_CONFIG[application.status]
 
     return (
-        <div className="min-h-screen bg-[#F5F4FD] flex flex-col">
+        <div className="w-full max-w-2xl mx-auto flex flex-col gap-6">
 
-            {/* NAVBAR */}
-            <header className="bg-white border-b border-[#E4E2F4] px-8 py-4 flex items-center justify-between sticky top-0 z-20">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base"
-                        style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>🎓</div>
-                    <span className="font-extrabold text-base text-[#1C1A3A] tracking-tight">Практика УрФУ</span>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[#EBE9FF] rounded-full">
-                        <div className="w-2 h-2 rounded-full bg-[#6C63FF]" />
-                        <span className="text-xs font-semibold text-[#4A42D4]">{user?.email ?? '…'}</span>
-                    </div>
-                    <button onClick={logout} className="text-xs font-medium text-[#6B6880] hover:text-[#1C1A3A]">Выйти</button>
-                </div>
-            </header>
-
-            <main className="flex-1 flex justify-center px-6 py-10">
-                <div className="w-full max-w-2xl flex flex-col gap-6">
-
-                    <a href="/dashboard" className="text-sm font-medium text-[#6C63FF] hover:underline self-start">← К списку заявок</a>
+            <a href="/dashboard/applications" className="text-sm font-medium text-[#6C63FF] hover:underline self-start">← К списку заявок</a>
 
                     {/* Карточка заявки */}
                     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -144,15 +155,15 @@ export default function ApplicationTestTaskPage() {
                         </div>
 
                         <div className="px-7 py-6">
-                            {!testTask || !testTask.publishedAt ? (
+                            {!testTask || !testTask.available ? (
                                 <div className="flex items-start gap-3 p-4 bg-[#EBE9FF] rounded-xl border-l-4 border-[#6C63FF]">
                                     <span className="text-lg">📬</span>
                                     <p className="text-sm text-[#6B6880] leading-relaxed">
-                                        Пока задание не опубликовано, оно будет вам направлено на e-mail позже. Ожидайте...
+                                        {testTask?.message ?? 'Пока задание не опубликовано, оно будет вам направлено на e-mail позже. Ожидайте...'}
                                     </p>
                                 </div>
                             ) : (
-                                <div className="flex flex-col gap-4">
+                                <div className="flex flex-col gap-5">
                                     <div>
                                         <h3 className="font-semibold text-[#1C1A3A] mb-2">{testTask.title || 'Тестовое задание'}</h3>
                                         {testTask.description && (
@@ -160,24 +171,59 @@ export default function ApplicationTestTaskPage() {
                                         )}
                                     </div>
 
-                                    {testTask.fileUrl && (
-                                        <a href={testTask.fileUrl} target="_blank" rel="noopener noreferrer"
+                                    {testTask.hasFile && testTask.downloadPath && (
+                                        <a href={testTask.downloadPath} target="_blank" rel="noopener noreferrer"
                                             className="self-start text-sm font-semibold px-5 py-2.5 rounded-lg border border-[#6C63FF] text-[#6C63FF] hover:bg-[#EBE9FF]">
                                             📎 Скачать файл задания
                                         </a>
                                     )}
 
-                                    <div className="bg-[#F5F4FD] border border-[#E4E2F4] rounded-xl px-4 py-3">
-                                        <p className="text-xs text-[#6B6880]">
-                                            Загрузка решения пока не реализована в этой версии — эта возможность появится отдельно.
+                                    {/* ── Решение: загрузка / замена ── */}
+                                    <div className="border-t border-[#E4E2F4] pt-5 flex flex-col gap-3">
+                                        <span className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB]">Твоё решение</span>
+
+                                        {testTask.submission ? (
+                                            <div className="flex items-center gap-3 bg-[#EDFBF4] border border-[#7EE8B8] rounded-xl px-4 py-3">
+                                                <span className="text-lg">✅</span>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-semibold text-[#1C1A3A] truncate">{testTask.submission.fileName}</p>
+                                                    <p className="text-xs text-[#6B6880]">
+                                                        Загружено {new Date(testTask.submission.submittedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-3 bg-[#FFF8ED] border border-[#F5D9A0] rounded-xl px-4 py-3">
+                                                <span className="text-lg">⏳</span>
+                                                <p className="text-sm text-[#7A5C1A]">Решение ещё не загружено</p>
+                                            </div>
+                                        )}
+
+                                        <input ref={fileInputRef} type="file" className="hidden"
+                                            accept={ALLOWED_SUBMISSION_EXTENSIONS.join(',')}
+                                            onChange={handleFileSelected} />
+
+                                        <button onClick={openFilePicker} disabled={uploading}
+                                            className="self-start text-sm font-semibold px-5 py-2.5 rounded-lg text-white shadow-sm disabled:opacity-60"
+                                            style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                                            {uploading ? 'Загружаем…' : testTask.submission ? '🔄 Заменить решение' : '📤 Загрузить решение'}
+                                        </button>
+
+                                        {uploadError && (
+                                            <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
+                                                <p className="text-sm text-[#D94F4F]">⚠️ {uploadError}</p>
+                                            </div>
+                                        )}
+
+                                        <p className="text-xs text-[#A9A7BB]">
+                                            Форматы: {ALLOWED_SUBMISSION_EXTENSIONS.join(', ')} · до {MAX_SUBMISSION_SIZE_BYTES / (1024 * 1024)} МБ.
+                                            Повторная загрузка заменяет предыдущее решение.
                                         </p>
                                     </div>
                                 </div>
                             )}
                         </div>
                     </div>
-                </div>
-            </main>
         </div>
     )
 }

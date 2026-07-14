@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -8,8 +9,19 @@ import { Button } from '@/components/ui/button'
 import { login, getUser } from '@/services/api/auth'
 
 export default function LoginPage() {
+    return (
+        <Suspense fallback={null}>
+            <LoginForm />
+        </Suspense>
+    )
+}
+
+function LoginForm() {
     const searchParams = useSearchParams()
     const redirect = searchParams.get('redirect')
+    const reason = searchParams.get('reason')
+    const sessionExpired = reason === 'session-expired'
+    const forbidden = reason === 'forbidden'
 
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -29,7 +41,7 @@ export default function LoginPage() {
                 window.location.href = redirect
                 return
             }
-            window.location.href = user?.role === 'ADMIN' ? '/admin' : '/dashboard'
+            window.location.href = user?.role === 'ADMIN' ? '/admin/cohorts' : '/dashboard/applications'
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Ошибка входа')
             setLoading(false)
@@ -49,14 +61,32 @@ export default function LoginPage() {
 
             <div className="relative z-10 w-full max-w-md px-6 flex flex-col items-center">
 
-                <div className="flex items-center gap-3 mb-10">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm"
+                <Link href="/" className="group flex items-center gap-3 mb-10" title="На главную">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm transition-transform group-hover:scale-105"
                         style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>🎓</div>
-                    <span className="font-extrabold text-lg tracking-tight text-[#1C1A3A]">Практика УрФУ</span>
-                </div>
+                    <span className="font-extrabold text-lg tracking-tight text-[#1C1A3A] group-hover:text-[#6C63FF] transition-colors">Практика УрФУ</span>
+                </Link>
+
+                {sessionExpired && (
+                    <div className="w-full flex items-center gap-2.5 bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3 mb-5">
+                        <span className="text-base">⚠️</span>
+                        <p className="text-xs text-[#D94F4F] leading-relaxed">
+                            Сессия истекла или недействительна. Войдите снова.
+                        </p>
+                    </div>
+                )}
+
+                {forbidden && (
+                    <div className="w-full flex items-center gap-2.5 bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3 mb-5">
+                        <span className="text-base">🚫</span>
+                        <p className="text-xs text-[#D94F4F] leading-relaxed">
+                            У этого аккаунта нет доступа к запрошенному разделу. Войдите под подходящим аккаунтом.
+                        </p>
+                    </div>
+                )}
 
                 {/* Если пришли по инвайту — показываем контекст */}
-                {redirect && (
+                {redirect && !sessionExpired && !forbidden && (
                     <div className="w-full flex items-center gap-2.5 bg-[#EBE9FF] border border-[#C4BEFF] rounded-xl px-4 py-3 mb-5">
                         <span className="text-base">📨</span>
                         <p className="text-xs text-[#4A42D4] leading-relaxed">
