@@ -162,7 +162,7 @@ export default function ApplyByInvitationPage() {
                         Как только организаторы её рассмотрят, статус появится в личном кабинете.
                         Тестовое задание (если предусмотрено) станет доступно там же.
                     </p>
-                    <a href="/dashboard"
+                    <a href="/dashboard/applications"
                         className="text-white text-sm font-semibold px-6 py-3 rounded-lg shadow-md transition-colors"
                         style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
                         Перейти в личный кабинет →

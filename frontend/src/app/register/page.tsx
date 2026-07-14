@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -8,6 +9,14 @@ import { Button } from '@/components/ui/button'
 import { register, login } from '@/services/api/auth'
 
 export default function RegisterPage() {
+    return (
+        <Suspense fallback={null}>
+            <RegisterForm />
+        </Suspense>
+    )
+}
+
+function RegisterForm() {
     const searchParams = useSearchParams()
     const redirect = searchParams.get('redirect')
 
@@ -37,7 +46,7 @@ export default function RegisterPage() {
             // ещё раз вводить только что придуманный пароль. Раз пароль уже
             // известен — сразу логинимся и идём прямиком по назначению.
             await login({ email, password })
-            window.location.href = redirect || '/dashboard'
+            window.location.href = redirect || '/dashboard/applications'
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Ошибка регистрации')
             setLoading(false)
@@ -57,11 +66,11 @@ export default function RegisterPage() {
 
             <div className="relative z-10 w-full max-w-md px-6 flex flex-col items-center">
 
-                <div className="flex items-center gap-3 mb-10">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm"
+                <Link href="/" className="group flex items-center gap-3 mb-10" title="На главную">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm transition-transform group-hover:scale-105"
                         style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>🎓</div>
-                    <span className="font-extrabold text-lg tracking-tight text-[#1C1A3A]">Практика УрФУ</span>
-                </div>
+                    <span className="font-extrabold text-lg tracking-tight text-[#1C1A3A] group-hover:text-[#6C63FF] transition-colors">Практика УрФУ</span>
+                </Link>
 
                 {redirect && (
                     <div className="w-full flex items-center gap-2.5 bg-[#EBE9FF] border border-[#C4BEFF] rounded-xl px-4 py-3 mb-5">

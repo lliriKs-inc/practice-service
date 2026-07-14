@@ -168,7 +168,7 @@ export default function ResultPage() {
                             <div className="flex items-center justify-between gap-4 px-8 py-5 bg-[#F5F4FD] border-t border-[#E4E2F4]">
                                 <p className="text-xs text-[#A9A7BB]">Вопросы? Пиши на practice@urfu.ru</p>
                                 <a
-                                    href="/dashboard"
+                                    href="/dashboard/applications"
                                     className="bg-[#1DB97A] hover:bg-[#4A42D4] text-white text-sm font-semibold px-6 py-3 rounded-lg shadow-md transition-colors flex items-center gap-2"
                                 >
                                     Перейти в личный кабинет →

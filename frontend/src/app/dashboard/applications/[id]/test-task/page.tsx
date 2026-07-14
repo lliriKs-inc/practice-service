@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { useAuth } from '@/hooks/useAuth'
-import { logout } from '@/services/api/auth'
 import {
     getMyApplication,
     getApplicationTestTask,
@@ -18,7 +16,6 @@ const STATUS_CONFIG: Record<Application['status'], { label: string; className: s
 }
 
 export default function ApplicationTestTaskPage() {
-    const { user, loading } = useAuth()
     const params = useParams()
     const applicationId = params.id as string
 
@@ -29,7 +26,6 @@ export default function ApplicationTestTaskPage() {
 
     useEffect(() => {
         (async () => {
-            if (loading) return
             try {
                 const [app, task] = await Promise.all([
                     getMyApplication(applicationId),
@@ -43,26 +39,22 @@ export default function ApplicationTestTaskPage() {
                 setPageLoading(false)
             }
         })()
-    }, [loading, applicationId])
+    }, [applicationId])
 
-    if (loading || pageLoading) return (
-        <div className="min-h-screen flex items-center justify-center bg-[#F5F4FD]">
-            <div className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
-                <p className="text-sm text-[#6B6880]">Загружаем…</p>
-            </div>
+    if (pageLoading) return (
+        <div className="flex items-center gap-3">
+            <div className="w-5 h-5 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
+            <p className="text-sm text-[#6B6880]">Загружаем…</p>
         </div>
     )
 
     if (error || !application) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#F5F4FD] px-6">
-                <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
-                    <div className="w-14 h-14 rounded-full bg-[#FFF5F5] flex items-center justify-center text-2xl mb-5">⚠️</div>
-                    <h2 className="font-extrabold text-xl text-[#1C1A3A] mb-2">Не удалось открыть заявку</h2>
-                    <p className="text-sm text-[#6B6880] mb-6">{error || 'Заявка не найдена'}</p>
-                    <a href="/dashboard" className="text-sm font-semibold text-[#6C63FF] hover:underline">← Вернуться в личный кабинет</a>
-                </div>
+            <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center mx-auto">
+                <div className="w-14 h-14 rounded-full bg-[#FFF5F5] flex items-center justify-center text-2xl mb-5">⚠️</div>
+                <h2 className="font-extrabold text-xl text-[#1C1A3A] mb-2">Не удалось открыть заявку</h2>
+                <p className="text-sm text-[#6B6880] mb-6">{error || 'Заявка не найдена'}</p>
+                <a href="/dashboard/applications" className="text-sm font-semibold text-[#6C63FF] hover:underline">← Вернуться в личный кабинет</a>
             </div>
         )
     }
@@ -70,28 +62,9 @@ export default function ApplicationTestTaskPage() {
     const status = STATUS_CONFIG[application.status]
 
     return (
-        <div className="min-h-screen bg-[#F5F4FD] flex flex-col">
+        <div className="w-full max-w-2xl mx-auto flex flex-col gap-6">
 
-            {/* NAVBAR */}
-            <header className="bg-white border-b border-[#E4E2F4] px-8 py-4 flex items-center justify-between sticky top-0 z-20">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base"
-                        style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>🎓</div>
-                    <span className="font-extrabold text-base text-[#1C1A3A] tracking-tight">Практика УрФУ</span>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[#EBE9FF] rounded-full">
-                        <div className="w-2 h-2 rounded-full bg-[#6C63FF]" />
-                        <span className="text-xs font-semibold text-[#4A42D4]">{user?.email ?? '…'}</span>
-                    </div>
-                    <button onClick={logout} className="text-xs font-medium text-[#6B6880] hover:text-[#1C1A3A]">Выйти</button>
-                </div>
-            </header>
-
-            <main className="flex-1 flex justify-center px-6 py-10">
-                <div className="w-full max-w-2xl flex flex-col gap-6">
-
-                    <a href="/dashboard" className="text-sm font-medium text-[#6C63FF] hover:underline self-start">← К списку заявок</a>
+            <a href="/dashboard/applications" className="text-sm font-medium text-[#6C63FF] hover:underline self-start">← К списку заявок</a>
 
                     {/* Карточка заявки */}
                     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -176,8 +149,6 @@ export default function ApplicationTestTaskPage() {
                             )}
                         </div>
                     </div>
-                </div>
-            </main>
         </div>
     )
 }

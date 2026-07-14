@@ -19,3 +19,4 @@ backend/uploads/*
 backend/prisma/(old) schema.prisma
 .agents
 docs/main docs
+.env
