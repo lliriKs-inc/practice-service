@@ -2,6 +2,8 @@
 
 Контракт B-03/B-05 для ежедневного прогресса и административных read models.
 
+Центральный frozen contract и полный route inventory находятся в `docs/api-contract.md`.
+
 Все пути ниже являются относительными к production prefix `/api/v1`.
 
 Все защищённые endpoints требуют JWT в заголовке:

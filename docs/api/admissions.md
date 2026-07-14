@@ -1,4 +1,6 @@
-# Локальный API Contract: Контур Admissions (Backend 1)
+# Admissions API fragment
+
+Центральный frozen contract находится в `docs/api-contract.md`. Этот файл сохраняет расширенный доменный контекст admissions-модулей.
 
 Все production endpoints в этом документе доступны с общим префиксом
 `/api/v1`. Например, локальный путь `/auth/login` вызывается как
@@ -11,8 +13,7 @@
 * **Описание:** Регистрация нового пользователя в системе.
 * **Тело запроса:**
 
-```
-json
+```json
 {
 "email": "student@test.com",
 "password": "secure_password",
@@ -27,7 +28,7 @@ json
 * **Ответ (200 OK):** `{ "token": "ey..." }`
 
 ### GET /auth/me
-* **Описание:** Получение профиля текущего пользователя на основе JWT. Возвращает системную роль (`admin` / `practicant`) и текущую активную когорту `active_cohort_id`.
+* **Описание:** Получение профиля текущего пользователя на основе JWT. Возвращает системную роль (`ADMIN` / `STUDENT`) и UI preference `active_cohort_id`.
 
 ## 2. Когорты и Треки
 Базовые пути: `/cohorts`, `/tracks`, `/invitations`
@@ -98,7 +99,7 @@ Cohort statuses are `DRAFT`, `ACTIVE`, and `CLOSED`. Closed cohorts do not accep
 - Role checks are performed server-side; insufficient permissions return `403`.
 - Cohort context comes from an explicit route parameter or approved request header and is verified server-side. `active_cohort_id` is a UI preference, not an authorization source.
 - Validation errors return `400`; invalid or expired invitations use stable error codes.
-- Errors follow the common envelope: `code`, `message`, `details`, `requestId`.
+- Domain errors follow the common envelope: `code`, `message`, `details`, `requestId`. Auth register/login validation сохраняет фактический отдельный `{ message, errors }` shape, зафиксированный в центральном контракте.
 
 ## Test tasks and submissions
 
