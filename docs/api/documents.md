@@ -2,6 +2,8 @@
 
 Все пути ниже доступны с production prefix `/api/v1` и требуют JWT. Student endpoints проверяют владельца approved application; admin endpoints требуют роль `ADMIN` и ограничивают заявку через `Application.track.cohort_id`.
 
+Центральный frozen contract и полный route inventory находятся в `docs/api-contract.md`.
+
 ## Readiness и EAV autosave
 
 - `GET /me/applications/:applicationId/documents/readiness` — readiness для `INDIVIDUAL_TASK`, `TITLE_PAGE`, `REVIEW`, `NOTICE`.

@@ -8,7 +8,7 @@
 
 `├── backend/               # Серверная часть (Node.js, Express, TypeScript, Prisma v7)`  
 `├── frontend/              # Клиентская часть (Next.js, TypeScript, shadcn/ui)`  
-`├── docs/                  # Техническая документация (API Contract, спецификации)`  
+`├── docs/                  # API Contract, E2E checklist и техническая документация`
 `├── docker-compose.yml     # Конфигурация контейнеризации инфраструктуры (PostgreSQL)`  
 `├── .gitignore             # Глобальный файл исключений систем контроля версий`  
 `└── README.md              # Настоящее руководство разработчика`
@@ -41,28 +41,51 @@
    Для наполнения базы данных первоначальными демонстрационными/системными данными выполните сидирование:  
    `npx prisma db seed`  
 5. **Запуск сред разработки (Development Mode):**  
-   Запуск бэкенд-сервера (по умолчанию доступен на порту 5000):  
+   Запуск бэкенд-сервера (по умолчанию доступен на порту 3000):
    `# Внутри папки backend/\nnpm run dev`  
-   Запуск клиентской части (в отдельном окне терминала, по умолчанию на порту 3000):  
-   `cd frontend\nnpm run dev`
+   Запуск клиентской части на origin из `CORS_ORIGIN` (в отдельном окне терминала):
+   `cd frontend\nnpm run dev -- -p 3001`
 
-## **4\. Контроль качества кода и верификация типов перед Pull Request**
+## **4. API и интеграционная документация**
+
+Business API публикуется с общим prefix `/api/v1`. При стандартной локальной конфигурации base URL: `http://localhost:3000/api/v1`. Operational endpoints `/`, `/health` и `/ready` остаются без version prefix.
+
+* **Центральный API Contract:** [`docs/api-contract.md`](docs/api-contract.md) — полный frozen route inventory, request/response, RBAC и errors.
+* **E2E API checklist:** [`docs/e2e-api-checklist.md`](docs/e2e-api-checklist.md) — candidate, practice, admin, security и file scenarios.
+* **Fragment docs:** `docs/api/` — дополнительный доменный контекст; центральный контракт имеет приоритет при расхождении.
+
+Frontend transport должен либо использовать `NEXT_PUBLIC_API_URL=http://localhost:3000/api/v1`, либо добавлять `/api/v1` в единственном общем API client. Страницы и feature clients не должны собирать альтернативные unversioned URLs самостоятельно.
+
+## **5. Контроль качества кода и верификация типов перед Pull Request**
 
 Для минимизации ошибок сборки в CI/CD конвейере перед отправкой изменений в удаленный репозиторий (Pull Request) каждый разработчик обязан выполнить проверку статической типизации TypeScript. Сборка не должна содержать предупреждений и ошибок компиляции:
 
-`cd backend`  
-`npm exec tsc -- --noEmit`
+```powershell
+cd backend
+npm.cmd test
+npm.cmd run typecheck
+npm.cmd run build
+npx.cmd prisma validate
+```
 
-## **5\. Матрица ответственности и разграничение зон разработки**
+PostgreSQL integration tests запускаются только против отдельной test database:
+
+```powershell
+$env:RUN_DB_INTEGRATION='true'
+npm.cmd test
+```
+
+## **6. Матрица ответственности и разграничение зон разработки**
 
 Во избежание конфликтов слияния (merge conflicts) и дублирования логики кодовая база и разделы спецификации API распределены между инженерами следующим образом:
 
 | Роль / Разработчик | Модули в backend/src/modules/ | Разделы в API Contract   |
 | :---- | :---- | :---- |
-| **Backend Developer №1** | survey/, application/, test-task/, инфраструктурное ядро (CORS, Error Handler, Config) | Auth, Cohorts, CohortRole, Survey, Application, TestTask |
-| **Backend Developer №2** | documents/, tasks/, admin/ | Documents, Tasks, Admin |
+| **Backend Developer A** | auth/, cohort/, track/, invitation/, survey/, application/, test-task/ | Auth, Cohorts, Tracks, Invitations, Surveys, Applications, Test Tasks |
+| **Backend Developer B** | documents/, tasks/, admin/, platform/shared, route integration | Documents, Reports, Progress, Admin, итоговый API Contract |
+| **Frontend Developer** | весь `frontend/**`, включая общий transport и feature API clients | Потребитель frozen contract; frontend acceptance |
 
-## **6\. Регламент работы с Git и политика безопасности данных**
+## **7. Регламент работы с Git и политика безопасности данных**
 
 Для поддержания высокой скорости поставки фич и чистоты истории коммитов установлены следующие жесткие правила:
 
