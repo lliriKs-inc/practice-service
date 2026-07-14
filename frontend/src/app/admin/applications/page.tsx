@@ -102,21 +102,21 @@ export default function AdminApplicationsPage() {
 
             {selectedCohort && (
                 <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-wrap items-center gap-3">
-                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as Application['status'] | '')}
+                    <select aria-label="Фильтр по статусу заявки" value={statusFilter} onChange={e => setStatusFilter(e.target.value as Application['status'] | '')}
                         className="text-sm px-3 py-2 rounded-lg border border-[#E4E2F4]">
                         <option value="">Все статусы</option>
                         <option value="pending">На рассмотрении</option>
                         <option value="approved">Одобрена</option>
                         <option value="rejected">Отклонена</option>
                     </select>
-                    <select value={trackFilter} onChange={e => setTrackFilter(e.target.value)}
+                    <select aria-label="Фильтр по треку" value={trackFilter} onChange={e => setTrackFilter(e.target.value)}
                         className="text-sm px-3 py-2 rounded-lg border border-[#E4E2F4]">
                         <option value="">Все треки</option>
                         {sourceCohort?.tracks.map(t => (
                             <option key={t.id} value={t.id}>{t.title}</option>
                         ))}
                     </select>
-                    <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                    <input type="text" aria-label="Поиск по email" value={search} onChange={e => setSearch(e.target.value)}
                         placeholder="Поиск по email…" className="text-sm px-3 py-2 rounded-lg border border-[#E4E2F4] flex-1 min-w-[180px]" />
                 </div>
             )}
@@ -130,7 +130,7 @@ export default function AdminApplicationsPage() {
 
             {applicationsError && (
                 <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
-                    <p className="text-sm text-[#D94F4F]">⚠️ {applicationsError}</p>
+                    <p className="text-sm text-[#C93B3B]">⚠️ {applicationsError}</p>
                 </div>
             )}
 
@@ -151,13 +151,13 @@ export default function AdminApplicationsPage() {
                             <div key={app.applicationId} className="bg-white rounded-2xl shadow-sm overflow-hidden">
                                 <div className="px-7 py-5 border-b border-[#E4E2F4] flex items-center justify-between">
                                     <div>
-                                        <p className="text-xs font-bold tracking-widest uppercase text-[#A9A7BB] mb-1">{app.track.title}</p>
+                                        <p className="text-xs font-bold tracking-widest uppercase text-[#6B6880] mb-1">{app.track.title}</p>
                                         <h2 className="font-bold text-lg text-[#1C1A3A]">{app.student?.email ?? 'Неизвестный кандидат'}</h2>
                                     </div>
                                     <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border
                                         ${app.status === 'pending' ? 'bg-[#FFF8ED] border-[#F5D9A0] text-[#7A5C1A]'
                                             : app.status === 'approved' ? 'bg-[#EDFBF4] border-[#7EE8B8] text-[#1A7A5A]'
-                                            : 'bg-[#FFF5F5] border-[#F0BABA] text-[#D94F4F]'}`}>
+                                            : 'bg-[#FFF5F5] border-[#F0BABA] text-[#C93B3B]'}`}>
                                         <div className={`w-2 h-2 rounded-full
                                             ${app.status === 'pending' ? 'bg-[#F59E0B]' : app.status === 'approved' ? 'bg-[#2CB87A]' : 'bg-[#D94F4F]'}`} />
                                         <span className="text-xs font-semibold">{STATUS_LABELS[app.status]}</span>
@@ -166,24 +166,24 @@ export default function AdminApplicationsPage() {
 
                                 <div className="px-7 py-3 border-b border-[#E4E2F4]">
                                     <button onClick={() => toggleAnswers(app.applicationId)}
-                                        className="text-xs font-semibold text-[#6C63FF] hover:underline">
+                                        className="text-xs font-semibold text-[#4A42D4] hover:underline">
                                         {expandedId === app.applicationId ? '▲ Скрыть ответы анкеты' : '▼ Показать ответы анкеты'}
                                     </button>
                                     {expandedId === app.applicationId && (
                                         <div className="mt-3">
                                             {answersLoading === app.applicationId ? (
-                                                <p className="text-xs text-[#A9A7BB]">Загружаем…</p>
+                                                <p className="text-xs text-[#6B6880]">Загружаем…</p>
                                             ) : answersById[app.applicationId]?.length ? (
                                                 <div className="grid grid-cols-2 gap-3">
                                                     {answersById[app.applicationId].map((a, i) => (
                                                         <div key={i} className="flex flex-col gap-0.5">
-                                                            <span className="text-xs text-[#A9A7BB]">{a.label}</span>
+                                                            <span className="text-xs text-[#6B6880]">{a.label}</span>
                                                             <span className="text-sm text-[#1C1A3A]">{a.value}</span>
                                                         </div>
                                                     ))}
                                                 </div>
                                             ) : (
-                                                <p className="text-xs text-[#A9A7BB]">Ответов нет.</p>
+                                                <p className="text-xs text-[#6B6880]">Ответов нет.</p>
                                             )}
                                         </div>
                                     )}
@@ -192,7 +192,7 @@ export default function AdminApplicationsPage() {
                                 {/* Тестовое задание трека */}
                                 {trackTestTask && (trackTestTask.title || trackTestTask.description) && (
                                     <div className="px-7 py-4 border-b border-[#E4E2F4] flex flex-col gap-1.5 bg-[#FBFAFF]">
-                                        <span className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB]">Тестовое задание трека</span>
+                                        <span className="text-[10px] font-bold tracking-widest uppercase text-[#6B6880]">Тестовое задание трека</span>
                                         <p className="text-sm font-semibold text-[#1C1A3A]">{trackTestTask.title || '—'}</p>
                                         {app.testTaskSubmission ? (
                                             <p className="text-[11px] text-[#1A7A5A] mt-1">
@@ -201,7 +201,7 @@ export default function AdminApplicationsPage() {
                                                 {new Date(app.testTaskSubmission.submittedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}
                                             </p>
                                         ) : (
-                                            <p className="text-[11px] text-[#A9A7BB] mt-1">Решение пока не загружено кандидатом.</p>
+                                            <p className="text-[11px] text-[#6B6880] mt-1">Решение пока не загружено кандидатом.</p>
                                         )}
                                     </div>
                                 )}
@@ -210,21 +210,21 @@ export default function AdminApplicationsPage() {
                                 {app.status === 'approved' && (
                                     <div className="px-7 py-4 border-b border-[#E4E2F4] flex items-center gap-6 flex-wrap">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB]">Отчёт</span>
+                                            <span className="text-[10px] font-bold tracking-widest uppercase text-[#6B6880]">Отчёт</span>
                                             {app.report ? (
                                                 <span className={`text-xs font-semibold px-2.5 py-1 rounded-full
                                                     ${app.report.status === 'APPROVED' ? 'bg-[#EDFBF4] text-[#1A7A5A]'
-                                                        : app.report.status === 'REJECTED' ? 'bg-[#FFF5F5] text-[#D94F4F]'
+                                                        : app.report.status === 'REJECTED' ? 'bg-[#FFF5F5] text-[#C93B3B]'
                                                         : 'bg-[#FFF8ED] text-[#7A5C1A]'}`}>
                                                     {app.report.status === 'APPROVED' ? 'Одобрен' : app.report.status === 'REJECTED' ? 'Отклонён' : 'На проверке'}
                                                 </span>
                                             ) : (
-                                                <span className="text-xs text-[#A9A7BB]">не загружен</span>
+                                                <span className="text-xs text-[#6B6880]">не загружен</span>
                                             )}
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB]">Пропущено дней</span>
-                                            <span className={`text-xs font-semibold ${app.missedDays > 0 ? 'text-[#D94F4F]' : 'text-[#1A7A5A]'}`}>
+                                            <span className="text-[10px] font-bold tracking-widest uppercase text-[#6B6880]">Пропущено дней</span>
+                                            <span className={`text-xs font-semibold ${app.missedDays > 0 ? 'text-[#C93B3B]' : 'text-[#1A7A5A]'}`}>
                                                 {app.missedDays}
                                             </span>
                                         </div>
@@ -232,7 +232,7 @@ export default function AdminApplicationsPage() {
                                 )}
 
                                 <div className="px-7 py-4 flex items-center justify-between">
-                                    <span className="text-xs text-[#A9A7BB]">
+                                    <span className="text-xs text-[#6B6880]">
                                         Подана {new Date(app.submittedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}
                                     </span>
                                     {app.status === 'pending' && (
@@ -240,7 +240,7 @@ export default function AdminApplicationsPage() {
                                             <button
                                                 disabled={applicationActionId === app.applicationId}
                                                 onClick={() => handleApplicationDecision(app.applicationId, 'rejected')}
-                                                className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#F0BABA] text-[#D94F4F] hover:bg-[#FFF5F5] disabled:opacity-50">
+                                                className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#F0BABA] text-[#C93B3B] hover:bg-[#FFF5F5] disabled:opacity-50">
                                                 Отклонить
                                             </button>
                                             <button

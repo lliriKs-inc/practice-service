@@ -129,7 +129,7 @@ export default function ApplyByInvitationPage() {
                     <div className="w-14 h-14 rounded-full bg-[#FFF5F5] flex items-center justify-center text-2xl mb-5">⚠️</div>
                     <h2 className="font-extrabold text-xl text-[#1C1A3A] mb-2">Ссылка недействительна</h2>
                     <p className="text-sm text-[#6B6880] mb-6">{loadError}</p>
-                    <a href="/login" className="text-sm font-semibold text-[#6C63FF] hover:underline">
+                    <a href="/login" className="text-sm font-semibold text-[#4A42D4] hover:underline">
                         Перейти на страницу входа →
                     </a>
                 </div>
@@ -146,7 +146,7 @@ export default function ApplyByInvitationPage() {
                         style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
                         🎓
                     </div>
-                    <p className="text-xs font-semibold tracking-widest uppercase text-[#6C63FF] mb-2">
+                    <p className="text-xs font-semibold tracking-widest uppercase text-[#4A42D4] mb-2">
                         {form.cohort.title}
                     </p>
                     <h2 className="font-extrabold text-xl text-[#1C1A3A] mb-2">Приглашение на практику</h2>
@@ -160,7 +160,7 @@ export default function ApplyByInvitationPage() {
                             Войти →
                         </Button>
                         <button onClick={() => goAuth('register')}
-                            className="w-full text-sm font-semibold text-[#6C63FF] py-3 rounded-lg border-[1.5px] border-[#6C63FF] hover:bg-[#EBE9FF] transition-colors">
+                            className="w-full text-sm font-semibold text-[#4A42D4] py-3 rounded-lg border-[1.5px] border-[#6C63FF] hover:bg-[#EBE9FF] transition-colors">
                             Создать аккаунт
                         </button>
                     </div>
@@ -180,7 +180,7 @@ export default function ApplyByInvitationPage() {
                         Ты вошёл(-ла) под аккаунтом администратора — заявки на практику подают кандидаты.
                         Выйди и открой ссылку под аккаунтом практиканта, если нужно проверить анкету.
                     </p>
-                    <a href="/admin/cohorts" className="text-sm font-semibold text-[#6C63FF] hover:underline">
+                    <a href="/admin/cohorts" className="text-sm font-semibold text-[#4A42D4] hover:underline">
                         Перейти в панель администратора →
                     </a>
                 </div>
@@ -199,7 +199,7 @@ export default function ApplyByInvitationPage() {
                         Пока по ней не приняли решение (или она уже одобрена), подать новую заявку нельзя.
                         Если её отклонят — сможешь заполнить анкету заново по этой же ссылке.
                     </p>
-                    <a href="/dashboard/applications" className="text-sm font-semibold text-[#6C63FF] hover:underline">
+                    <a href="/dashboard/applications" className="text-sm font-semibold text-[#4A42D4] hover:underline">
                         Посмотреть мои заявки →
                     </a>
                 </div>
@@ -260,7 +260,7 @@ export default function ApplyByInvitationPage() {
                         ].map(step => (
                             <div key={step.n} className={`flex items-center gap-4 ${step.active ? 'opacity-100' : 'opacity-50'}`}>
                                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 flex-shrink-0
-                                    ${step.active ? 'bg-white text-[#6C63FF] border-white' : 'border-white/40 bg-white/10'}`}>
+                                    ${step.active ? 'bg-white text-[#4A42D4] border-white' : 'border-white/40 bg-white/10'}`}>
                                     {step.n}
                                 </div>
                                 <div>
@@ -288,11 +288,11 @@ export default function ApplyByInvitationPage() {
                             {/* ВЫБОР ТРЕКА */}
                             {form.tracks.length > 1 && (
                                 <div>
-                                    <p className="text-[10px] font-bold tracking-widest uppercase text-[#6C63FF] mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-[#E4E2F4]">
+                                    <p className="text-[10px] font-bold tracking-widest uppercase text-[#4A42D4] mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-[#E4E2F4]">
                                         Направление
                                     </p>
                                     <div className="flex flex-col gap-1.5">
-                                        <Label>Желаемый трек <span className="text-[#6C63FF]">*</span></Label>
+                                        <Label>Желаемый трек <span className="text-[#4A42D4]">*</span></Label>
                                         <div className="flex flex-wrap gap-2">
                                             {form.tracks.map(track => (
                                                 <button key={track.id} type="button"
@@ -314,7 +314,7 @@ export default function ApplyByInvitationPage() {
                             {/* ВОПРОСЫ АНКЕТЫ */}
                             {form.questions.length > 0 ? (
                                 <div>
-                                    <p className="text-[10px] font-bold tracking-widest uppercase text-[#6C63FF] mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-[#E4E2F4]">
+                                    <p className="text-[10px] font-bold tracking-widest uppercase text-[#4A42D4] mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-[#E4E2F4]">
                                         Анкета
                                     </p>
                                     <div className="flex flex-col gap-4">
@@ -342,7 +342,7 @@ export default function ApplyByInvitationPage() {
                             {submitError && (
                                 <div className="flex items-center gap-2 bg-[#FFF5F5] border-[1.5px] border-[#F0BABA] rounded-xl px-4 py-3">
                                     <span className="text-sm">⚠️</span>
-                                    <p className="text-sm text-[#D94F4F]">{submitError}</p>
+                                    <p className="text-sm text-[#C93B3B]">{submitError}</p>
                                 </div>
                             )}
 
@@ -382,7 +382,7 @@ function QuestionInput({
     const label = (
         <label className="text-sm font-medium text-[#1C1A3A]">
             {question.label}
-            {question.required && <span className="text-[#6C63FF] ml-0.5">*</span>}
+            {question.required && <span className="text-[#4A42D4] ml-0.5">*</span>}
         </label>
     )
 

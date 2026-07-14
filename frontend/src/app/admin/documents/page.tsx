@@ -16,8 +16,8 @@ import { useCohortWorkspace } from '../cohort-context'
 const REPORT_STATUS_LABELS: Record<string, { label: string; className: string }> = {
     PENDING: { label: 'На проверке', className: 'bg-[#FFF8ED] text-[#7A5C1A]' },
     APPROVED: { label: 'Одобрен', className: 'bg-[#EDFBF4] text-[#1A7A5A]' },
-    REJECTED: { label: 'Отклонён', className: 'bg-[#FFF5F5] text-[#D94F4F]' },
-    MISSING: { label: 'Не загружен', className: 'bg-[#F5F4FD] text-[#A9A7BB]' },
+    REJECTED: { label: 'Отклонён', className: 'bg-[#FFF5F5] text-[#C93B3B]' },
+    MISSING: { label: 'Не загружен', className: 'bg-[#F5F4FD] text-[#6B6880]' },
 }
 
 export default function AdminDocumentsPage() {
@@ -143,11 +143,11 @@ export default function AdminDocumentsPage() {
 
             {selectedCohort && (
                 <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-wrap items-center gap-3">
-                    <select value={trackFilter} onChange={e => setTrackFilter(e.target.value)} className="text-sm px-3 py-2 rounded-lg border border-[#E4E2F4]">
+                    <select aria-label="Фильтр по треку" value={trackFilter} onChange={e => setTrackFilter(e.target.value)} className="text-sm px-3 py-2 rounded-lg border border-[#E4E2F4]">
                         <option value="">Все треки</option>
                         {sourceCohort?.tracks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
                     </select>
-                    <select value={reportStatusFilter} onChange={e => setReportStatusFilter(e.target.value as AdminDocumentsFilter['reportStatus'] | '')}
+                    <select aria-label="Фильтр по статусу отчёта" value={reportStatusFilter} onChange={e => setReportStatusFilter(e.target.value as AdminDocumentsFilter['reportStatus'] | '')}
                         className="text-sm px-3 py-2 rounded-lg border border-[#E4E2F4]">
                         <option value="">Любой статус отчёта</option>
                         <option value="MISSING">Не загружен</option>
@@ -155,13 +155,13 @@ export default function AdminDocumentsPage() {
                         <option value="APPROVED">Одобрен</option>
                         <option value="REJECTED">Отклонён</option>
                     </select>
-                    <select value={readinessFilter} onChange={e => setReadinessFilter(e.target.value as AdminDocumentsFilter['readiness'] | '')}
+                    <select aria-label="Фильтр по готовности документов" value={readinessFilter} onChange={e => setReadinessFilter(e.target.value as AdminDocumentsFilter['readiness'] | '')}
                         className="text-sm px-3 py-2 rounded-lg border border-[#E4E2F4]">
                         <option value="">Любая готовность</option>
                         <option value="READY">Все документы готовы</option>
                         <option value="INCOMPLETE">Есть незаполненные</option>
                     </select>
-                    <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                    <input type="text" aria-label="Поиск по email" value={search} onChange={e => setSearch(e.target.value)}
                         placeholder="Поиск по email…" className="text-sm px-3 py-2 rounded-lg border border-[#E4E2F4] flex-1 min-w-[180px]" />
                 </div>
             )}
@@ -175,7 +175,7 @@ export default function AdminDocumentsPage() {
 
             {error && (
                 <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
-                    <p className="text-sm text-[#D94F4F]">⚠️ {error}</p>
+                    <p className="text-sm text-[#C93B3B]">⚠️ {error}</p>
                 </div>
             )}
 
@@ -197,7 +197,7 @@ export default function AdminDocumentsPage() {
                             <div key={doc.applicationId} className="bg-white rounded-2xl shadow-sm overflow-hidden">
                                 <div className="px-7 py-5 border-b border-[#E4E2F4] flex items-center justify-between flex-wrap gap-3">
                                     <div>
-                                        <p className="text-xs font-bold tracking-widest uppercase text-[#A9A7BB] mb-1">{doc.track.title}</p>
+                                        <p className="text-xs font-bold tracking-widest uppercase text-[#6B6880] mb-1">{doc.track.title}</p>
                                         <h2 className="font-bold text-lg text-[#1C1A3A]">{doc.student?.email ?? 'Неизвестный кандидат'}</h2>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -209,7 +209,7 @@ export default function AdminDocumentsPage() {
                                                 <button
                                                     disabled={reportActionId === doc.applicationId}
                                                     onClick={() => handleReportDecision(doc.applicationId, 'REJECTED')}
-                                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#F0BABA] text-[#D94F4F] hover:bg-[#FFF5F5] disabled:opacity-50">
+                                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#F0BABA] text-[#C93B3B] hover:bg-[#FFF5F5] disabled:opacity-50">
                                                     Отклонить
                                                 </button>
                                                 <button
@@ -227,28 +227,28 @@ export default function AdminDocumentsPage() {
                                 <div className="px-7 py-4 grid grid-cols-2 md:grid-cols-4 gap-3 border-b border-[#E4E2F4]">
                                     {doc.documents.map(d => (
                                         <div key={d.type} className="flex flex-col gap-1">
-                                            <span className="text-[10px] font-bold tracking-widest uppercase text-[#A9A7BB]">{DOCUMENT_TYPE_LABELS[d.type]}</span>
+                                            <span className="text-[10px] font-bold tracking-widest uppercase text-[#6B6880]">{DOCUMENT_TYPE_LABELS[d.type]}</span>
                                             {d.ready ? (
                                                 <span className="text-xs text-[#1A7A5A]">✅ Готов</span>
                                             ) : (
-                                                <span className="text-xs text-[#A9A7BB]">Не готов</span>
+                                                <span className="text-xs text-[#6B6880]">Не готов</span>
                                             )}
                                             {d.generated && d.downloadPath && (
-                                                <a href={d.downloadPath} target="_blank" rel="noopener noreferrer" className="text-xs text-[#6C63FF] hover:underline">⬇ Скачать</a>
+                                                <a href={d.downloadPath} target="_blank" rel="noopener noreferrer" className="text-xs text-[#4A42D4] hover:underline">⬇ Скачать</a>
                                             )}
                                         </div>
                                     ))}
                                 </div>
 
                                 <div className="px-7 py-3">
-                                    <button onClick={() => toggleExpand(doc.applicationId)} className="text-xs font-semibold text-[#6C63FF] hover:underline">
+                                    <button onClick={() => toggleExpand(doc.applicationId)} className="text-xs font-semibold text-[#4A42D4] hover:underline">
                                         {expandedId === doc.applicationId ? '▲ Скрыть детали' : '▼ Показать детали и отзыв'}
                                     </button>
 
                                     {expandedId === doc.applicationId && (
                                         <div className="mt-4 flex flex-col gap-5">
                                             {detailLoading === doc.applicationId ? (
-                                                <p className="text-xs text-[#A9A7BB]">Загружаем…</p>
+                                                <p className="text-xs text-[#6B6880]">Загружаем…</p>
                                             ) : (
                                                 DOCUMENT_TYPES.map(type => {
                                                     const values = detail?.find(d => d.type === type)?.values ?? []
@@ -261,7 +261,7 @@ export default function AdminDocumentsPage() {
                                                             <div className="flex items-center justify-between">
                                                                 <span className="text-xs font-bold text-[#1C1A3A]">{DOCUMENT_TYPE_LABELS[type]}</span>
                                                                 {readiness && !readiness.ready && (
-                                                                    <span className="text-[11px] text-[#A9A7BB]">
+                                                                    <span className="text-[11px] text-[#6B6880]">
                                                                         Не хватает: {readiness.missingFields.map(m => describeMissingField(type, m)).join(', ')}
                                                                     </span>
                                                                 )}
@@ -275,7 +275,7 @@ export default function AdminDocumentsPage() {
                                                                             <div key={field.key} className={`flex flex-col gap-1 ${field.multiline ? 'col-span-2' : ''}`}>
                                                                                 <label htmlFor={key} className="text-[11px] text-[#6B6880] flex items-center gap-2">
                                                                                     {field.label}
-                                                                                    {savingKey === key && <span className="text-[10px] text-[#A9A7BB]">сохраняем…</span>}
+                                                                                    {savingKey === key && <span className="text-[10px] text-[#6B6880]">сохраняем…</span>}
                                                                                 </label>
                                                                                 {field.multiline ? (
                                                                                     <textarea id={key} rows={2} className="w-full text-sm"
@@ -293,7 +293,7 @@ export default function AdminDocumentsPage() {
                                                                     }
                                                                     return (
                                                                         <div key={field.key} className="flex flex-col gap-0.5">
-                                                                            <span className="text-[11px] text-[#A9A7BB]">{field.label}</span>
+                                                                            <span className="text-[11px] text-[#6B6880]">{field.label}</span>
                                                                             <span className="text-sm text-[#1C1A3A]">{value || '—'}</span>
                                                                         </div>
                                                                     )

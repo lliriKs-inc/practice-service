@@ -240,7 +240,7 @@ export default function DashboardTasksPage() {
                     тогда даты практики подставятся автоматически.
                 </p>
                 <a href="/dashboard/applications"
-                    className="text-xs font-semibold px-4 py-2 rounded-lg border border-[#6C63FF] text-[#6C63FF] hover:bg-[#EBE9FF]">
+                    className="text-xs font-semibold px-4 py-2 rounded-lg border border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF]">
                     Посмотреть мои заявки
                 </a>
             </div>
@@ -270,7 +270,7 @@ export default function DashboardTasksPage() {
 
             {tasksError && (
                 <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
-                    <p className="text-sm text-[#D94F4F]">⚠️ {tasksError}</p>
+                    <p className="text-sm text-[#C93B3B]">⚠️ {tasksError}</p>
                 </div>
             )}
 
@@ -280,7 +280,7 @@ export default function DashboardTasksPage() {
                         const d = new Date(date)
                         return (
                             <div key={i} className="px-5 py-3 border-r border-[#E4E2F4] last:border-r-0">
-                                <span className="text-xs font-bold text-[#A9A7BB] uppercase tracking-wide">
+                                <span className="text-xs font-bold text-[#6B6880] uppercase tracking-wide">
                                     {DAYS_RU[i]} {d.getUTCDate()}.{String(d.getUTCMonth() + 1).padStart(2, '0')}
                                 </span>
                             </div>
@@ -301,13 +301,13 @@ export default function DashboardTasksPage() {
                                             </div>
                                             <p className="text-xs text-[#1C1A3A] leading-relaxed line-clamp-3">{task.description}</p>
                                             {task.links.length > 0 && (
-                                                <span className="text-[10px] text-[#6C63FF] truncate max-w-full">
+                                                <span className="text-[10px] text-[#4A42D4] truncate max-w-full">
                                                     🔗 {task.links.length === 1 ? 'Ссылка' : `Ссылок: ${task.links.length}`}
                                                 </span>
                                             )}
                                         </>
                                     ) : (
-                                        <span className="text-xs text-[#A9A7BB] group-hover:text-[#6C63FF]">+ Заполнить день</span>
+                                        <span className="text-xs text-[#6B6880] group-hover:text-[#4A42D4]">+ Заполнить день</span>
                                     )}
                                 </button>
                             ) : (
@@ -326,7 +326,7 @@ export default function DashboardTasksPage() {
             )}
 
             {weekData && (
-                <p className="text-xs text-[#A9A7BB]">
+                <p className="text-xs text-[#6B6880]">
                     Период практики: {new Date(weekData.cohort.practice_start).toLocaleDateString('ru')} — {new Date(weekData.cohort.practice_end).toLocaleDateString('ru')}
                     {' '}· Нажми на день, чтобы описать выполненную работу и прикрепить ссылки
                 </p>
@@ -342,12 +342,12 @@ export default function DashboardTasksPage() {
                                     {new Date(popup.date).toLocaleDateString('ru', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}
                                 </h3>
                                 {popup.task.saved_at && (
-                                    <p className="text-xs text-[#A9A7BB]">
+                                    <p className="text-xs text-[#6B6880]">
                                         Сохранено {new Date(popup.task.saved_at).toLocaleDateString('ru', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
                                     </p>
                                 )}
                             </div>
-                            <button onClick={closePopup} className="text-[#A9A7BB] hover:text-[#1C1A3A] text-xl leading-none">×</button>
+                            <button onClick={closePopup} className="text-[#6B6880] hover:text-[#1C1A3A] text-xl leading-none">×</button>
                         </div>
 
                         <div className="flex flex-col gap-4">
@@ -365,24 +365,24 @@ export default function DashboardTasksPage() {
                                         <input type="text" value={link} onChange={e => updateLinkField(i, e.target.value)}
                                             placeholder="GitHub, Figma, Google Drive…" className="w-full text-sm" />
                                         <button onClick={() => removeLinkField(i)}
-                                            className="px-3 text-[#D94F4F] hover:bg-[#FFF5F5] rounded-lg text-sm">✕</button>
+                                            className="px-3 text-[#C93B3B] hover:bg-[#FFF5F5] rounded-lg text-sm">✕</button>
                                     </div>
                                 ))}
                                 <button onClick={addLinkField}
-                                    className="self-start text-xs font-semibold text-[#6C63FF] hover:underline">
+                                    className="self-start text-xs font-semibold text-[#4A42D4] hover:underline">
                                     + Добавить ссылку
                                 </button>
                             </div>
 
                             {popupError && (
                                 <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
-                                    <p className="text-sm text-[#D94F4F]">⚠️ {popupError}</p>
+                                    <p className="text-sm text-[#C93B3B]">⚠️ {popupError}</p>
                                 </div>
                             )}
 
                             <div className="flex justify-between items-center mt-2">
                                 <button onClick={handleClear} disabled={popupSaving}
-                                    className="px-4 py-2 text-sm font-medium text-[#D94F4F] hover:bg-[#FFF5F5] rounded-lg disabled:opacity-50">
+                                    className="px-4 py-2 text-sm font-medium text-[#C93B3B] hover:bg-[#FFF5F5] rounded-lg disabled:opacity-50">
                                     Очистить день
                                 </button>
                                 <div className="flex gap-3">

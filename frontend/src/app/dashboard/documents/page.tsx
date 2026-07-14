@@ -25,7 +25,7 @@ import {
 const REPORT_STATUS_CONFIG: Record<ReportInfo['status'], { label: string; className: string }> = {
     PENDING: { label: 'На проверке', className: 'bg-[#FFF8ED] border-[#F5D9A0] text-[#7A5C1A]' },
     APPROVED: { label: 'Одобрен', className: 'bg-[#EDFBF4] border-[#7EE8B8] text-[#1A7A5A]' },
-    REJECTED: { label: 'Отклонён', className: 'bg-[#FFF5F5] border-[#F0BABA] text-[#D94F4F]' },
+    REJECTED: { label: 'Отклонён', className: 'bg-[#FFF5F5] border-[#F0BABA] text-[#C93B3B]' },
 }
 
 export default function DashboardDocumentsPage() {
@@ -186,7 +186,7 @@ export default function DashboardDocumentsPage() {
                     Они откроются, как только одна из твоих заявок будет одобрена.
                 </p>
                 <a href="/dashboard/applications"
-                    className="text-xs font-semibold px-4 py-2 rounded-lg border border-[#6C63FF] text-[#6C63FF] hover:bg-[#EBE9FF]">
+                    className="text-xs font-semibold px-4 py-2 rounded-lg border border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF]">
                     Посмотреть мои заявки
                 </a>
             </div>
@@ -213,7 +213,7 @@ export default function DashboardDocumentsPage() {
 
             {error && (
                 <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
-                    <p className="text-sm text-[#D94F4F]">⚠️ {error}</p>
+                    <p className="text-sm text-[#C93B3B]">⚠️ {error}</p>
                 </div>
             )}
 
@@ -221,8 +221,8 @@ export default function DashboardDocumentsPage() {
             <div className="bg-white rounded-2xl shadow-sm p-7 flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-[10px] font-bold tracking-widest uppercase text-[#6C63FF] mb-1">Отчёт о практике</p>
-                        <p className="text-xs text-[#A9A7BB]">PDF, DOC или DOCX, до {MAX_REPORT_SIZE_BYTES / (1024 * 1024)} МБ</p>
+                        <p className="text-[10px] font-bold tracking-widest uppercase text-[#4A42D4] mb-1">Отчёт о практике</p>
+                        <p className="text-xs text-[#6B6880]">PDF, DOC или DOCX, до {MAX_REPORT_SIZE_BYTES / (1024 * 1024)} МБ</p>
                     </div>
                     {report && (
                         <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border ${REPORT_STATUS_CONFIG[report.status].className}`}>
@@ -241,7 +241,7 @@ export default function DashboardDocumentsPage() {
 
                 {reportError && (
                     <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
-                        <p className="text-sm text-[#D94F4F]">⚠️ {reportError}</p>
+                        <p className="text-sm text-[#C93B3B]">⚠️ {reportError}</p>
                     </div>
                 )}
 
@@ -269,7 +269,7 @@ export default function DashboardDocumentsPage() {
                                             {itemReadiness.ready ? (
                                                 <span className="text-[#1A7A5A]">✅ Готов к формированию</span>
                                             ) : (
-                                                <span className="text-[#A9A7BB]">
+                                                <span className="text-[#6B6880]">
                                                     Не хватает: {itemReadiness.missingFields.map(m => describeMissingField(type, m)).join(', ')}
                                                 </span>
                                             )}
@@ -279,7 +279,7 @@ export default function DashboardDocumentsPage() {
                                 <div className="flex flex-col items-end gap-2 flex-shrink-0">
                                     {itemReadiness?.generated && itemReadiness.downloadPath && (
                                         <a href={itemReadiness.downloadPath} target="_blank" rel="noopener noreferrer"
-                                            className="text-xs font-semibold text-[#6C63FF] hover:underline">
+                                            className="text-xs font-semibold text-[#4A42D4] hover:underline">
                                             ⬇ Скачать
                                         </a>
                                     )}
@@ -289,7 +289,7 @@ export default function DashboardDocumentsPage() {
                                         className={`text-sm font-semibold px-5 py-2 rounded-lg flex-shrink-0 transition-all
                                             ${itemReadiness?.ready
                                                 ? 'bg-[#6C63FF] text-white shadow-md hover:bg-[#4A42D4] disabled:opacity-60'
-                                                : 'bg-[#F5F4FD] text-[#A9A7BB] border border-[#E4E2F4] cursor-not-allowed'}`}>
+                                                : 'bg-[#F5F4FD] text-[#6B6880] border border-[#E4E2F4] cursor-not-allowed'}`}>
                                         {generatingType === type ? 'Формируем…' : itemReadiness?.generated ? '🔄 Сформировать заново' : 'Сформировать'}
                                     </button>
                                 </div>
@@ -297,7 +297,7 @@ export default function DashboardDocumentsPage() {
 
                             {generateError?.type === type && (
                                 <div className="mx-7 mt-4 bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
-                                    <p className="text-sm text-[#D94F4F]">⚠️ {generateError.message}</p>
+                                    <p className="text-sm text-[#C93B3B]">⚠️ {generateError.message}</p>
                                 </div>
                             )}
 
@@ -309,7 +309,7 @@ export default function DashboardDocumentsPage() {
                                             <div key={field.key} className={`flex flex-col gap-1.5 ${field.multiline ? 'col-span-2' : ''}`}>
                                                 <label htmlFor={key} className="text-xs font-medium text-[#6B6880] flex items-center gap-2">
                                                     {field.label}
-                                                    {savingKey === key && <span className="text-[10px] text-[#A9A7BB]">сохраняем…</span>}
+                                                    {savingKey === key && <span className="text-[10px] text-[#6B6880]">сохраняем…</span>}
                                                 </label>
                                                 {field.multiline ? (
                                                     <textarea
@@ -332,7 +332,7 @@ export default function DashboardDocumentsPage() {
                                                     />
                                                 )}
                                                 {fieldError?.key === key && (
-                                                    <span className="text-xs text-[#D94F4F]">⚠️ {fieldError.message}</span>
+                                                    <span className="text-xs text-[#C93B3B]">⚠️ {fieldError.message}</span>
                                                 )}
                                             </div>
                                         )
@@ -340,7 +340,7 @@ export default function DashboardDocumentsPage() {
                                 </div>
                             ) : (
                                 <div className="px-7 py-5">
-                                    <p className="text-sm text-[#A9A7BB]">Заполняется куратором практики — доступно только для просмотра.</p>
+                                    <p className="text-sm text-[#6B6880]">Заполняется куратором практики — доступно только для просмотра.</p>
                                 </div>
                             )}
                         </div>

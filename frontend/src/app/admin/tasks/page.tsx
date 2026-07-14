@@ -122,7 +122,7 @@ export default function AdminTasksPage() {
 
             {error && (
                 <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
-                    <p className="text-sm text-[#D94F4F]">⚠️ {error}</p>
+                    <p className="text-sm text-[#C93B3B]">⚠️ {error}</p>
                 </div>
             )}
 
@@ -138,11 +138,11 @@ export default function AdminTasksPage() {
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-[#E4E2F4]">
-                                    <th className="text-left px-5 py-3 text-xs font-bold text-[#A9A7BB] uppercase whitespace-nowrap">Студент</th>
+                                    <th className="text-left px-5 py-3 text-xs font-bold text-[#6B6880] uppercase whitespace-nowrap">Студент</th>
                                     {progress.days.map((date, i) => {
                                         const d = new Date(date)
                                         return (
-                                            <th key={date} className="text-center px-3 py-3 text-xs font-bold text-[#A9A7BB] uppercase whitespace-nowrap">
+                                            <th key={date} className="text-center px-3 py-3 text-xs font-bold text-[#6B6880] uppercase whitespace-nowrap">
                                                 {DAYS_RU[i]} {d.getUTCDate()}.{String(d.getUTCMonth() + 1).padStart(2, '0')}
                                             </th>
                                         )
@@ -154,7 +154,7 @@ export default function AdminTasksPage() {
                                     <tr key={student.applicationId} className="border-b border-[#E4E2F4] last:border-b-0">
                                         <td className="px-5 py-3 whitespace-nowrap">
                                             <p className="font-semibold text-[#1C1A3A]">{student.student.email}</p>
-                                            <p className="text-xs text-[#A9A7BB]">{student.track.title}</p>
+                                            <p className="text-xs text-[#6B6880]">{student.track.title}</p>
                                         </td>
                                         {student.tasks.map(day => (
                                             <td key={day.date} className="text-center px-3 py-3">
@@ -185,9 +185,9 @@ export default function AdminTasksPage() {
                             <div key={m.taskId} className="px-7 py-3 flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-semibold text-[#1C1A3A]">{m.student.email}</p>
-                                    <p className="text-xs text-[#A9A7BB]">{m.track.title}</p>
+                                    <p className="text-xs text-[#6B6880]">{m.track.title}</p>
                                 </div>
-                                <span className="text-xs text-[#D94F4F]">{new Date(m.taskDate).toLocaleDateString('ru', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</span>
+                                <span className="text-xs text-[#C93B3B]">{new Date(m.taskDate).toLocaleDateString('ru', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</span>
                             </div>
                         ))}
                     </div>
