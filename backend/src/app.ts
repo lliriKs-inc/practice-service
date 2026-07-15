@@ -19,6 +19,7 @@ import type {
 import {
   createGeneralRateLimiter,
   createSecurityHeaders,
+  createUploadRateLimiter,
 } from "./middlewares/security.middleware";
 import { createApiV1Router } from "./routes/api-v1.routes";
 
@@ -45,7 +46,17 @@ export function createApp(options: CreateAppOptions = {}) {
 
   app.use(
     cors({
-      origin: config.cors.origin,
+      origin: (origin, callback) => {
+        if (
+          !origin ||
+          config.cors.origins.includes(origin)
+        ) {
+          callback(null, true);
+          return;
+        }
+
+        callback(null, false);
+      },
       exposedHeaders: ["Content-Disposition"],
     })
   );
@@ -58,6 +69,7 @@ export function createApp(options: CreateAppOptions = {}) {
 
   app.use(createHealthRouter(options.readinessCheck));
   app.use(createGeneralRateLimiter(logger));
+  app.use(createUploadRateLimiter(logger));
 
   app.use("/api/v1", createApiV1Router(logger));
 

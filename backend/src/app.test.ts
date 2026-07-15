@@ -229,13 +229,7 @@ describe("platform HTTP foundation", () => {
       response.headers[
         "access-control-allow-origin"
       ]
-    ).toBe(config.cors.origin);
-
-    expect(
-      response.headers[
-        "access-control-allow-origin"
-      ]
-    ).not.toBe("https://untrusted.example");
+    ).toBeUndefined();
   });
 
   it("does not expose files through the legacy uploads path", async () => {

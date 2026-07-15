@@ -1,8 +1,8 @@
-version: "3.8"
+name: practice-development
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: practice_db
     environment:
       POSTGRES_USER: practice_user
@@ -16,34 +16,31 @@ services:
       test: ["CMD-SHELL", "pg_isready -U practice_user -d practice_main"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: development
     container_name: practice_backend
-    restart: always
+    restart: unless-stopped
     ports:
       - "3001:3000"
     environment:
-      - PORT=3000
-      - DATABASE_URL=postgresql://practice_user:practice_secure_password@postgres:5432/practice_main
-      - JWT_SECRET=${JWT_SECRET}
-      # Локальный frontend dev-сервер (npm run dev) поднимается на 3002, если
-      # 3000/3001 заняты — без этого браузерные fetch-запросы (register/login)
-      # блокируются CORS (curl/node fetch этого не показывают, т.к. не следуют CORS).
-      - CORS_ORIGIN=http://localhost:3002
-      # /auth/* (включая /auth/me, который useAuth() дёргает при каждом
-      # заходе на защищённую страницу) rate-limited по умолчанию 10 req/15мин —
-      # для локальной разработки/E2E этого мало, поднимаем без изменения кода.
-      # См. BACKEND_GAP_COHORT_API.md: стоит ли /auth/me лимитировать так же
-      # жёстко, как login/register — вопрос к backend-команде.
-      - AUTH_RATE_LIMIT_MAX_REQUESTS=1000
-      # Глобальный rate limiter (все роуты, включая admin cohort/track/survey/
-      # invitation API) — E2E-сидинг когорты делает ~9 admin-запросов на тест,
-      # что быстро упирается в дефолтный лимит при полном прогоне (chromium+mobile).
-      - RATE_LIMIT_MAX_REQUESTS=5000
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://practice_user:practice_secure_password@postgres:5432/practice_main?schema=public
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_ISSUER: practice-service
+      JWT_AUDIENCE: practice-service-api
+      CORS_ORIGIN: http://localhost:3002
+      AUTH_RATE_LIMIT_MAX_REQUESTS: 1000
+      RATE_LIMIT_MAX_REQUESTS: 5000
+      MAIL_ENABLED: "false"
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,13 +49,16 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: development
     container_name: practice_frontend
-    restart: always
+    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3002:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
     depends_on:
       - backend
+
 volumes:
   postgres_data:
+  uploads_data:

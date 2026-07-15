@@ -1,0 +1,114 @@
+name: Production Release CI
+
+on:
+  pull_request:
+    paths:
+      - "backend/Dockerfile"
+      - "backend/.dockerignore"
+      - "frontend/Dockerfile"
+      - "frontend/.dockerignore"
+      - "docker-compose*.yml"
+      - "deploy/**"
+      - "ops/**"
+      - "docs/runbooks/**"
+      - "docs/release-checklist.md"
+      - ".github/workflows/production-ci.yml"
+  push:
+    branches:
+      - main
+      - integration/new-architecture
+    paths:
+      - "backend/Dockerfile"
+      - "backend/.dockerignore"
+      - "frontend/Dockerfile"
+      - "frontend/.dockerignore"
+      - "docker-compose*.yml"
+      - "deploy/**"
+      - "ops/**"
+      - "docs/runbooks/**"
+      - "docs/release-checklist.md"
+      - ".github/workflows/production-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production:
+    name: Build and smoke production stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      POSTGRES_USER: practice_ci
+      POSTGRES_PASSWORD: ci_database_password
+      POSTGRES_DB: practice_ci
+      DATABASE_URL: postgresql://practice_ci:ci_database_password@postgres:5432/practice_ci?schema=public
+      JWT_SECRET: ci-production-jwt-secret-with-more-than-32-characters
+      CORS_ORIGIN: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+      MAIL_ENABLED: "true"
+      SMTP_HOST: smtp.example.com
+      SMTP_USER: ci@example.com
+      SMTP_PASS: ci-smtp-password
+      SMTP_FROM: ci@example.com
+      BACKEND_PORT: 3001
+      FRONTEND_PORT: 3000
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate production Compose
+        run: docker compose -f docker-compose.prod.yml config --quiet
+
+      - name: Build production images
+        run: docker compose -f docker-compose.prod.yml build
+
+      - name: Start production stack
+        run: docker compose -f docker-compose.prod.yml up -d --no-build
+
+      - name: Wait for health and readiness
+        shell: bash
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:3001/ready >/dev/null \
+              && curl --fail --silent http://localhost:3000 >/dev/null; then
+              exit 0
+            fi
+            sleep 3
+          done
+          docker compose -f docker-compose.prod.yml ps
+          docker compose -f docker-compose.prod.yml logs backend frontend migrations postgres
+          exit 1
+
+      - name: Verify non-root runtime and persistence
+        shell: bash
+        run: |
+          test "$(docker compose -f docker-compose.prod.yml exec -T backend id -u)" = "10001"
+          test "$(docker compose -f docker-compose.prod.yml exec -T frontend id -u)" = "10001"
+          docker compose -f docker-compose.prod.yml exec -T backend sh -c 'printf persistence > /app/uploads/.release-persistence'
+          docker compose -f docker-compose.prod.yml restart backend
+          for attempt in {1..20}; do
+            if curl --fail --silent http://localhost:3001/ready >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://localhost:3001/ready >/dev/null
+          docker compose -f docker-compose.prod.yml exec -T backend test -f /app/uploads/.release-persistence
+          docker compose -f docker-compose.prod.yml exec -T backend rm /app/uploads/.release-persistence
+
+      - name: Verify migration completion
+        shell: bash
+        run: |
+          migration_id="$(docker compose -f docker-compose.prod.yml ps -aq migrations)"
+          test -n "$migration_id"
+          test "$(docker inspect "$migration_id" --format '{{.State.ExitCode}}')" = "0"
+
+      - name: Show production logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml logs backend frontend migrations postgres
+
+      - name: Stop production stack
+        if: always()
+        run: docker compose -f docker-compose.prod.yml down --volumes --remove-orphans

@@ -12,7 +12,9 @@ import {
   createAuthRateLimiter,
   createRateLimiter,
   createSecurityHeaders,
+  createUploadRateLimiter,
 } from "./security.middleware";
+import { config } from "../shared/config";
 import type {
   Logger,
 } from "../shared/logger";
@@ -196,5 +198,32 @@ describe("security middleware", () => {
 
     expect(response.status).toBe(200);
     expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("limits multipart mutations without throttling ordinary requests", async () => {
+    const app = express();
+
+    app.use(requestIdMiddleware);
+    app.use(createUploadRateLimiter(logger));
+    app.post("/resource", (_req, res) => {
+      return res.status(200).json({ status: "ok" });
+    });
+
+    await request(app).post("/resource").send({ value: "one" });
+    await request(app).post("/resource").send({ value: "two" });
+
+    let response: request.Response | undefined;
+    for (
+      let attempt = 0;
+      attempt <= config.security.uploadRateLimit.maximumRequests;
+      attempt += 1
+    ) {
+      response = await request(app)
+        .post("/resource")
+        .attach("file", Buffer.from("content"), "report.pdf");
+    }
+
+    expect(response?.status).toBe(429);
+    expect(response?.body.code).toBe("UPLOAD_RATE_LIMIT_EXCEEDED");
   });
 });

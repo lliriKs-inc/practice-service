@@ -108,3 +108,31 @@ export function createAuthRateLimiter(
     },
   });
 }
+
+export function createUploadRateLimiter(
+  logger: Logger = appLogger
+) {
+  return createRateLimiter({
+    windowMilliseconds:
+      config.security.uploadRateLimit
+        .windowMilliseconds,
+    maximumRequests:
+      config.security.uploadRateLimit
+        .maximumRequests,
+    code: "UPLOAD_RATE_LIMIT_EXCEEDED",
+    message:
+      "Слишком много загрузок файлов. Повторите попытку позже",
+    logger,
+    skip: (req) => {
+      const contentType = req.headers["content-type"];
+      const isMutation = ["POST", "PUT", "PATCH"]
+        .includes(req.method);
+
+      return !(
+        isMutation &&
+        typeof contentType === "string" &&
+        contentType.toLowerCase().startsWith("multipart/form-data")
+      );
+    },
+  });
+}

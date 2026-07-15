@@ -521,7 +521,7 @@ Overview response:
 | 404 | Cohort/application/track/survey/question/task/report/document/file not found; `ROUTE_NOT_FOUND` |
 | 409 | Duplicate user/track/survey/application или repeated publication |
 | 413 | `PAYLOAD_TOO_LARGE` |
-| 429 | `RATE_LIMIT_EXCEEDED`, `AUTH_RATE_LIMIT_EXCEEDED` |
+| 429 | `RATE_LIMIT_EXCEEDED`, `AUTH_RATE_LIMIT_EXCEEDED`, `UPLOAD_RATE_LIMIT_EXCEEDED` |
 | 500 | `INTERNAL_SERVER_ERROR` без внутренних деталей |
 
 ## 12. Compatibility boundary

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const originalJwtSecret = process.env.JWT_SECRET;
 const originalDatabaseUrl = process.env.DATABASE_URL;
 const originalPort = process.env.PORT;
+const originalCorsOrigin = process.env.CORS_ORIGIN;
 
 afterEach(() => {
   if (originalJwtSecret === undefined) {
@@ -21,6 +22,12 @@ afterEach(() => {
     delete process.env.PORT;
   } else {
     process.env.PORT = originalPort;
+  }
+
+  if (originalCorsOrigin === undefined) {
+    delete process.env.CORS_ORIGIN;
+  } else {
+    process.env.CORS_ORIGIN = originalCorsOrigin;
   }
 
   vi.resetModules();
@@ -60,6 +67,8 @@ describe("environment configuration", () => {
     process.env.DATABASE_URL =
       "postgresql://postgres:postgres@localhost:5432/test";
     process.env.PORT = "4321";
+    process.env.CORS_ORIGIN =
+      "https://practice.example.com, https://admin.example.com";
 
     vi.resetModules();
 
@@ -68,5 +77,9 @@ describe("environment configuration", () => {
     expect(config.environment).toBe("test");
     expect(config.port).toBe(4321);
     expect(config.database.url).toContain("localhost:5432/test");
+    expect(config.cors.origins).toEqual([
+      "https://practice.example.com",
+      "https://admin.example.com",
+    ]);
   });
 });
