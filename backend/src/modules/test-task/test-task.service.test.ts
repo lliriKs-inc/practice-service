@@ -123,11 +123,32 @@ describe("TestTaskService", () => {
 
   it("authorizes only the owner of a submission or an admin", async () => {
     vi.spyOn(prisma.testTask, "findFirst").mockResolvedValue(null);
-    vi.spyOn(prisma.testTaskSubmission, "findFirst").mockResolvedValue({ file_url: "test-task-submissions/file.zip", application: { id: "application-1", user_id: "student-1", track_id: "track-1", track: { id: "track-1", cohort_id: "cohort-1", title: "Backend" } } } as any);
+    vi.spyOn(prisma.testTaskSubmission, "findFirst").mockResolvedValue({ file_url: "test-task-submissions/file.zip", file_name: "solution.zip", file_content_type: "application/zip", application: { id: "application-1", user_id: "student-1", track_id: "track-1", track: { id: "track-1", cohort_id: "cohort-1", title: "Backend" } } } as any);
 
     const service = new TestTaskService();
-    await expect(service.authorizeFile({ id: "student-1", role: UserRole.STUDENT }, "test-task-submissions/file.zip")).resolves.toMatchObject({ downloadName: "test-task-submission" });
+    await expect(service.authorizeFile({ id: "student-1", role: UserRole.STUDENT }, "test-task-submissions/file.zip")).resolves.toMatchObject({ downloadName: "solution.zip", contentType: "application/zip" });
     await expect(service.authorizeFile({ id: "student-2", role: UserRole.STUDENT }, "test-task-submissions/file.zip")).resolves.toBeNull();
-    await expect(service.authorizeFile({ id: "admin-1", role: UserRole.ADMIN }, "test-task-submissions/file.zip")).resolves.toMatchObject({ downloadName: "test-task-submission" });
+    await expect(service.authorizeFile({ id: "admin-1", role: UserRole.ADMIN }, "test-task-submissions/file.zip")).resolves.toMatchObject({ downloadName: "solution.zip", contentType: "application/zip" });
+  });
+
+  it("authorizes a published task with its uploaded file metadata", async () => {
+    vi.spyOn(prisma.testTask, "findFirst").mockResolvedValue({
+      file_url: "test-tasks/task.docx",
+      file_name: "Задание.docx",
+      file_content_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      track_id: "track-1",
+      published_at: new Date(),
+    } as any);
+    vi.spyOn(prisma.application, "findFirst").mockResolvedValue({ id: "application-1" } as any);
+
+    await expect(
+      new TestTaskService().authorizeFile(
+        { id: "student-1", role: UserRole.STUDENT },
+        "test-tasks/task.docx",
+      ),
+    ).resolves.toMatchObject({
+      downloadName: "Задание.docx",
+      contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
   });
 });
