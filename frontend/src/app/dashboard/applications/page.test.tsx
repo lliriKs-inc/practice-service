@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import DashboardApplicationsPage from './page'
 import { saveToken, saveUser } from '@/lib/api/session'
@@ -6,13 +6,12 @@ import type { Application } from '@/services/api/invitation'
 
 const STUDENT = { id: 'student-1', email: 'student@urfu.ru', role: 'STUDENT' as const, created_at: '2026-01-01' }
 
+const { getMyApplications } = vi.hoisted(() => ({ getMyApplications: vi.fn() }))
+vi.mock('@/services/api/invitation', () => ({ getMyApplications }))
+
 function loginAsStudent() {
     saveToken('mock-jwt-student-1')
     saveUser(STUDENT)
-}
-
-function seedApplications(apps: Application[]) {
-    localStorage.setItem('mock_applications', JSON.stringify(apps))
 }
 
 function makeApplication(overrides: Partial<Application>): Application {
@@ -32,6 +31,8 @@ describe('DashboardApplicationsPage (архив заявок студента)',
     beforeEach(() => {
         localStorage.clear()
         loginAsStudent()
+        vi.clearAllMocks()
+        getMyApplications.mockResolvedValue([])
     })
 
     it('показывает пустое состояние, если заявок ещё нет', async () => {
@@ -39,20 +40,16 @@ describe('DashboardApplicationsPage (архив заявок студента)',
         expect(await screen.findByText('Заявок пока нет')).toBeInTheDocument()
     })
 
-    it('показывает только заявки текущего студента, не чужие', async () => {
-        seedApplications([
-            makeApplication({ id: 'mine', status: 'pending' }),
-            makeApplication({ id: 'other', student: { id: 'other-student', email: 'x@x.ru' } }),
-        ])
+    it('показывает заявку текущего студента (сервер уже возвращает только свои)', async () => {
+        getMyApplications.mockResolvedValue([makeApplication({ id: 'mine', status: 'pending' })])
         render(<DashboardApplicationsPage />)
 
         expect(await screen.findByText('Практика 2027')).toBeInTheDocument()
-        // Заявка чужого студента не должна отрисоваться вторым разом
         expect(screen.getAllByText('Практика 2027')).toHaveLength(1)
     })
 
     it('показывает статус заявки и ссылку на тестовое задание, если заявка не отклонена', async () => {
-        seedApplications([makeApplication({ status: 'approved' })])
+        getMyApplications.mockResolvedValue([makeApplication({ status: 'approved' })])
         render(<DashboardApplicationsPage />)
 
         expect(await screen.findByText('Одобрена')).toBeInTheDocument()
@@ -63,7 +60,7 @@ describe('DashboardApplicationsPage (архив заявок студента)',
     })
 
     it('не показывает ссылку на тестовое задание для отклонённой заявки', async () => {
-        seedApplications([makeApplication({ status: 'rejected' })])
+        getMyApplications.mockResolvedValue([makeApplication({ status: 'rejected' })])
         render(<DashboardApplicationsPage />)
 
         expect(await screen.findByText('Отклонена')).toBeInTheDocument()

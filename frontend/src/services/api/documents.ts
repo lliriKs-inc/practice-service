@@ -1,33 +1,14 @@
 // services/api/documents.ts
 //
-// ┌───────────────────────────────────────────────────────────────┐
-// │ [MOCK] Как убрать моки, когда бэк будет готов:                │
-// │  1. grep -rn "\[MOCK\]" services/  — найдёт все места в проекте│
-// │  2. Здесь: поставить USE_MOCKS = false                        │
-// │  3. Удалить блок "[MOCK-DATA]" ниже и все ветки if (USE_MOCKS) │
-// │                                                                 │
-// │ Контракт (маршруты, EAV-поля, лимиты) списан 1:1 с             │
-// │ docs/api-contract.md (раздел "Reports и documents"),            │
-// │ docs/api/documents.md и backend/src/modules/documents/          │
-// │ document.config.ts — это должно избавить от сюрпризов при       │
-// │ переключении на реальный API.                                   │
-// │                                                                 │
-// │ Старый клиент этого файла (StudentDocumentData, плоская форма) │
-// │ был построен против несуществующего контракта и нигде не       │
-// │ использовался — заменён полностью на EAV-модель.                │
-// └───────────────────────────────────────────────────────────────┘
+// Реальный API — контракт списан 1:1 с docs/api-contract.md (раздел "Reports
+// и documents"), docs/api/documents.md и backend/src/modules/documents
+// (document.config.ts, update-document-field.dto.ts, report-status.dto.ts),
+// проверен вручную.
 
+import { apiFetch } from '@/lib/api/http'
 import { getToken } from './auth'
-import { getMyApplication } from './invitation'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-
-// [MOCK-CONFIG] Единственный переключатель. false — реальные запросы к API.
-export const USE_MOCKS = true
-
-function mockDelay(ms = 350) {
-    return new Promise(resolve => setTimeout(resolve, ms))
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
 
 export type DocumentType = 'INDIVIDUAL_TASK' | 'TITLE_PAGE' | 'REVIEW' | 'NOTICE'
 
@@ -125,13 +106,13 @@ export interface DocumentReadinessItem {
     downloadPath: string | null
 }
 
+export type ReportStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
 export interface ReadinessResponse {
     applicationId: string
     report: { status: ReportStatus; reviewedAt: string | null } | null
     documents: DocumentReadinessItem[]
 }
-
-export type ReportStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export interface ReportInfo {
     id: string
@@ -146,13 +127,6 @@ export interface ReportInfo {
 // Совпадает с backend/src/shared/upload/upload-policy.ts (категория reports)
 export const ALLOWED_REPORT_EXTENSIONS = ['.pdf', '.doc', '.docx'] as const
 export const MAX_REPORT_SIZE_BYTES = 10 * 1024 * 1024
-
-function authHeaders() {
-    return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getToken()}`,
-    }
-}
 
 export class DocumentValidationError extends Error {}
 
@@ -182,171 +156,55 @@ export function describeMissingField(type: DocumentType, missingKey: string): st
     return DOCUMENT_FIELD_CONFIG[type].find(f => f.key === missingKey)?.label ?? missingKey
 }
 
-// ════════════════════════════════════════════════════════════════
-// [MOCK-DATA] — весь этот блок удаляется при отключении моков
-// ════════════════════════════════════════════════════════════════
-
-const MOCK_DOCUMENTS_KEY = 'mock_documents'
-const MOCK_REPORTS_KEY = 'mock_reports'
-
-interface MockDocument {
-    id: string
-    application_id: string
-    type: DocumentType
-    generated: boolean
-    generated_at: string | null
-    fieldValues: DocumentFieldValue[]
+function mapFieldValue(raw: any): DocumentFieldValue {
+    return { id: raw.id, key: raw.key, value: raw.value, filledBy: raw.filled_by ?? raw.filledBy }
 }
 
-interface MockReport {
-    id: string
-    application_id: string
-    status: ReportStatus
-    uploaded_at: string
-    reviewed_at: string | null
-    fileName: string
-}
-
-function mockUid() {
-    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
-    return Math.random().toString(36).slice(2, 11)
-}
-
-function mockLoadDocuments(): MockDocument[] {
-    if (typeof window === 'undefined') return []
-    try {
-        const raw = localStorage.getItem(MOCK_DOCUMENTS_KEY)
-        return raw ? JSON.parse(raw) : []
-    } catch {
-        return []
+function mapDocument(raw: any, applicationId: string): DocumentData {
+    return {
+        id: raw.id,
+        applicationId,
+        type: raw.type,
+        generated: Boolean(raw.generated),
+        generatedAt: raw.generatedAt ?? null,
+        downloadPath: raw.downloadPath ?? null,
+        fieldValues: Array.isArray(raw.fieldValues) ? raw.fieldValues.map(mapFieldValue) : [],
     }
 }
 
-function mockSaveDocuments(docs: MockDocument[]) {
-    if (typeof window === 'undefined') return
-    localStorage.setItem(MOCK_DOCUMENTS_KEY, JSON.stringify(docs))
-}
-
-function mockLoadReports(): MockReport[] {
-    if (typeof window === 'undefined') return []
-    try {
-        const raw = localStorage.getItem(MOCK_REPORTS_KEY)
-        return raw ? JSON.parse(raw) : []
-    } catch {
-        return []
+function mapReport(raw: any, applicationId: string): ReportInfo {
+    return {
+        id: raw.id,
+        applicationId,
+        status: raw.status,
+        uploadedAt: raw.uploadedAt,
+        reviewedAt: raw.reviewedAt ?? null,
+        hasFile: true,
+        downloadPath: raw.downloadPath,
     }
 }
-
-function mockSaveReports(reports: MockReport[]) {
-    if (typeof window === 'undefined') return
-    localStorage.setItem(MOCK_REPORTS_KEY, JSON.stringify(reports))
-}
-
-// [MOCK-ONLY] обнулить документы/отчёты при ручном тестировании
-export function resetMockDocuments() {
-    if (typeof window === 'undefined') return
-    localStorage.removeItem(MOCK_DOCUMENTS_KEY)
-    localStorage.removeItem(MOCK_REPORTS_KEY)
-}
-
-// [MOCK] Реальный backend делает upsert по всем 4 типам документов при первом
-// обращении к заявке (ensureForApplication) — досеиваем недостающие записи так же лениво.
-function mockEnsureDocuments(applicationId: string): MockDocument[] {
-    const existing = mockLoadDocuments()
-    const existingTypes = new Set(existing.filter(d => d.application_id === applicationId).map(d => d.type))
-    const created: MockDocument[] = DOCUMENT_TYPES.filter(type => !existingTypes.has(type)).map(type => ({
-        id: mockUid(),
-        application_id: applicationId,
-        type,
-        generated: false,
-        generated_at: null,
-        fieldValues: [],
-    }))
-    if (created.length > 0) {
-        mockSaveDocuments([...existing, ...created])
-        return [...existing, ...created]
-    }
-    return existing
-}
-
-function mockBuildReadiness(applicationId: string, docs: MockDocument[], report: MockReport | null): DocumentReadinessItem[] {
-    return DOCUMENT_TYPES.map(type => {
-        const doc = docs.find(d => d.application_id === applicationId && d.type === type)
-        const values = new Map((doc?.fieldValues ?? []).map(f => [f.key, f.value]))
-        const missingFields = DOCUMENT_FIELD_CONFIG[type]
-            .filter(f => f.required)
-            .filter(f => !(values.get(f.key)?.trim()))
-            .map(f => f.key)
-
-        if (DOCUMENT_REQUIRES_APPROVED_REPORT[type] && report?.status !== 'APPROVED') {
-            missingFields.push('report.status:APPROVED')
-        }
-
-        return {
-            type,
-            ready: missingFields.length === 0,
-            missingFields,
-            generated: doc?.generated ?? false,
-            generatedAt: doc?.generated_at ?? null,
-            downloadPath: doc?.generated
-                ? `/me/applications/${applicationId}/documents/${type}/file`
-                : null,
-        }
-    })
-}
-
-// ════════════════════════════════════════════════════════════════
-// [MOCK-DATA] конец блока
-// ════════════════════════════════════════════════════════════════
 
 // GET /me/applications/:applicationId/documents/readiness
 export async function getReadiness(applicationId: string): Promise<ReadinessResponse> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay()
-        const application = await getMyApplication(applicationId)
-        if (application.status !== 'approved') {
-            throw new Error('Документы доступны только для одобренной заявки')
-        }
-        const docs = mockEnsureDocuments(applicationId)
-        const report = mockLoadReports().find(r => r.application_id === applicationId) ?? null
-
-        return {
-            applicationId,
-            report: report ? { status: report.status, reviewedAt: report.reviewed_at } : null,
-            documents: mockBuildReadiness(applicationId, docs, report),
-        }
+    const data = await apiFetch<any>(`/me/applications/${applicationId}/documents/readiness`)
+    return {
+        applicationId,
+        report: data.report ? { status: data.report.status, reviewedAt: data.report.reviewedAt ?? null } : null,
+        documents: data.documents.map((d: any) => ({
+            type: d.type,
+            ready: Boolean(d.ready),
+            missingFields: d.missingFields ?? [],
+            generated: Boolean(d.generated),
+            generatedAt: d.generatedAt ?? null,
+            downloadPath: d.downloadPath ?? null,
+        })),
     }
-
-    const res = await fetch(`${API_URL}/me/applications/${applicationId}/documents/readiness`, { headers: authHeaders() })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось загрузить готовность документов')
-    return data
 }
 
 // GET /me/applications/:applicationId/documents
 export async function getDocuments(applicationId: string): Promise<DocumentData[]> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay()
-        const docs = mockEnsureDocuments(applicationId)
-        return docs
-            .filter(d => d.application_id === applicationId)
-            .map(d => ({
-                id: d.id,
-                applicationId: d.application_id,
-                type: d.type,
-                generated: d.generated,
-                generatedAt: d.generated_at,
-                downloadPath: d.generated ? `/me/applications/${applicationId}/documents/${d.type}/file` : null,
-                fieldValues: d.fieldValues,
-            }))
-    }
-
-    const res = await fetch(`${API_URL}/me/applications/${applicationId}/documents`, { headers: authHeaders() })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось загрузить документы')
-    return data
+    const data = await apiFetch<any[]>(`/me/applications/${applicationId}/documents`)
+    return data.map(d => mapDocument(d, applicationId))
 }
 
 // PUT /me/applications/:applicationId/documents/:type/fields/:fieldKey
@@ -356,75 +214,18 @@ export async function updateDocumentField(
     fieldKey: string,
     value: string
 ): Promise<DocumentFieldValue> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay(300)
-
-        const fieldConfig = DOCUMENT_FIELD_CONFIG[type].find(f => f.key === fieldKey)
-        if (!fieldConfig) throw new Error('Поле документа не найдено')
-        if (fieldConfig.owner !== 'STUDENT') throw new Error('Это поле заполняет куратор, а не студент')
-
-        const docs = mockEnsureDocuments(applicationId)
-        const idx = docs.findIndex(d => d.application_id === applicationId && d.type === type)
-        const doc = docs[idx]
-
-        const existingFieldIdx = doc.fieldValues.findIndex(f => f.key === fieldKey)
-        const fieldValue: DocumentFieldValue = {
-            id: existingFieldIdx >= 0 ? doc.fieldValues[existingFieldIdx].id : mockUid(),
-            key: fieldKey,
-            value,
-            filledBy: 'STUDENT',
-        }
-        const updatedFieldValues =
-            existingFieldIdx >= 0
-                ? doc.fieldValues.map((f, i) => (i === existingFieldIdx ? fieldValue : f))
-                : [...doc.fieldValues, fieldValue]
-
-        docs[idx] = { ...doc, fieldValues: updatedFieldValues }
-        mockSaveDocuments(docs)
-        return fieldValue
-    }
-
-    const res = await fetch(
-        `${API_URL}/me/applications/${applicationId}/documents/${type}/fields/${fieldKey}`,
-        { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ value }) }
+    const data = await apiFetch<any>(
+        `/me/applications/${applicationId}/documents/${type}/fields/${fieldKey}`,
+        { method: 'PUT', body: { value } }
     )
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось сохранить поле')
-    return data
+    return mapFieldValue(data)
 }
 
 // GET /me/applications/:applicationId/documents/:type/generate
 export async function generateDocument(applicationId: string, type: DocumentType): Promise<DocumentReadinessItem> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay(600)
-
-        const docs = mockEnsureDocuments(applicationId)
-        const idx = docs.findIndex(d => d.application_id === applicationId && d.type === type)
-        const report = mockLoadReports().find(r => r.application_id === applicationId) ?? null
-        const readiness = mockBuildReadiness(applicationId, docs, report).find(r => r.type === type)!
-        if (!readiness.ready) {
-            throw new Error('Документ ещё не готов — заполни все обязательные поля')
-        }
-
-        const generatedAt = new Date().toISOString()
-        docs[idx] = { ...docs[idx], generated: true, generated_at: generatedAt }
-        mockSaveDocuments(docs)
-
-        return {
-            type,
-            ready: true,
-            missingFields: [],
-            generated: true,
-            generatedAt,
-            downloadPath: `/me/applications/${applicationId}/documents/${type}/file`,
-        }
-    }
-
     const res = await fetch(
         `${API_URL}/me/applications/${applicationId}/documents/${DOCUMENT_TYPE_SLUGS[type]}/generate`,
-        { headers: authHeaders() }
+        { headers: { Authorization: `Bearer ${getToken()}` } }
     )
     if (!res.ok) {
         const data = await res.json()
@@ -432,69 +233,28 @@ export async function generateDocument(applicationId: string, type: DocumentType
     }
     // На реальном API это бинарный DOCX-аттачмент — здесь просто подтверждаем факт генерации,
     // страница обновляет readiness отдельным запросом
-    return { type, ready: true, missingFields: [], generated: true, generatedAt: new Date().toISOString(), downloadPath: null }
+    return {
+        type,
+        ready: true,
+        missingFields: [],
+        generated: true,
+        generatedAt: new Date().toISOString(),
+        downloadPath: `/me/applications/${applicationId}/documents/${type}/file`,
+    }
 }
 
 // GET /me/applications/:applicationId/report
 export async function getReport(applicationId: string): Promise<ReportInfo | null> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay(200)
-        const report = mockLoadReports().find(r => r.application_id === applicationId)
-        if (!report) return null
-        return {
-            id: report.id,
-            applicationId,
-            status: report.status,
-            uploadedAt: report.uploaded_at,
-            reviewedAt: report.reviewed_at,
-            hasFile: true,
-            downloadPath: `/me/applications/${applicationId}/report/file`,
-        }
-    }
-
-    const res = await fetch(`${API_URL}/me/applications/${applicationId}/report`, { headers: authHeaders() })
-    if (res.status === 404) return null
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось загрузить отчёт')
-    return data
+    // Backend всегда отвечает 200 (даже если отчёта ещё нет — тогда data: null),
+    // а не 404 — статус-код здесь не индикатор отсутствия отчёта.
+    const data = await apiFetch<any>(`/me/applications/${applicationId}/report`)
+    if (!data) return null
+    return mapReport(data, applicationId)
 }
 
 // PUT /me/applications/:applicationId/report — загрузка/замена отчёта (сбрасывает статус в PENDING)
 export async function uploadReport(applicationId: string, file: File): Promise<ReportInfo> {
     validateReportFile(file)
-
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay(700)
-
-        const reports = mockLoadReports()
-        const existingIdx = reports.findIndex(r => r.application_id === applicationId)
-        const report: MockReport = {
-            id: existingIdx >= 0 ? reports[existingIdx].id : mockUid(),
-            application_id: applicationId,
-            status: 'PENDING',
-            uploaded_at: new Date().toISOString(),
-            reviewed_at: null,
-            fileName: file.name,
-        }
-        if (existingIdx >= 0) {
-            reports[existingIdx] = report
-        } else {
-            reports.push(report)
-        }
-        mockSaveReports(reports)
-
-        return {
-            id: report.id,
-            applicationId,
-            status: report.status,
-            uploadedAt: report.uploaded_at,
-            reviewedAt: report.reviewed_at,
-            hasFile: true,
-            downloadPath: `/me/applications/${applicationId}/report/file`,
-        }
-    }
 
     const formData = new FormData()
     formData.append('report', file)
@@ -505,7 +265,7 @@ export async function uploadReport(applicationId: string, file: File): Promise<R
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.message || 'Не удалось загрузить отчёт')
-    return data
+    return mapReport(data, applicationId)
 }
 
 // ── Админ (F-05): review-поля документов и решение по отчёту ──────
@@ -518,81 +278,25 @@ export async function updateAdminDocumentField(
     fieldKey: string,
     value: string
 ): Promise<DocumentFieldValue> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay(300)
-
-        const fieldConfig = DOCUMENT_FIELD_CONFIG[type].find(f => f.key === fieldKey)
-        if (!fieldConfig) throw new Error('Поле документа не найдено')
-        if (fieldConfig.owner !== 'ADMIN') throw new Error('Это поле заполняет студент, а не куратор')
-
-        const docs = mockEnsureDocuments(applicationId)
-        const idx = docs.findIndex(d => d.application_id === applicationId && d.type === type)
-        const doc = docs[idx]
-
-        const existingFieldIdx = doc.fieldValues.findIndex(f => f.key === fieldKey)
-        const fieldValue: DocumentFieldValue = {
-            id: existingFieldIdx >= 0 ? doc.fieldValues[existingFieldIdx].id : mockUid(),
-            key: fieldKey,
-            value,
-            filledBy: 'ADMIN',
-        }
-        const updatedFieldValues =
-            existingFieldIdx >= 0
-                ? doc.fieldValues.map((f, i) => (i === existingFieldIdx ? fieldValue : f))
-                : [...doc.fieldValues, fieldValue]
-
-        docs[idx] = { ...doc, fieldValues: updatedFieldValues }
-        mockSaveDocuments(docs)
-        return fieldValue
-    }
-
-    const res = await fetch(
-        `${API_URL}/cohorts/${cohortId}/admin/applications/${applicationId}/documents/${type}/fields/${fieldKey}`,
-        { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ value }) }
+    const data = await apiFetch<any>(
+        `/cohorts/${cohortId}/admin/applications/${applicationId}/documents/${type}/fields/${fieldKey}`,
+        { method: 'PUT', body: { value } }
     )
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось сохранить поле')
-    return data
+    return mapFieldValue(data)
 }
 
 // PATCH /cohorts/:cohortId/applications/:applicationId/report/status — решение куратора по отчёту
+// (без причины отказа — совпадает с backend/.../dto/report-status.dto.ts, там только {status})
 export async function updateReportStatus(
     cohortId: string,
     applicationId: string,
     status: Exclude<ReportStatus, 'PENDING'>
 ): Promise<ReportInfo> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay(400)
-
-        const reports = mockLoadReports()
-        const idx = reports.findIndex(r => r.application_id === applicationId)
-        if (idx === -1) throw new Error('Отчёт не найден')
-
-        const report: MockReport = { ...reports[idx], status, reviewed_at: new Date().toISOString() }
-        reports[idx] = report
-        mockSaveReports(reports)
-
-        return {
-            id: report.id,
-            applicationId,
-            status: report.status,
-            uploadedAt: report.uploaded_at,
-            reviewedAt: report.reviewed_at,
-            hasFile: true,
-            downloadPath: `/cohorts/${cohortId}/admin/applications/${applicationId}/report/file`,
-        }
-    }
-
-    const res = await fetch(`${API_URL}/cohorts/${cohortId}/applications/${applicationId}/report/status`, {
+    const data = await apiFetch<any>(`/cohorts/${cohortId}/applications/${applicationId}/report/status`, {
         method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify({ status }),
+        body: { status },
     })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось обновить статус отчёта')
-    return data
+    return mapReport(data, applicationId)
 }
 
 export interface AdminDocumentFieldValues {
@@ -605,20 +309,12 @@ export async function getAdminApplicationDocumentDetail(
     cohortId: string,
     applicationId: string
 ): Promise<{ applicationId: string; fieldValues: AdminDocumentFieldValues[] }> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay(200)
-        const docs = mockEnsureDocuments(applicationId)
-        return {
-            applicationId,
-            fieldValues: docs
-                .filter(d => d.application_id === applicationId)
-                .map(d => ({ type: d.type, values: d.fieldValues })),
-        }
+    const data = await apiFetch<any>(`/cohorts/${cohortId}/admin/documents/${applicationId}`)
+    return {
+        applicationId,
+        fieldValues: (data.fieldValues ?? data).map((d: any) => ({
+            type: d.type,
+            values: (d.values ?? d.fieldValues ?? []).map(mapFieldValue),
+        })),
     }
-
-    const res = await fetch(`${API_URL}/cohorts/${cohortId}/admin/documents/${applicationId}`, { headers: authHeaders() })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось загрузить поля документов')
-    return data
 }

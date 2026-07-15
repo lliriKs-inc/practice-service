@@ -29,7 +29,8 @@ export type CohortStatus = 'draft' | 'active' | 'closed'
 export interface TestTask {
     title: string
     description: string
-    fileUrl: string | null
+    hasFile: boolean
+    downloadPath: string | null
     publishedAt: string | null
 }
 
@@ -100,9 +101,23 @@ function mapQuestion(question: any): Question {
     return { ...question, type: mapType(question.type), options: Array.isArray(question.options) ? question.options : [], order_index: question.order_index ?? 0 }
 }
 
+// Тестовое задание приходит в ДВУХ разных формах в зависимости от эндпоинта:
+// вложенный `GET /cohorts` отдаёт сырой Prisma-объект (`file_url`), а
+// отдельные ручки `/tracks/:trackId/test-task` — маппленный `toTaskResponse()`
+// (`has_file`/`download_path`). Обрабатываем обе, иначе после перезагрузки
+// когорты через `GET /cohorts` уже прикреплённый файл выглядел бы как
+// отсутствующий (has_file там просто undefined).
 function mapTestTask(task: any): TestTask | null {
     if (!task) return null
-    return { title: task.title, description: task.description ?? '', fileUrl: task.file_url ?? null, publishedAt: task.published_at ?? null }
+    const hasFile = task.has_file !== undefined ? Boolean(task.has_file) : Boolean(task.file_url)
+    const downloadPath = task.download_path ?? (task.file_url ? `/files/${task.file_url}` : null)
+    return {
+        title: task.title,
+        description: task.description ?? '',
+        hasFile,
+        downloadPath,
+        publishedAt: task.published_at ?? null,
+    }
 }
 
 function mapCohort(raw: any): Cohort {
@@ -155,7 +170,8 @@ const MOCK_SEED: Cohort[] = [
                 testTask: {
                     title: 'Разработка REST API',
                     description: 'Реализуй небольшой сервис на Node.js',
-                    fileUrl: null,
+                    hasFile: false,
+                    downloadPath: null,
                     publishedAt: '2026-07-10T00:00:00.000Z',
                 },
             },
@@ -410,7 +426,7 @@ export async function updateTrackTestTask(
         const track = cohort.tracks.find(t => t.id === trackId)
         if (!track) throw new Error('Трек не найден')
         track.testTask = {
-            ...(track.testTask ?? { title: '', description: '', fileUrl: null, publishedAt: null }),
+            ...(track.testTask ?? { title: '', description: '', hasFile: false, downloadPath: null, publishedAt: null }),
             ...patch,
         }
         mockSaveCohorts(cohorts)
@@ -433,6 +449,33 @@ export async function toggleTestTaskPublish(cohortId: string, trackId: string): 
         return track.testTask
     }
     return mapTestTask(await apiRequest<any>(`/cohorts/${cohortId}/tracks/${trackId}/test-task/publish`, { method: 'POST' }))!
+}
+
+// POST /cohorts/:id/tracks/:trackId/test-task/file — прикрепить/заменить файл задания.
+// Тестовое задание должно уже существовать (создаётся через updateTrackTestTask).
+export async function uploadTestTaskFile(cohortId: string, trackId: string, file: File): Promise<TestTask> {
+    if (USE_MOCKS) {
+        // [MOCK]
+        await mockDelay()
+        const cohorts = mockLoadCohorts()
+        const cohort = mockFindCohort(cohorts, cohortId)
+        const track = cohort.tracks.find(t => t.id === trackId)
+        if (!track?.testTask) throw new Error('Тестовое задание не найдено')
+        track.testTask.hasFile = true
+        track.testTask.downloadPath = `/files/mock/${file.name}`
+        mockSaveCohorts(cohorts)
+        return track.testTask
+    }
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await fetch(`${API_URL}/cohorts/${cohortId}/tracks/${trackId}/test-task/file`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: formData,
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message || 'Не удалось загрузить файл задания')
+    return mapTestTask(data)!
 }
 
 // ── Анкета / вопросы ──────────────────────────────────────────

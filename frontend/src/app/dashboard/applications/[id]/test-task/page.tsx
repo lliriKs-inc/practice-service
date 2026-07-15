@@ -14,6 +14,7 @@ import {
     SubmissionValidationError,
     type MyTestTask,
 } from '@/services/api/test-task'
+import { downloadProtectedFile } from '@/lib/api/download'
 
 const STATUS_CONFIG: Record<Application['status'], { label: string; className: string; dot: string }> = {
     pending: { label: 'На рассмотрении', className: 'bg-[#FFF8ED] border-[#F5D9A0] text-[#7A5C1A]', dot: 'bg-[#F59E0B]' },
@@ -56,6 +57,14 @@ export default function ApplicationTestTaskPage() {
     function openFilePicker() {
         setUploadError('')
         fileInputRef.current?.click()
+    }
+
+    async function handleDownload(path: string, suggestedFilename?: string) {
+        try {
+            await downloadProtectedFile(path, suggestedFilename)
+        } catch (err: unknown) {
+            setUploadError(err instanceof Error ? err.message : 'Не удалось скачать файл')
+        }
     }
 
     async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -172,10 +181,10 @@ export default function ApplicationTestTaskPage() {
                                     </div>
 
                                     {testTask.hasFile && testTask.downloadPath && (
-                                        <a href={testTask.downloadPath} target="_blank" rel="noopener noreferrer"
+                                        <button onClick={() => handleDownload(testTask.downloadPath!, testTask.title || 'Тестовое задание')}
                                             className="self-start text-sm font-semibold px-5 py-2.5 rounded-lg border border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF]">
                                             📎 Скачать файл задания
-                                        </a>
+                                        </button>
                                     )}
 
                                     {/* ── Решение: загрузка / замена ── */}

@@ -21,6 +21,7 @@ import {
     type ReadinessResponse,
     type ReportInfo,
 } from '@/services/api/documents'
+import { downloadProtectedFile } from '@/lib/api/download'
 
 const REPORT_STATUS_CONFIG: Record<ReportInfo['status'], { label: string; className: string }> = {
     PENDING: { label: 'На проверке', className: 'bg-[#FFF8ED] border-[#F5D9A0] text-[#7A5C1A]' },
@@ -141,6 +142,14 @@ export default function DashboardDocumentsPage() {
             setGenerateError({ type, message: err instanceof Error ? err.message : 'Не удалось сгенерировать документ' })
         } finally {
             setGeneratingType(null)
+        }
+    }
+
+    async function handleDownload(path: string, suggestedFilename?: string) {
+        try {
+            await downloadProtectedFile(path, suggestedFilename)
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Не удалось скачать файл')
         }
     }
 
@@ -278,10 +287,10 @@ export default function DashboardDocumentsPage() {
                                 </div>
                                 <div className="flex flex-col items-end gap-2 flex-shrink-0">
                                     {itemReadiness?.generated && itemReadiness.downloadPath && (
-                                        <a href={itemReadiness.downloadPath} target="_blank" rel="noopener noreferrer"
+                                        <button onClick={() => handleDownload(itemReadiness.downloadPath!, DOCUMENT_TYPE_LABELS[type])}
                                             className="text-xs font-semibold text-[#4A42D4] hover:underline">
                                             ⬇ Скачать
-                                        </a>
+                                        </button>
                                     )}
                                     <button
                                         disabled={!itemReadiness?.ready || generatingType === type}

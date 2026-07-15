@@ -1,12 +1,22 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import AdminTasksPage from './page'
 import { saveToken, saveUser } from '@/lib/api/session'
 import { CohortWorkspaceContext, type CohortWorkspaceContextValue } from '../cohort-context'
-import type { Application } from '@/services/api/invitation'
 import type { Cohort } from '@/services/api/cohorts'
+import type { CohortWeekProgress, MissedProgress } from '@/services/api/tasks'
 
 const COHORT_ID = 'cohort-1'
+
+const { getCohortWeekProgress, getMissedProgress } = vi.hoisted(() => ({
+    getCohortWeekProgress: vi.fn(),
+    getMissedProgress: vi.fn(),
+}))
+
+vi.mock('@/services/api/tasks', async () => {
+    const actual = await vi.importActual<typeof import('@/services/api/tasks')>('@/services/api/tasks')
+    return { ...actual, getCohortWeekProgress, getMissedProgress }
+})
 
 function loginAsAdmin() {
     saveToken('mock-jwt-admin-1')
@@ -27,8 +37,7 @@ function makeCohort(startDate: string, endDate: string): Cohort {
     }
 }
 
-// Понедельник за 2 недели до реального "сегодня" — чтобы дни точно были в прошлом
-// (пропущенные дни считаются только если task_date <= сегодня).
+// Понедельник за 2 недели до реального "сегодня" — чтобы дни точно были в прошлом.
 function pastMonday(weeksAgo: number): Date {
     const d = new Date()
     d.setUTCHours(0, 0, 0, 0)
@@ -42,18 +51,44 @@ function pastMonday(weeksAgo: number): Date {
 const practiceStart = pastMonday(2)
 const practiceEnd = new Date(practiceStart)
 practiceEnd.setUTCDate(practiceEnd.getUTCDate() + 11)
+const weekStart = practiceStart.toISOString().split('T')[0]
+const weekEnd = new Date(practiceStart)
+weekEnd.setUTCDate(weekEnd.getUTCDate() + 4)
+const weekEndStr = weekEnd.toISOString().split('T')[0]
 
-function seedApprovedApplication() {
-    const apps: Application[] = [{
-        id: 'app-1',
-        status: 'approved',
-        submitted_at: practiceStart.toISOString(),
-        track: { id: 'track-1', title: 'Backend' },
-        cohort: { id: COHORT_ID, title: 'Практика', start_date: practiceStart.toISOString(), end_date: practiceEnd.toISOString() },
-        student: { id: 'student-1', email: 'anna@urfu.ru' },
-        answers: [],
-    }]
-    localStorage.setItem('mock_applications', JSON.stringify(apps))
+function makeWeekProgress(): CohortWeekProgress {
+    return {
+        cohort: { id: COHORT_ID, title: 'Практика', practiceStart: practiceStart.toISOString(), practiceEnd: practiceEnd.toISOString() },
+        weekStart,
+        weekEnd: weekEndStr,
+        days: [weekStart],
+        students: [
+            {
+                applicationId: 'app-1',
+                student: { id: 'student-1', email: 'anna@urfu.ru' },
+                track: { id: 'track-1', title: 'Backend' },
+                tasks: [{ date: weekStart, task: null }],
+            },
+        ],
+    }
+}
+
+function makeMissedProgress(): MissedProgress {
+    return {
+        cohortId: COHORT_ID,
+        weekStart,
+        weekEnd: weekEndStr,
+        missed: [
+            {
+                applicationId: 'app-1',
+                taskId: 'task-1',
+                taskDate: weekStart,
+                student: { id: 'student-1', email: 'anna@urfu.ru' },
+                track: { id: 'track-1', title: 'Backend' },
+                links: [],
+            },
+        ],
+    }
 }
 
 function renderWithCohort() {
@@ -77,7 +112,9 @@ describe('AdminTasksPage (прогресс когорты)', () => {
     beforeEach(() => {
         localStorage.clear()
         loginAsAdmin()
-        seedApprovedApplication()
+        vi.clearAllMocks()
+        getCohortWeekProgress.mockResolvedValue(makeWeekProgress())
+        getMissedProgress.mockResolvedValue(makeMissedProgress())
     })
 
     it('просит выбрать когорту, если не выбрана', async () => {

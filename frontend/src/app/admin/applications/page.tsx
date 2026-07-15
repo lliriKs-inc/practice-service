@@ -70,9 +70,18 @@ export default function AdminApplicationsPage() {
     }
 
     async function handleApplicationDecision(id: string, status: 'approved' | 'rejected') {
+        if (!selectedCohort) return
+
+        let rejectionReason: string | undefined
+        if (status === 'rejected') {
+            const input = window.prompt('Причина отказа (покажем кандидату):')
+            if (input === null) return // отменил диалог
+            rejectionReason = input.trim() || 'Причина не указана'
+        }
+
         setApplicationActionId(id)
         try {
-            await updateApplicationStatus(id, status)
+            await updateApplicationStatus(selectedCohort.id, id, status, rejectionReason)
             await loadApplications()
         } catch (err: unknown) {
             setApplicationsError(err instanceof Error ? err.message : 'Не удалось изменить статус заявки')
@@ -121,7 +130,10 @@ export default function AdminApplicationsPage() {
                 </div>
             )}
 
-            {applicationsLoading && (
+            {/* Спиннер только на самой первой загрузке — при фоновом обновлении
+                (после одобрения/отклонения заявки) список остаётся на месте,
+                не мигает и не сбрасывает скролл наверх. */}
+            {applicationsLoading && applications.length === 0 && (
                 <div className="flex items-center gap-2 text-sm text-[#6B6880]">
                     <div className="w-4 h-4 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
                     Загружаем заявки…
@@ -142,7 +154,7 @@ export default function AdminApplicationsPage() {
                 </div>
             )}
 
-            {selectedCohort && !applicationsLoading && !applicationsError && applications.length > 0 && (
+            {selectedCohort && !applicationsError && applications.length > 0 && (
                 <div className="flex flex-col gap-4">
                     {applications.map(app => {
                         const trackTestTask = sourceCohort?.tracks.find(t => t.id === app.track.id)?.testTask

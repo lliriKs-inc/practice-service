@@ -12,6 +12,7 @@ import {
     type DocumentFieldValue,
 } from '@/services/api/documents'
 import { useCohortWorkspace } from '../cohort-context'
+import { downloadProtectedFile } from '@/lib/api/download'
 
 const REPORT_STATUS_LABELS: Record<string, { label: string; className: string }> = {
     PENDING: { label: 'На проверке', className: 'bg-[#FFF8ED] text-[#7A5C1A]' },
@@ -125,6 +126,14 @@ export default function AdminDocumentsPage() {
         }
     }
 
+    async function handleDownload(path: string, suggestedFilename?: string) {
+        try {
+            await downloadProtectedFile(path, suggestedFilename)
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Не удалось скачать файл')
+        }
+    }
+
     return (
         <div className="flex flex-col gap-6">
             <div>
@@ -166,7 +175,10 @@ export default function AdminDocumentsPage() {
                 </div>
             )}
 
-            {loading && (
+            {/* Спиннер только на самой первой загрузке — при фоновом обновлении
+                (после автосейва поля) список остаётся на месте, не мигает и
+                не сбрасывает скролл наверх. */}
+            {loading && documents.length === 0 && (
                 <div className="flex items-center gap-2 text-sm text-[#6B6880]">
                     <div className="w-4 h-4 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
                     Загружаем…
@@ -187,7 +199,7 @@ export default function AdminDocumentsPage() {
                 </div>
             )}
 
-            {selectedCohort && !loading && !error && documents.length > 0 && (
+            {selectedCohort && !error && documents.length > 0 && (
                 <div className="flex flex-col gap-4">
                     {documents.map(doc => {
                         const reportStatus = doc.report?.status ?? 'MISSING'
@@ -234,7 +246,7 @@ export default function AdminDocumentsPage() {
                                                 <span className="text-xs text-[#6B6880]">Не готов</span>
                                             )}
                                             {d.generated && d.downloadPath && (
-                                                <a href={d.downloadPath} target="_blank" rel="noopener noreferrer" className="text-xs text-[#4A42D4] hover:underline">⬇ Скачать</a>
+                                                <button onClick={() => handleDownload(d.downloadPath!, DOCUMENT_TYPE_LABELS[d.type])} className="text-xs text-[#4A42D4] hover:underline text-left">⬇ Скачать</button>
                                             )}
                                         </div>
                                     ))}

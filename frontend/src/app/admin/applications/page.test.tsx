@@ -1,12 +1,21 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import AdminApplicationsPage from './page'
 import { saveToken, saveUser } from '@/lib/api/session'
 import { CohortWorkspaceContext, type CohortWorkspaceContextValue } from '../cohort-context'
-import type { Application } from '@/services/api/invitation'
 import type { Cohort } from '@/services/api/cohorts'
+import type { AdminApplicationSummary, AdminApplicationDetail } from '@/services/api/admin'
 
 const COHORT_ID = 'cohort-1'
+
+const { getAdminApplications, getAdminApplicationDetail, updateApplicationStatus } = vi.hoisted(() => ({
+    getAdminApplications: vi.fn(),
+    getAdminApplicationDetail: vi.fn(),
+    updateApplicationStatus: vi.fn(),
+}))
+
+vi.mock('@/services/api/admin', () => ({ getAdminApplications, getAdminApplicationDetail }))
+vi.mock('@/services/api/invitation', () => ({ updateApplicationStatus }))
 
 function loginAsAdmin() {
     saveToken('mock-jwt-admin-1')
@@ -30,19 +39,19 @@ function makeCohort(): Cohort {
     }
 }
 
-function seedApplications() {
-    const apps: Application[] = [
-        {
-            id: 'app-pending',
-            status: 'pending',
-            submitted_at: '2027-07-05T00:00:00.000Z',
-            track: { id: 'track-1', title: 'Backend' },
-            cohort: { id: COHORT_ID, title: 'Практика 2027', start_date: '2027-07-01T00:00:00.000Z', end_date: '2027-07-31T00:00:00.000Z' },
-            student: { id: 'student-1', email: 'anna@urfu.ru' },
-            answers: [{ label: 'О себе', value: 'Люблю бэкенд' }],
-        },
-    ]
-    localStorage.setItem('mock_applications', JSON.stringify(apps))
+function makeApplication(overrides: Partial<AdminApplicationSummary> = {}): AdminApplicationSummary {
+    return {
+        applicationId: 'app-pending',
+        status: 'pending',
+        submittedAt: '2027-07-05T00:00:00.000Z',
+        rejectionReason: null,
+        student: { id: 'student-1', email: 'anna@urfu.ru' },
+        track: { id: 'track-1', title: 'Backend' },
+        testTaskSubmission: null,
+        report: null,
+        missedDays: 0,
+        ...overrides,
+    }
 }
 
 function renderWithCohort(overrides: Partial<CohortWorkspaceContextValue> = {}) {
@@ -67,7 +76,14 @@ describe('AdminApplicationsPage', () => {
     beforeEach(() => {
         localStorage.clear()
         loginAsAdmin()
-        seedApplications()
+        vi.clearAllMocks()
+        getAdminApplications.mockResolvedValue([makeApplication()])
+        getAdminApplicationDetail.mockResolvedValue({
+            ...makeApplication(),
+            answers: [{ label: 'О себе', value: 'Люблю бэкенд' }],
+            documents: [],
+        } satisfies AdminApplicationDetail)
+        updateApplicationStatus.mockResolvedValue(undefined)
     })
 
     it('просит выбрать рабочую когорту, если она не выбрана', async () => {
@@ -84,10 +100,12 @@ describe('AdminApplicationsPage', () => {
         renderWithCohort()
         await screen.findByText('anna@urfu.ru', {}, { timeout: 3000 })
 
+        getAdminApplications.mockResolvedValue([])
         const select = screen.getAllByRole('combobox')[0]
         fireEvent.change(select, { target: { value: 'rejected' } })
 
         expect(await screen.findByText('Заявок не найдено', {}, { timeout: 3000 })).toBeInTheDocument()
+        expect(getAdminApplications).toHaveBeenLastCalledWith(COHORT_ID, expect.objectContaining({ status: 'rejected' }))
     })
 
     it('разворачивает и показывает ответы анкеты по клику', async () => {
@@ -104,12 +122,6 @@ describe('AdminApplicationsPage', () => {
 
         fireEvent.click(screen.getByRole('button', { name: 'Одобрить' }))
 
-        // Дропдаун фильтра тоже содержит текст "Одобрена" (option), и кнопка на
-        // время запроса меняет текст на "Сохраняем…" — ждём полного исчезновения
-        // обоих вариантов (кнопка рендерится только для статуса pending)
-        await waitFor(() => expect(screen.queryByRole('button', { name: /Одобрить|Сохраняем/ })).not.toBeInTheDocument(), { timeout: 3000 })
-        const stored = JSON.parse(localStorage.getItem('mock_applications') ?? '[]')
-        const app = stored.find((a: { id: string }) => a.id === 'app-pending')
-        expect(app.status).toBe('approved')
+        await waitFor(() => expect(updateApplicationStatus).toHaveBeenCalledWith(COHORT_ID, 'app-pending', 'approved', undefined))
     })
 })
