@@ -203,6 +203,12 @@ describe("platform HTTP foundation", () => {
         "access-control-allow-origin"
       ]
     ).toBe(config.cors.origin);
+
+    expect(
+      response.headers[
+        "access-control-expose-headers"
+      ]
+    ).toBe("Content-Disposition");
   });
 
   it("does not grant CORS access to another origin", async () => {

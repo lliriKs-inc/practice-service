@@ -161,12 +161,14 @@ model Track {
 }
 
 model TestTask {
-  id           String    @id @default(cuid())
-  track_id     String    @unique
-  title        String
-  file_url     String?
-  description  String?
-  published_at DateTime?
+  id                String    @id @default(cuid())
+  track_id          String    @unique
+  title             String
+  file_url          String?
+  file_name         String?
+  file_content_type String?
+  description       String?
+  published_at      DateTime?
 
   track Track @relation(fields: [track_id], references: [id], onDelete: Cascade)
 }
@@ -208,10 +210,12 @@ model ApplicationAnswer {
 }
 
 model TestTaskSubmission {
-  id             String   @id @default(cuid())
-  application_id String   @unique
-  file_url       String
-  submitted_at   DateTime @default(now())
+  id                String   @id @default(cuid())
+  application_id    String   @unique
+  file_url          String
+  file_name         String?
+  file_content_type String?
+  submitted_at      DateTime @default(now())
 
   application Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
 }

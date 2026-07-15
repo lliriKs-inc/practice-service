@@ -1,3 +1,4 @@
+import path from "node:path";
 import { Prisma, UserRole } from "@prisma/client";
 import { AppError } from "../../middlewares/error.middleware";
 import { prisma } from "../../shared/prisma";
@@ -128,8 +129,12 @@ export class TestTaskService {
 
     try {
       const updated = await prisma.testTask.update({
-        where: { id: task.id },
-        data: { file_url: stored.key },
+      where: { id: task.id },
+        data: {
+          file_url: stored.key,
+          file_name: stored.originalName,
+          file_content_type: stored.contentType,
+        },
         include: taskInclude,
       });
 
@@ -289,8 +294,18 @@ export class TestTaskService {
     try {
       const submission = await prisma.testTaskSubmission.upsert({
         where: { application_id: applicationId },
-        create: { application_id: applicationId, file_url: stored.key },
-        update: { file_url: stored.key, submitted_at: new Date() },
+        create: {
+          application_id: applicationId,
+          file_url: stored.key,
+          file_name: stored.originalName,
+          file_content_type: stored.contentType,
+        },
+        update: {
+          file_url: stored.key,
+          file_name: stored.originalName,
+          file_content_type: stored.contentType,
+          submitted_at: new Date(),
+        },
       });
 
       if (application.testTaskSubmission?.file_url) {
@@ -347,7 +362,13 @@ export class TestTaskService {
   async authorizeFile(actor: TestTaskActor, key: string) {
     const task = await prisma.testTask.findFirst({
       where: { file_url: key },
-      select: { title: true, track_id: true, published_at: true },
+      select: {
+        file_content_type: true,
+        file_name: true,
+        file_url: true,
+        track_id: true,
+        published_at: true,
+      },
     });
 
     if (task) {
@@ -360,8 +381,8 @@ export class TestTaskService {
 
       if (studentHasApplication && (actor.role === UserRole.ADMIN || task.published_at)) {
         return {
-          downloadName: `${task.title}.bin`,
-          contentType: "application/octet-stream",
+          downloadName: this.downloadName(task.file_name, task.file_url ?? key),
+          contentType: task.file_content_type ?? "application/octet-stream",
         };
       }
       return null;
@@ -381,8 +402,8 @@ export class TestTaskService {
     }
 
     return {
-      downloadName: "test-task-submission",
-      contentType: "application/octet-stream",
+      downloadName: this.downloadName(submission.file_name, submission.file_url),
+      contentType: submission.file_content_type ?? "application/octet-stream",
     };
   }
 
@@ -451,6 +472,10 @@ export class TestTaskService {
       has_file: true,
       download_path: `/files/${submission.file_url}`,
     };
+  }
+
+  private downloadName(fileName: string | null, key: string) {
+    return fileName ?? path.posix.basename(key);
   }
 
   private isUniqueViolation(error: unknown) {

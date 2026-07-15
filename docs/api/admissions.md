@@ -130,7 +130,8 @@ optional `description`; publication is controlled separately.
 Requires `ADMIN`. Accepts one multipart file under `file`. The B-01 policy
 allows PDF, DOC, DOCX and ZIP files in the `test-tasks` category. Replacing a
 file updates the storage key and cleans up the previous file after the database
-update.
+update. The protected download response preserves the uploaded filename and
+MIME type.
 
 ### POST /cohorts/:cohortId/tracks/:trackId/test-task/publish
 
@@ -149,6 +150,7 @@ task returns its metadata and file presence.
 Requires `STUDENT` and accepts one multipart `file`. The task must be published
 and the application must belong to the current user. The single submission is
 upserted; replacement updates `submitted_at` and removes the previous file.
+The protected download response preserves the uploaded filename and MIME type.
 
 ### GET /me/applications/:applicationId/test-task-submission
 
