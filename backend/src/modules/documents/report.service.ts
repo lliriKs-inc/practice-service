@@ -4,6 +4,10 @@ import {
 } from "@prisma/client";
 import { AppError } from "../../middlewares/error.middleware";
 import { prisma } from "../../shared/prisma";
+import {
+  auditLogger,
+  type AuditLogger,
+} from "../../shared/logger";
 import type {
   StorageService,
   SaveFileInput,
@@ -34,7 +38,8 @@ function safeReport(
 
 export class ReportService {
   constructor(
-    private readonly storage: StorageService
+    private readonly storage: StorageService,
+    private readonly audit: AuditLogger = auditLogger
   ) {}
 
   async getMine(
@@ -140,7 +145,8 @@ export class ReportService {
     adminId: string,
     cohortId: string,
     applicationId: string,
-    status: ReportStatus
+    status: ReportStatus,
+    requestId: string | null = null
   ) {
     const application =
       await prisma.application.findFirst({
@@ -180,6 +186,21 @@ export class ReportService {
       data: {
         status,
         reviewed_at: new Date(),
+      },
+    });
+
+    this.audit.record({
+      action: "REPORT_STATUS_CHANGED",
+      outcome: "success",
+      actorId: adminId,
+      requestId,
+      resourceType: "report",
+      resourceId: report.id,
+      metadata: {
+        applicationId,
+        cohortId,
+        previousStatus: application.report.status,
+        status,
       },
     });
 

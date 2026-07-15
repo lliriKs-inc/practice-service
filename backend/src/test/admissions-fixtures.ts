@@ -11,6 +11,7 @@ export interface AdmissionsFixture {
   adminPassword: string;
   cohortId: string;
   trackId: string;
+  secondTrackId: string | null;
   invitationToken: string;
   surveyId: string;
   questionId: string;
@@ -18,7 +19,9 @@ export interface AdmissionsFixture {
   foreignTrackId: string;
 }
 
-export async function createAdmissionsFixture(): Promise<AdmissionsFixture> {
+export async function createAdmissionsFixture(
+  options: { includeSecondTrack?: boolean } = {},
+): Promise<AdmissionsFixture> {
   const prefix = `a07-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const adminEmail = `${prefix}-admin@example.com`;
   const adminPassword = "A07-Admin-password-123!";
@@ -61,6 +64,11 @@ export async function createAdmissionsFixture(): Promise<AdmissionsFixture> {
   const track = await prisma.track.create({
     data: { cohort_id: cohort.id, title: `${prefix} Backend` },
   });
+  const secondTrack = options.includeSecondTrack
+    ? await prisma.track.create({
+        data: { cohort_id: cohort.id, title: `${prefix} Frontend` },
+      })
+    : null;
   const invitation = await prisma.invitation.create({
     data: {
       cohort_id: cohort.id,
@@ -76,6 +84,16 @@ export async function createAdmissionsFixture(): Promise<AdmissionsFixture> {
       published_at: now,
     },
   });
+  if (secondTrack) {
+    await prisma.testTask.create({
+      data: {
+        track_id: secondTrack.id,
+        title: `${prefix} second test task`,
+        description: "Implement the alternative track task.",
+        published_at: now,
+      },
+    });
+  }
 
   const foreignCohort = await prisma.cohort.create({
     data: {
@@ -97,6 +115,7 @@ export async function createAdmissionsFixture(): Promise<AdmissionsFixture> {
     adminPassword,
     cohortId: cohort.id,
     trackId: track.id,
+    secondTrackId: secondTrack?.id ?? null,
     invitationToken: invitation.token,
     surveyId: survey.id,
     questionId: question.id,
@@ -114,6 +133,7 @@ export async function cleanupAdmissionsFixture(
     where: {
       OR: [
         { track_id: fixture.trackId },
+        ...(fixture.secondTrackId ? [{ track_id: fixture.secondTrackId }] : []),
         { track_id: fixture.foreignTrackId },
         ...(extraUserIds.length > 0 ? [{ user_id: { in: extraUserIds } }] : []),
       ],
@@ -157,11 +177,13 @@ export async function cleanupAdmissionsFixture(
       .map((fileUrl) => storage.remove(fileUrl).catch(() => undefined)),
   );
 
-  await prisma.testTask.deleteMany({ where: { track_id: { in: [fixture.trackId, fixture.foreignTrackId] } } });
+  const trackIds = [fixture.trackId, fixture.secondTrackId, fixture.foreignTrackId]
+    .filter((trackId): trackId is string => Boolean(trackId));
+  await prisma.testTask.deleteMany({ where: { track_id: { in: trackIds } } });
   await prisma.invitation.deleteMany({ where: { cohort_id: fixture.cohortId } });
   await prisma.question.deleteMany({ where: { survey_id: fixture.surveyId } });
   await prisma.survey.deleteMany({ where: { id: fixture.surveyId } });
-  await prisma.track.deleteMany({ where: { id: { in: [fixture.trackId, fixture.foreignTrackId] } } });
+  await prisma.track.deleteMany({ where: { id: { in: trackIds } } });
   await prisma.cohort.deleteMany({ where: { id: { in: [fixture.cohortId, fixture.foreignCohortId] } } });
   await prisma.user.deleteMany({ where: { id: { in: [fixture.adminId, ...extraUserIds] } } });
 }

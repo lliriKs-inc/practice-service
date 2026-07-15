@@ -42,6 +42,7 @@ interface TestDependencies {
   openMock: ReturnType<typeof vi.fn>;
   parseKeyMock: ReturnType<typeof vi.fn>;
   authorizeMock: ReturnType<typeof vi.fn>;
+  auditRecordMock: ReturnType<typeof vi.fn>;
 }
 
 function createTestDependencies(options: {
@@ -114,6 +115,7 @@ function createTestDependencies(options: {
   const accessPolicy = {
     authorize: authorizeMock,
   } as FileAccessPolicy;
+  const auditRecordMock = vi.fn();
 
   const app = express();
 
@@ -131,6 +133,7 @@ function createTestDependencies(options: {
     createFileDownloadHandler({
       storage,
       accessPolicy,
+      audit: { record: auditRecordMock },
     })
   );
 
@@ -143,6 +146,7 @@ function createTestDependencies(options: {
     openMock,
     parseKeyMock,
     authorizeMock,
+    auditRecordMock,
   };
 }
 
@@ -178,6 +182,8 @@ describe("file download handler", () => {
     expect(
       dependencies.openMock
     ).not.toHaveBeenCalled();
+
+    expect(dependencies.auditRecordMock).not.toHaveBeenCalled();
   });
 
   it("authorizes access before opening the physical file", async () => {
@@ -212,6 +218,15 @@ describe("file download handler", () => {
     expect(
       dependencies.openMock
     ).not.toHaveBeenCalled();
+
+    expect(dependencies.auditRecordMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "FILE_DOWNLOAD_DENIED",
+        outcome: "denied",
+        actorId: "student-1",
+        resourceId: FILE_KEY,
+      })
+    );
   });
 
   it("streams an authorized file with protected headers", async () => {
@@ -253,6 +268,16 @@ describe("file download handler", () => {
     expect(
       dependencies.openMock
     ).toHaveBeenCalledWith(FILE_KEY);
+
+    expect(dependencies.auditRecordMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "FILE_DOWNLOAD_GRANTED",
+        outcome: "success",
+        actorId: "student-1",
+        requestId: "download-success",
+        resourceId: FILE_KEY,
+      })
+    );
   });
 
   it("supports inline disposition", async () => {

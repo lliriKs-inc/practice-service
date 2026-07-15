@@ -45,7 +45,7 @@ export class TestTaskController {
 
   async publish(req: Request, res: Response, next: NextFunction) {
     try {
-      return res.json(await service.publish(param(req, "cohortId"), param(req, "trackId")));
+      return res.json(await service.publish(param(req, "cohortId"), param(req, "trackId"), req.user?.id ?? null, req.requestId ?? null));
     } catch (error) {
       return next(error);
     }

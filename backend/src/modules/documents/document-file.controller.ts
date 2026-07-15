@@ -4,6 +4,10 @@ import type {
   Response,
 } from "express";
 import { AppError } from "../../middlewares/error.middleware";
+import {
+  auditLogger,
+  type AuditLogger,
+} from "../../shared/logger";
 import { FileDownloadStreamError } from "../../shared/storage";
 import {
   DocumentFileService,
@@ -25,7 +29,10 @@ function param(req: Request, name: string): string {
 }
 
 export class DocumentFileController {
-  constructor(private readonly service: DocumentFileService) {}
+  constructor(
+    private readonly service: DocumentFileService,
+    private readonly audit: AuditLogger = auditLogger
+  ) {}
 
   async getStudentReport(
     req: Request,
@@ -36,12 +43,16 @@ export class DocumentFileController {
       if (!req.user) {
         throw new AppError("Authentication required", 401, "AUTH_REQUIRED");
       }
-      return this.send(
+      const applicationId = param(req, "applicationId");
+      return await this.download(
+        req,
         res,
         next,
-        await this.service.openStudentReport(
+        "report",
+        applicationId,
+        this.service.openStudentReport(
           req.user.id,
-          param(req, "applicationId")
+          applicationId
         )
       );
     } catch (error) {
@@ -55,12 +66,16 @@ export class DocumentFileController {
     next: NextFunction
   ) {
     try {
-      return this.send(
+      const applicationId = param(req, "applicationId");
+      return await this.download(
+        req,
         res,
         next,
-        await this.service.openAdminReport(
+        "report",
+        applicationId,
+        this.service.openAdminReport(
           param(req, "cohortId"),
-          param(req, "applicationId")
+          applicationId
         )
       );
     } catch (error) {
@@ -77,13 +92,18 @@ export class DocumentFileController {
       if (!req.user) {
         throw new AppError("Authentication required", 401, "AUTH_REQUIRED");
       }
-      return this.send(
+      const applicationId = param(req, "applicationId");
+      const type = param(req, "type");
+      return await this.download(
+        req,
         res,
         next,
-        await this.service.openStudentDocument(
+        "document",
+        `${applicationId}:${type}`,
+        this.service.openStudentDocument(
           req.user.id,
-          param(req, "applicationId"),
-          param(req, "type")
+          applicationId,
+          type
         )
       );
     } catch (error) {
@@ -97,17 +117,60 @@ export class DocumentFileController {
     next: NextFunction
   ) {
     try {
-      return this.send(
+      const applicationId = param(req, "applicationId");
+      const type = param(req, "type");
+      return await this.download(
+        req,
         res,
         next,
-        await this.service.openAdminDocument(
+        "document",
+        `${applicationId}:${type}`,
+        this.service.openAdminDocument(
           param(req, "cohortId"),
-          param(req, "applicationId"),
-          param(req, "type")
+          applicationId,
+          type
         )
       );
     } catch (error) {
       return next(error);
+    }
+  }
+
+  private async download(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+    resourceType: string,
+    resourceId: string,
+    filePromise: Promise<DownloadableDocumentFile>
+  ) {
+    try {
+      const file = await filePromise;
+      this.audit.record({
+        action: "FILE_DOWNLOAD_GRANTED",
+        outcome: "success",
+        actorId: req.user?.id ?? null,
+        requestId: req.requestId ?? null,
+        resourceType,
+        resourceId,
+        metadata: {
+          contentType: file.contentType,
+        },
+      });
+      return this.send(res, next, file);
+    } catch (error) {
+      this.audit.record({
+        action: "FILE_DOWNLOAD_DENIED",
+        outcome: error instanceof AppError && error.statusCode < 500
+          ? "denied"
+          : "failure",
+        actorId: req.user?.id ?? null,
+        requestId: req.requestId ?? null,
+        resourceType,
+        resourceId,
+        metadata: { error },
+      });
+      throw error;
     }
   }
 

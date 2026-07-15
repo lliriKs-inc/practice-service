@@ -30,7 +30,7 @@
 
 JWT middleware использует `AUTH_TOKEN_MISSING`, `AUTH_TOKEN_INVALID_FORMAT` и `AUTH_TOKEN_INVALID` с HTTP `401`. Проверка роли возвращает `INSUFFICIENT_PERMISSIONS` с HTTP `403`. Неизвестный versioned route после успешной аутентификации возвращает `ROUTE_NOT_FOUND` с HTTP `404`.
 
-Исключение текущего MVP: JSON-validation в `POST /auth/register` и `POST /auth/login` возвращает `{ "message": "Validation failed", "errors": [...] }`; invalid credentials возвращает `{ "message": "Invalid credentials" }`.
+`POST /auth/register`, `POST /auth/login` и `GET /auth/me` используют тот же error envelope. Auth-specific codes: `USER_ALREADY_EXISTS`, `INVALID_CREDENTIALS` и `USER_NOT_FOUND`.
 
 ### Cohort и resource authorization
 
@@ -515,7 +515,7 @@ Overview response:
 | HTTP | Типичные codes |
 |---:|---|
 | 400 | `VALIDATION_ERROR`, `INVALID_JSON`, invalid date/window/order/type/upload errors |
-| 401 | JWT missing, malformed, invalid or expired; invalid credentials |
+| 401 | `AUTH_TOKEN_MISSING`, `AUTH_TOKEN_INVALID_FORMAT`, `AUTH_TOKEN_INVALID`, `INVALID_CREDENTIALS` |
 | 403 | `INSUFFICIENT_PERMISSIONS`, resource/state forbidden errors |
 | 404 | Cohort/application/track/survey/question/task/report/document/file not found; `ROUTE_NOT_FOUND` |
 | 409 | Duplicate user/track/survey/application или repeated publication |

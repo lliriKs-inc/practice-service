@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - "backend/**"
+      - "docs/api/**"
+      - "docs/api-contract.md"
+      - "docs/e2e-api-checklist.md"
+      - "README.md"
       - ".github/workflows/backend-ci.yml"
 
   push:
@@ -12,6 +16,10 @@ on:
       - integration/new-architecture
     paths:
       - "backend/**"
+      - "docs/api/**"
+      - "docs/api-contract.md"
+      - "docs/e2e-api-checklist.md"
+      - "README.md"
       - ".github/workflows/backend-ci.yml"
 
 permissions:
@@ -55,6 +63,7 @@ jobs:
       CORS_ORIGIN: http://localhost:3001
       JSON_BODY_LIMIT: 1mb
       UPLOAD_DIR: uploads
+      RUN_DB_INTEGRATION: "true"
 
     steps:
       - name: Checkout repository
@@ -76,17 +85,11 @@ jobs:
       - name: Apply database migrations
         run: npx prisma migrate deploy
 
-      # Temporary migration baseline:
-      # legacy modules still target the pre-cutover Prisma schema.
-      # Remove continue-on-error after their domain migrations are complete.
-      - name: Typecheck legacy baseline
-        continue-on-error: true
+      - name: Typecheck
         run: npm run typecheck
 
       - name: Run tests
         run: npm test
 
-      # Build currently fails on the same known legacy TypeScript errors.
-      - name: Build legacy baseline
-        continue-on-error: true
+      - name: Build
         run: npm run build

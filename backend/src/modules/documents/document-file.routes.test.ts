@@ -6,7 +6,7 @@ import express, {
 } from "express";
 import request from "supertest";
 import { UserRole } from "@prisma/client";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createErrorHandler } from "../../middlewares/error.middleware";
 import type { Logger } from "../../shared/logger/logger.types";
 import { DocumentFileController } from "./document-file.controller";
@@ -19,6 +19,7 @@ const logger: Logger = {
   warn: vi.fn(),
   error: vi.fn(),
 };
+const auditRecord = vi.fn();
 
 function appFor(
   service: Partial<Record<keyof DocumentFileService, ReturnType<typeof vi.fn>>>,
@@ -33,7 +34,8 @@ function appFor(
   app.use(
     createDocumentFileRouter(
       new DocumentFileController(
-        service as unknown as DocumentFileService
+        service as unknown as DocumentFileService,
+        { record: auditRecord }
       )
     )
   );
@@ -42,6 +44,8 @@ function appFor(
 }
 
 describe("protected document file routes", () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it("streams a report to an admin through the scoped resource endpoint", async () => {
     const openAdminReport = vi.fn().mockResolvedValue({
       stream: Readable.from("report"),
@@ -62,6 +66,13 @@ describe("protected document file routes", () => {
       "cohort-1",
       "application-1"
     );
+    expect(auditRecord).toHaveBeenCalledWith(expect.objectContaining({
+      action: "FILE_DOWNLOAD_GRANTED",
+      actorId: "actor-1",
+      requestId: "document-file-route-test",
+      resourceType: "report",
+      resourceId: "application-1",
+    }));
   });
 
   it("rejects a student before resolving an admin file", async () => {

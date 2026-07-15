@@ -161,11 +161,15 @@ describe("ReportService", () => {
         reviewed_at: new Date(),
       } as any);
 
-    await service.review(
+    const record = vi.fn();
+    const auditedService = new ReportService(storage, { record });
+
+    await auditedService.review(
       "admin-1",
       "cohort-1",
       "application-1",
-      ReportStatus.APPROVED
+      ReportStatus.APPROVED,
+      "request-1"
     );
 
     expect(update).toHaveBeenCalledWith(
@@ -176,5 +180,11 @@ describe("ReportService", () => {
         },
       })
     );
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({
+      action: "REPORT_STATUS_CHANGED",
+      actorId: "admin-1",
+      requestId: "request-1",
+      resourceId: "report-1",
+    }));
   });
 });

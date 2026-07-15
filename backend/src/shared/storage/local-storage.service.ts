@@ -12,6 +12,11 @@ import {
 import path from "node:path";
 import { config } from "../config";
 import {
+  auditLogger,
+  type AuditAction,
+  type AuditLogger,
+} from "../logger";
+import {
   InvalidStorageKeyError,
   StorageError,
   StorageFileNotFoundError,
@@ -39,6 +44,7 @@ export interface LocalStorageServiceOptions {
   rootDirectory?: string;
   generateId?: () => string;
   now?: () => Date;
+  audit?: AuditLogger;
 }
 
 function isNodeError(
@@ -51,6 +57,7 @@ export class LocalStorageService implements StorageService {
   private readonly rootDirectory: string;
   private readonly generateId: () => string;
   private readonly now: () => Date;
+  private readonly audit: AuditLogger;
 
   constructor(options: LocalStorageServiceOptions = {}) {
     this.rootDirectory = path.resolve(
@@ -59,9 +66,17 @@ export class LocalStorageService implements StorageService {
 
     this.generateId = options.generateId ?? randomUUID;
     this.now = options.now ?? (() => new Date());
+    this.audit = options.audit ?? auditLogger;
   }
 
   async save(input: SaveFileInput): Promise<StoredFile> {
+    return this.saveFile(input, "FILE_STORED");
+  }
+
+  private async saveFile(
+    input: SaveFileInput,
+    action: AuditAction | null
+  ): Promise<StoredFile> {
     const fileName = this.createFileName(
       this.generateId(),
       input.originalName
@@ -91,7 +106,7 @@ export class LocalStorageService implements StorageService {
 
       await rename(temporaryPath, destinationPath);
 
-      return {
+      const storedFile = {
         key,
         category: input.category,
         originalName: input.originalName,
@@ -100,10 +115,24 @@ export class LocalStorageService implements StorageService {
         checksum,
         storedAt: this.now(),
       };
+
+      if (action) {
+        this.record(action, "success", key, {
+          category: input.category,
+          contentType: input.contentType,
+          size: input.content.length,
+        });
+      }
+
+      return storedFile;
     } catch (error) {
       await rm(temporaryPath, {
         force: true,
       }).catch(() => undefined);
+
+      if (action) {
+        this.record(action, "failure", key, { error });
+      }
 
       throw new StorageError(
         "Не удалось сохранить файл",
@@ -165,13 +194,26 @@ export class LocalStorageService implements StorageService {
   }
 
   async remove(key: string): Promise<void> {
+    return this.removeFile(key, "FILE_REMOVED");
+  }
+
+  private async removeFile(
+    key: string,
+    action: AuditAction | null
+  ): Promise<void> {
     const filePath = this.resolveKey(key);
 
     try {
       await rm(filePath, {
         force: true,
       });
-    } catch {
+      if (action) {
+        this.record(action, "success", key);
+      }
+    } catch (error) {
+      if (action) {
+        this.record(action, "failure", key, { error });
+      }
       throw new StorageError(
         "Не удалось удалить файл",
         "STORAGE_DELETE_FAILED"
@@ -185,19 +227,47 @@ export class LocalStorageService implements StorageService {
     const storedFile = await this.save(input.file);
 
     if (!input.previousKey) {
+      this.record("FILE_REPLACED", "success", storedFile.key, {
+        previousKey: null,
+      });
       return storedFile;
     }
 
     try {
       await this.remove(input.previousKey);
+      this.record("FILE_REPLACED", "success", storedFile.key, {
+        previousKey: input.previousKey,
+      });
       return storedFile;
     } catch (error) {
       await this.remove(storedFile.key).catch(
         () => undefined
       );
 
+      this.record("FILE_REPLACED", "failure", storedFile.key, {
+        previousKey: input.previousKey,
+        error,
+      });
+
       throw error;
     }
+  }
+
+  private record(
+    action: AuditAction,
+    outcome: "success" | "failure",
+    resourceId: string,
+    metadata?: Record<string, unknown>
+  ) {
+    this.audit.record({
+      action,
+      outcome,
+      actorId: null,
+      requestId: null,
+      resourceType: "stored-file",
+      resourceId,
+      metadata,
+    });
   }
 
   parseKey(key: string): StorageKeyParts {

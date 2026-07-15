@@ -58,9 +58,16 @@ describe("ApplicationService", () => {
     const tx = { application: { update, findUnique: vi.fn().mockResolvedValue({ ...application, status: ApplicationStatus.APPROVED }) } } as any;
     const transaction = vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => callback(tx));
     const calendar = { ensureForApprovedApplication: vi.fn().mockResolvedValue({ applicationId: "application-1", expectedTaskCount: 5, createdTaskCount: 5 }) };
-    await new ApplicationService(calendar as any).updateStatus("cohort-1", "application-1", { status: "APPROVED" });
+    const record = vi.fn();
+    await new ApplicationService(calendar as any, undefined, { record }).updateStatus("cohort-1", "application-1", { status: "APPROVED" }, "admin-1", "request-1");
     expect(transaction).toHaveBeenCalled();
     expect(calendar.ensureForApprovedApplication).toHaveBeenCalledWith("application-1", tx);
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({
+      action: "APPLICATION_STATUS_CHANGED",
+      actorId: "admin-1",
+      requestId: "request-1",
+      resourceId: "application-1",
+    }));
   });
 
   it("does not call calendar when rejecting", async () => {

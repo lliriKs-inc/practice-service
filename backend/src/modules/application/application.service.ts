@@ -3,6 +3,7 @@ import { prisma } from "../../shared/prisma";
 import { AppError } from "../../middlewares/error.middleware";
 import { DailyTaskCalendarService } from "../tasks/dailyTaskCalendar.service";
 import { ApplicationAnswerService } from "./applicationAnswer.service";
+import { auditLogger, type AuditLogger } from "../../shared/logger";
 import type { CreateApplicationDto, UpdateApplicationStatusDto } from "./dto/application.dto";
 
 const applicationInclude = {
@@ -14,6 +15,7 @@ export class ApplicationService {
   constructor(
     private readonly calendarService = new DailyTaskCalendarService(),
     private readonly answerService = new ApplicationAnswerService(),
+    private readonly audit: AuditLogger = auditLogger,
   ) {}
 
   async submitByInvitation(userId: string, token: string, dto: CreateApplicationDto) {
@@ -57,18 +59,34 @@ export class ApplicationService {
     return application;
   }
 
-  async updateStatus(cohortId: string, applicationId: string, dto: UpdateApplicationStatusDto) {
+  async updateStatus(cohortId: string, applicationId: string, dto: UpdateApplicationStatusDto, actorId: string | null = null, requestId: string | null = null) {
     const current = await prisma.application.findFirst({ where: { id: applicationId, track: { cohort_id: cohortId } }, select: { id: true, status: true } });
     if (!current) throw new AppError("Application not found", 404, "APPLICATION_NOT_FOUND");
     if (current.status === ApplicationStatus.APPROVED && dto.status === ApplicationStatus.REJECTED) throw new AppError("Approved application cannot be rejected", 400, "INVALID_STATUS_TRANSITION");
     if (current.status === dto.status) {
       return this.getForCohort(cohortId, applicationId);
     }
-    return prisma.$transaction(async (tx) => {
+    const application = await prisma.$transaction(async (tx) => {
       const updated = await tx.application.update({ where: { id: applicationId }, data: { status: dto.status, rejection_reason: dto.status === ApplicationStatus.REJECTED ? dto.rejection_reason : null } });
       if (current.status !== ApplicationStatus.APPROVED && dto.status === ApplicationStatus.APPROVED) await this.calendarService.ensureForApprovedApplication(applicationId, tx);
       return tx.application.findUnique({ where: { id: updated.id }, include: { ...applicationInclude, user: { select: { id: true, email: true, full_name: true, created_at: true } } } });
     });
+
+    this.audit.record({
+      action: "APPLICATION_STATUS_CHANGED",
+      outcome: "success",
+      actorId,
+      requestId,
+      resourceType: "application",
+      resourceId: applicationId,
+      metadata: {
+        cohortId,
+        previousStatus: current.status,
+        status: dto.status,
+      },
+    });
+
+    return application;
   }
 
   private assertInvitationOpen(invitation: any): asserts invitation {

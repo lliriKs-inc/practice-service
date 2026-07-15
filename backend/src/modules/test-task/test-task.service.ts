@@ -7,6 +7,7 @@ import {
   LocalStorageService,
 } from "../../shared/storage";
 import { config } from "../../shared/config";
+import { auditLogger, type AuditLogger } from "../../shared/logger";
 import type { CreateTestTaskDto } from "./dto/create-test-task.dto";
 import type { UpdateTestTaskDto } from "./dto/update-test-task.dto";
 
@@ -28,6 +29,7 @@ const submissionInclude = {
 export interface TestTaskServiceOptions {
   storage?: StorageService;
   mail?: MailService;
+  audit?: AuditLogger;
 }
 
 export type TestTaskActor = {
@@ -42,12 +44,14 @@ function notFound(message: string, code: string): AppError {
 export class TestTaskService {
   private readonly storage: StorageService;
   private readonly mail: MailService;
+  private readonly audit: AuditLogger;
 
   constructor(options: TestTaskServiceOptions = {}) {
     this.storage = options.storage ?? new LocalStorageService({
       rootDirectory: config.storage.uploadDir,
     });
     this.mail = options.mail ?? mailService;
+    this.audit = options.audit ?? auditLogger;
   }
 
   async getForTrack(cohortId: string, trackId: string) {
@@ -140,7 +144,12 @@ export class TestTaskService {
     }
   }
 
-  async publish(cohortId: string, trackId: string) {
+  async publish(
+    cohortId: string,
+    trackId: string,
+    actorId: string | null = null,
+    requestId: string | null = null,
+  ) {
     await this.assertTrackInCohort(cohortId, trackId);
     const task = await prisma.testTask.findUnique({
       where: { track_id: trackId },
@@ -162,6 +171,16 @@ export class TestTaskService {
       where: { id: task.id },
       data: { published_at: new Date() },
       include: taskInclude,
+    });
+
+    this.audit.record({
+      action: "TEST_TASK_PUBLISHED",
+      outcome: "success",
+      actorId,
+      requestId,
+      resourceType: "test-task",
+      resourceId: published.id,
+      metadata: { cohortId, trackId },
     });
 
     await this.notifyApplicants(trackId, task.title);
