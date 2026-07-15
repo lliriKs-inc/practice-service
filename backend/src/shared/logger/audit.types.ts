@@ -10,7 +10,9 @@ export const AUDIT_ACTIONS = Object.freeze([
   "FILE_DOWNLOAD_DENIED",
   "REPORT_STATUS_CHANGED",
   "APPLICATION_STATUS_CHANGED",
+  "COHORT_DELETED",
   "TEST_TASK_PUBLISHED",
+  "TEST_TASK_UPDATED",
 ] as const);
 
 export type AuditAction =

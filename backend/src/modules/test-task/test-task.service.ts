@@ -74,24 +74,65 @@ export class TestTaskService {
     cohortId: string,
     trackId: string,
     dto: CreateTestTaskDto | UpdateTestTaskDto,
+    actorId: string | null = null,
+    requestId: string | null = null,
   ) {
     await this.assertTrackInCohort(cohortId, trackId);
 
     try {
-      const task = await prisma.testTask.upsert({
+      const current = await prisma.testTask.findUnique({
         where: { track_id: trackId },
-        create: {
-          track_id: trackId,
-          title: dto.title ?? "Тестовое задание",
-          description: dto.description ?? null,
-        },
-        update: {
+        select: { id: true },
+      });
+
+      if (!current) {
+        const task = await prisma.testTask.create({
+          data: {
+            track_id: trackId,
+            title: dto.title ?? "Тестовое задание",
+            description: dto.description ?? null,
+          },
+          include: taskInclude,
+        });
+        return this.toTaskResponse(task);
+      }
+
+      const publicationUpdate =
+        "published_at" in dto && dto.published_at !== undefined;
+
+      if (
+        dto.description !== undefined ||
+        publicationUpdate
+      ) {
+        await this.assertNoSubmissions(trackId);
+      }
+
+      const task = await prisma.testTask.update({
+        where: { id: current.id },
+        data: {
           ...(dto.title !== undefined ? { title: dto.title } : {}),
           ...(dto.description !== undefined
             ? { description: dto.description }
             : {}),
+          ...(publicationUpdate
+            ? { published_at: null }
+            : {}),
         },
         include: taskInclude,
+      });
+
+      this.audit.record({
+        action: "TEST_TASK_UPDATED",
+        outcome: "success",
+        actorId,
+        requestId,
+        resourceType: "test-task",
+        resourceId: task.id,
+        metadata: {
+          cohortId,
+          trackId,
+          unpublished: publicationUpdate,
+        },
       });
 
       return this.toTaskResponse(task);
@@ -111,6 +152,8 @@ export class TestTaskService {
     cohortId: string,
     trackId: string,
     file: SaveFileInput,
+    actorId: string | null = null,
+    requestId: string | null = null,
   ) {
     await this.assertTrackInCohort(cohortId, trackId);
     const task = await prisma.testTask.findUnique({
@@ -121,6 +164,7 @@ export class TestTaskService {
     if (!task) {
       throw notFound("Test task not found", "TEST_TASK_NOT_FOUND");
     }
+    await this.assertNoSubmissions(trackId);
 
     const stored = await this.storage.save({
       ...file,
@@ -141,6 +185,16 @@ export class TestTaskService {
       if (task.file_url && task.file_url !== stored.key) {
         await this.storage.remove(task.file_url);
       }
+
+      this.audit.record({
+        action: "TEST_TASK_UPDATED",
+        outcome: "success",
+        actorId,
+        requestId,
+        resourceType: "test-task",
+        resourceId: updated.id,
+        metadata: { cohortId, trackId, fileUpdated: true },
+      });
 
       return this.toTaskResponse(updated);
     } catch (error) {
@@ -192,7 +246,12 @@ export class TestTaskService {
     return this.toTaskResponse(published);
   }
 
-  async deleteForTrack(cohortId: string, trackId: string) {
+  async deleteForTrack(
+    cohortId: string,
+    trackId: string,
+    actorId: string | null = null,
+    requestId: string | null = null,
+  ) {
     await this.assertTrackInCohort(cohortId, trackId);
     const task = await prisma.testTask.findUnique({
       where: { track_id: trackId },
@@ -201,11 +260,21 @@ export class TestTaskService {
     if (!task) {
       throw notFound("Test task not found", "TEST_TASK_NOT_FOUND");
     }
+    await this.assertNoSubmissions(trackId);
 
     await prisma.testTask.delete({ where: { id: task.id } });
     if (task.file_url) {
       await this.storage.remove(task.file_url);
     }
+    this.audit.record({
+      action: "TEST_TASK_UPDATED",
+      outcome: "success",
+      actorId,
+      requestId,
+      resourceType: "test-task",
+      resourceId: task.id,
+      metadata: { cohortId, trackId, deleted: true },
+    });
     return { deleted: true };
   }
 
@@ -414,6 +483,19 @@ export class TestTaskService {
     });
     if (!track) {
       throw notFound("Track not found", "TRACK_NOT_FOUND");
+    }
+  }
+
+  private async assertNoSubmissions(trackId: string) {
+    const count = await prisma.testTaskSubmission.count({
+      where: { application: { track_id: trackId } },
+    });
+    if (count > 0) {
+      throw new AppError(
+        "Test task already has submissions",
+        409,
+        "TEST_TASK_HAS_SUBMISSIONS",
+      );
     }
   }
 

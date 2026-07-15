@@ -79,7 +79,9 @@ Requires `ADMIN`. Accepts `APPROVED` or `REJECTED`; `REJECTED` requires `rejecti
 
 `POST /cohorts` requires `ADMIN`. The server validates `title`, `practice_start`, `practice_end` and the optional application window. Date ranges must not be reversed, and `created_by` is taken from the authenticated user.
 
-Administrative management is available through `GET /cohorts`, `GET /cohorts/:cohortId`, and `PATCH /cohorts/:cohortId`. Status transitions use `PATCH /cohorts/:cohortId/activate` and `PATCH /cohorts/:cohortId/close`; only `DRAFT -> ACTIVE -> CLOSED` is accepted, and only one cohort may be active at a time.
+Administrative management is available through `GET /cohorts`, `GET /cohorts/:cohortId`, and `PATCH /cohorts/:cohortId`. Status transitions use `PATCH /cohorts/:cohortId/activate` and `PATCH /cohorts/:cohortId/close`; only `DRAFT -> ACTIVE -> CLOSED` is accepted, and only one cohort may be active at a time. The transitions are irreversible in MVP: `CLOSED` is never reopened and no `PAUSED` state exists. To temporarily stop accepting applications, an admin revokes or regenerates the invitation token instead of changing the cohort status.
+
+`DELETE /cohorts/:cohortId` requires `ADMIN` and deletes only an empty `DRAFT` cohort. Cohort configuration (tracks, survey/questions, invitation and test task) is deleted with it. A cohort with at least one application or test-task submission is rejected with `409 COHORT_HAS_APPLICATIONS`; a non-draft cohort is rejected with `409 COHORT_NOT_DRAFT`. Test-task files are removed from protected storage after the database deletion and the operation is audited.
 
 Cohort statuses are `DRAFT`, `ACTIVE`, and `CLOSED`. Closed cohorts do not accept new invitations or applications.
 
@@ -123,15 +125,20 @@ Physical filesystem paths are never returned.
 ### PUT /cohorts/:cohortId/tracks/:trackId/test-task
 
 Requires `ADMIN`. Creates or updates the task. The body contains `title` and
-optional `description`; publication is controlled separately.
+optional `description`. While no candidate has submitted a solution for the
+track, an update may set `published_at` to `null` to withdraw the task from
+publication; the existing publish endpoint is used to publish it again. Once a
+submission exists, updates to `description` or `published_at` return `409
+TEST_TASK_HAS_SUBMISSIONS`.
 
 ### POST /cohorts/:cohortId/tracks/:trackId/test-task/file
 
 Requires `ADMIN`. Accepts one multipart file under `file`. The B-01 policy
 allows PDF, DOC, DOCX and ZIP files in the `test-tasks` category. Replacing a
 file updates the storage key and cleans up the previous file after the database
-update. The protected download response preserves the uploaded filename and
-MIME type.
+update. Replacing a file after a candidate submission returns `409
+TEST_TASK_HAS_SUBMISSIONS`. The protected download response preserves the
+uploaded filename and MIME type.
 
 ### POST /cohorts/:cohortId/tracks/:trackId/test-task/publish
 
@@ -173,6 +180,7 @@ ownership checks.
 ### DELETE /cohorts/:cohortId/tracks/:trackId/test-task
 
 Requires `ADMIN`. Deletes the task and cleans up its stored file, if present.
+Deletion after a candidate submission returns `409 TEST_TASK_HAS_SUBMISSIONS`.
 
 ## Candidate E2E checklist
 

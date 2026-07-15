@@ -49,6 +49,7 @@ JWT middleware использует `AUTH_TOKEN_MISSING`, `AUTH_TOKEN_INVALID_FO
 | POST | `/api/v1/cohorts` | ADMIN | 201 | Создать cohort |
 | GET | `/api/v1/cohorts` | ADMIN | 200 | Список cohort с tracks/survey/invitation |
 | GET | `/api/v1/cohorts/:cohortId` | ADMIN | 200 | Детали cohort |
+| DELETE | `/api/v1/cohorts/:cohortId` | ADMIN | 204 | Удалить пустой DRAFT cohort |
 | PATCH | `/api/v1/cohorts/:cohortId` | ADMIN | 200 | Обновить поля cohort |
 | PATCH | `/api/v1/cohorts/:cohortId/activate` | ADMIN | 200 | Перевести DRAFT cohort в ACTIVE |
 | PATCH | `/api/v1/cohorts/:cohortId/close` | ADMIN | 200 | Перевести ACTIVE cohort в CLOSED |

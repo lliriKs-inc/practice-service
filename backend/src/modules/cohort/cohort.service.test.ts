@@ -34,4 +34,74 @@ describe("CohortService", () => {
     vi.spyOn(service, "getCohort").mockResolvedValue({ id: "cohort-1", status: CohortStatus.DRAFT } as any);
     await expect(service.closeCohort("cohort-1")).rejects.toMatchObject({ code: "INVALID_COHORT_STATUS" });
   });
+
+  it("does not reopen a closed cohort", async () => {
+    const service = new CohortService();
+    vi.spyOn(service, "getCohort").mockResolvedValue({
+      id: "cohort-1",
+      status: CohortStatus.CLOSED,
+      application_start: new Date("2026-06-01"),
+      application_end: new Date("2026-06-30"),
+    } as any);
+
+    await expect(service.activateCohort("cohort-1")).rejects.toMatchObject({
+      code: "INVALID_COHORT_STATUS",
+    });
+  });
+
+  it("deletes an empty draft cohort and cleans up its task files", async () => {
+    const storage = { remove: vi.fn().mockResolvedValue(undefined) };
+    const audit = { record: vi.fn() };
+    const service = new CohortService({ storage: storage as any, audit });
+    vi.spyOn(service, "getCohort").mockResolvedValue({
+      id: "cohort-1",
+      status: CohortStatus.DRAFT,
+      tracks: [
+        { testTask: { file_url: "test-tasks/task.pdf" } },
+        { testTask: null },
+      ],
+    } as any);
+    vi.spyOn(prisma.application, "count").mockResolvedValue(0);
+    vi.spyOn(prisma.testTaskSubmission, "count").mockResolvedValue(0);
+    const remove = vi.spyOn(prisma.cohort, "delete").mockResolvedValue({} as any);
+
+    await expect(
+      service.deleteCohort("cohort-1", "admin-1", "request-1"),
+    ).resolves.toEqual({ deleted: true });
+
+    expect(remove).toHaveBeenCalledWith({ where: { id: "cohort-1" } });
+    expect(storage.remove).toHaveBeenCalledWith("test-tasks/task.pdf");
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({
+      action: "COHORT_DELETED",
+      actorId: "admin-1",
+      requestId: "request-1",
+    }));
+  });
+
+  it("rejects deleting a cohort that is not a draft", async () => {
+    const service = new CohortService();
+    vi.spyOn(service, "getCohort").mockResolvedValue({
+      id: "cohort-1",
+      status: CohortStatus.ACTIVE,
+    } as any);
+
+    await expect(service.deleteCohort("cohort-1")).rejects.toMatchObject({
+      code: "COHORT_NOT_DRAFT",
+    });
+  });
+
+  it("rejects deleting a cohort that has applications or submissions", async () => {
+    const service = new CohortService();
+    vi.spyOn(service, "getCohort").mockResolvedValue({
+      id: "cohort-1",
+      status: CohortStatus.DRAFT,
+      tracks: [],
+    } as any);
+    vi.spyOn(prisma.application, "count").mockResolvedValue(1);
+    vi.spyOn(prisma.testTaskSubmission, "count").mockResolvedValue(0);
+
+    await expect(service.deleteCohort("cohort-1")).rejects.toMatchObject({
+      code: "COHORT_HAS_APPLICATIONS",
+    });
+  });
 });
