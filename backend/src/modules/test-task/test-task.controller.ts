@@ -26,7 +26,7 @@ export class TestTaskController {
   async upsert(req: Request, res: Response, next: NextFunction) {
     try {
       const body = CreateTestTaskSchema.or(UpdateTestTaskSchema).parse(req.body);
-      return res.json(await service.upsertForTrack(param(req, "cohortId"), param(req, "trackId"), body));
+      return res.json(await service.upsertForTrack(param(req, "cohortId"), param(req, "trackId"), body, req.user?.id ?? null, req.requestId ?? null));
     } catch (error) {
       return next(error);
     }
@@ -37,7 +37,7 @@ export class TestTaskController {
       if (!req.storageUpload) {
         throw new AppError("Test task file is required", 400, "TEST_TASK_FILE_REQUIRED");
       }
-      return res.json(await service.uploadTaskFile(param(req, "cohortId"), param(req, "trackId"), req.storageUpload));
+      return res.json(await service.uploadTaskFile(param(req, "cohortId"), param(req, "trackId"), req.storageUpload, req.user?.id ?? null, req.requestId ?? null));
     } catch (error) {
       return next(error);
     }
@@ -53,7 +53,7 @@ export class TestTaskController {
 
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      return res.json(await service.deleteForTrack(param(req, "cohortId"), param(req, "trackId")));
+      return res.json(await service.deleteForTrack(param(req, "cohortId"), param(req, "trackId"), req.user?.id ?? null, req.requestId ?? null));
     } catch (error) {
       return next(error);
     }

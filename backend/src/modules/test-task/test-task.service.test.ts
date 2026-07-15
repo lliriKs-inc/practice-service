@@ -42,7 +42,8 @@ describe("TestTaskService", () => {
 
   it("creates a task for a track and returns a safe read model", async () => {
     vi.spyOn(prisma.track, "findFirst").mockResolvedValue({ id: "track-1" } as any);
-    vi.spyOn(prisma.testTask, "upsert").mockResolvedValue({
+    vi.spyOn(prisma.testTask, "findUnique").mockResolvedValue(null);
+    vi.spyOn(prisma.testTask, "create").mockResolvedValue({
       id: "task-1", track_id: "track-1", title: "Backend task", description: "Do the work",
       file_url: null, published_at: null, track: { id: "track-1", cohort_id: "cohort-1", title: "Backend" },
     } as any);
@@ -50,7 +51,7 @@ describe("TestTaskService", () => {
     const result = await new TestTaskService().upsertForTrack("cohort-1", "track-1", { title: "Backend task", description: "Do the work" });
 
     expect(result).toMatchObject({ id: "task-1", track_id: "track-1", available: false, has_file: false });
-    expect(prisma.testTask.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { track_id: "track-1" } }));
+    expect(prisma.testTask.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ track_id: "track-1" }) }));
   });
 
   it("does not allow a track from another cohort", async () => {
@@ -150,5 +151,59 @@ describe("TestTaskService", () => {
       downloadName: "Задание.docx",
       contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
+  });
+
+  it("allows unpublishing a task before any candidate submits a solution", async () => {
+    vi.spyOn(prisma.track, "findFirst").mockResolvedValue({ id: "track-1" } as any);
+    vi.spyOn(prisma.testTask, "findUnique").mockResolvedValue({ id: "task-1" } as any);
+    vi.spyOn(prisma.testTaskSubmission, "count").mockResolvedValue(0);
+    const update = vi.spyOn(prisma.testTask, "update").mockResolvedValue({
+      id: "task-1", track_id: "track-1", title: "Task", description: "Description",
+      file_url: null, published_at: null, track: { id: "track-1", cohort_id: "cohort-1", title: "Backend" },
+    } as any);
+    const record = vi.fn();
+
+    await new TestTaskService({ audit: { record } }).upsertForTrack(
+      "cohort-1", "track-1", { published_at: null }, "admin-1", "request-1",
+    );
+
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ published_at: null }),
+    }));
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({
+      action: "TEST_TASK_UPDATED",
+      actorId: "admin-1",
+      requestId: "request-1",
+    }));
+  });
+
+  it("blocks task content changes after a candidate submits a solution", async () => {
+    vi.spyOn(prisma.track, "findFirst").mockResolvedValue({ id: "track-1" } as any);
+    vi.spyOn(prisma.testTask, "findUnique").mockResolvedValue({ id: "task-1" } as any);
+    vi.spyOn(prisma.testTaskSubmission, "count").mockResolvedValue(1);
+
+    await expect(
+      new TestTaskService().upsertForTrack(
+        "cohort-1", "track-1", { description: "Changed" },
+      ),
+    ).rejects.toMatchObject({ code: "TEST_TASK_HAS_SUBMISSIONS" });
+  });
+
+  it("blocks replacing or deleting a task after a candidate submits a solution", async () => {
+    const storage = fakeStorage();
+    const service = new TestTaskService({ storage });
+    vi.spyOn(prisma.track, "findFirst").mockResolvedValue({ id: "track-1" } as any);
+    vi.spyOn(prisma.testTask, "findUnique").mockResolvedValue({
+      id: "task-1", file_url: "test-tasks/task.zip",
+    } as any);
+    vi.spyOn(prisma.testTaskSubmission, "count").mockResolvedValue(1);
+
+    await expect(service.uploadTaskFile(
+      "cohort-1", "track-1", { category: "test-tasks", content: Buffer.from("zip"), originalName: "task.zip", contentType: "application/zip" },
+    )).rejects.toMatchObject({ code: "TEST_TASK_HAS_SUBMISSIONS" });
+    await expect(service.deleteForTrack("cohort-1", "track-1")).rejects.toMatchObject({
+      code: "TEST_TASK_HAS_SUBMISSIONS",
+    });
+    expect(storage.save).not.toHaveBeenCalled();
   });
 });

@@ -125,15 +125,20 @@ Physical filesystem paths are never returned.
 ### PUT /cohorts/:cohortId/tracks/:trackId/test-task
 
 Requires `ADMIN`. Creates or updates the task. The body contains `title` and
-optional `description`; publication is controlled separately.
+optional `description`. While no candidate has submitted a solution for the
+track, an update may set `published_at` to `null` to withdraw the task from
+publication; the existing publish endpoint is used to publish it again. Once a
+submission exists, updates to `description` or `published_at` return `409
+TEST_TASK_HAS_SUBMISSIONS`.
 
 ### POST /cohorts/:cohortId/tracks/:trackId/test-task/file
 
 Requires `ADMIN`. Accepts one multipart file under `file`. The B-01 policy
 allows PDF, DOC, DOCX and ZIP files in the `test-tasks` category. Replacing a
 file updates the storage key and cleans up the previous file after the database
-update. The protected download response preserves the uploaded filename and
-MIME type.
+update. Replacing a file after a candidate submission returns `409
+TEST_TASK_HAS_SUBMISSIONS`. The protected download response preserves the
+uploaded filename and MIME type.
 
 ### POST /cohorts/:cohortId/tracks/:trackId/test-task/publish
 
@@ -175,6 +180,7 @@ ownership checks.
 ### DELETE /cohorts/:cohortId/tracks/:trackId/test-task
 
 Requires `ADMIN`. Deletes the task and cleans up its stored file, if present.
+Deletion after a candidate submission returns `409 TEST_TASK_HAS_SUBMISSIONS`.
 
 ## Candidate E2E checklist
 

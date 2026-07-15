@@ -12,6 +12,7 @@ export const AUDIT_ACTIONS = Object.freeze([
   "APPLICATION_STATUS_CHANGED",
   "COHORT_DELETED",
   "TEST_TASK_PUBLISHED",
+  "TEST_TASK_UPDATED",
 ] as const);
 
 export type AuditAction =
