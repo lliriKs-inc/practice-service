@@ -51,4 +51,17 @@ export class CohortController {
   async closeCohort(req: Request, res: Response, next: NextFunction) {
     try { return res.json(await this.cohortService.closeCohort(String(req.params.cohortId))); } catch (error) { return next(error); }
   }
+
+  async deleteCohort(req: Request, res: Response, next: NextFunction) {
+    try {
+      await this.cohortService.deleteCohort(
+        String(req.params.cohortId),
+        req.user?.id ?? null,
+        req.requestId ?? null,
+      );
+      return res.status(204).send();
+    } catch (error) {
+      return next(error);
+    }
+  }
 }

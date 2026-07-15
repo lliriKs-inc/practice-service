@@ -19,6 +19,7 @@ router.get("/:cohortId", ...adminOnly, controller.getCohort.bind(controller));
 router.patch("/:cohortId", ...adminOnly, controller.updateCohort.bind(controller));
 router.patch("/:cohortId/activate", ...adminOnly, controller.activateCohort.bind(controller));
 router.patch("/:cohortId/close", ...adminOnly, controller.closeCohort.bind(controller));
+router.delete("/:cohortId", ...adminOnly, controller.deleteCohort.bind(controller));
 
 router.post(
     "/",
