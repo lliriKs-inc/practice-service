@@ -46,6 +46,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use(
     cors({
       origin: config.cors.origin,
+      exposedHeaders: ["Content-Disposition"],
     })
   );
 
