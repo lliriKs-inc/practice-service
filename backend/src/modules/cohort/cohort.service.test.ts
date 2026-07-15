@@ -34,4 +34,18 @@ describe("CohortService", () => {
     vi.spyOn(service, "getCohort").mockResolvedValue({ id: "cohort-1", status: CohortStatus.DRAFT } as any);
     await expect(service.closeCohort("cohort-1")).rejects.toMatchObject({ code: "INVALID_COHORT_STATUS" });
   });
+
+  it("does not reopen a closed cohort", async () => {
+    const service = new CohortService();
+    vi.spyOn(service, "getCohort").mockResolvedValue({
+      id: "cohort-1",
+      status: CohortStatus.CLOSED,
+      application_start: new Date("2026-06-01"),
+      application_end: new Date("2026-06-30"),
+    } as any);
+
+    await expect(service.activateCohort("cohort-1")).rejects.toMatchObject({
+      code: "INVALID_COHORT_STATUS",
+    });
+  });
 });

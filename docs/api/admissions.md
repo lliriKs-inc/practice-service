@@ -79,7 +79,7 @@ Requires `ADMIN`. Accepts `APPROVED` or `REJECTED`; `REJECTED` requires `rejecti
 
 `POST /cohorts` requires `ADMIN`. The server validates `title`, `practice_start`, `practice_end` and the optional application window. Date ranges must not be reversed, and `created_by` is taken from the authenticated user.
 
-Administrative management is available through `GET /cohorts`, `GET /cohorts/:cohortId`, and `PATCH /cohorts/:cohortId`. Status transitions use `PATCH /cohorts/:cohortId/activate` and `PATCH /cohorts/:cohortId/close`; only `DRAFT -> ACTIVE -> CLOSED` is accepted, and only one cohort may be active at a time.
+Administrative management is available through `GET /cohorts`, `GET /cohorts/:cohortId`, and `PATCH /cohorts/:cohortId`. Status transitions use `PATCH /cohorts/:cohortId/activate` and `PATCH /cohorts/:cohortId/close`; only `DRAFT -> ACTIVE -> CLOSED` is accepted, and only one cohort may be active at a time. The transitions are irreversible in MVP: `CLOSED` is never reopened and no `PAUSED` state exists. To temporarily stop accepting applications, an admin revokes or regenerates the invitation token instead of changing the cohort status.
 
 Cohort statuses are `DRAFT`, `ACTIVE`, and `CLOSED`. Closed cohorts do not accept new invitations or applications.
 
