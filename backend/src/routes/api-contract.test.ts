@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import request from "supertest";
+import { UserRole } from "@prisma/client";
+import { createApp } from "../app";
+import { generateToken } from "../shared/jwt";
 import { listRegisteredApiRoutes } from "./api-v1.registry";
 
 const docsDirectory = path.resolve(__dirname, "../../../docs");
@@ -76,5 +80,70 @@ describe("B-07 central API contract", () => {
     expect(checklist).toContain("b06-production-flow.integration.test.ts");
     expect(checklist).toContain("api-contract.test.ts");
     expect(checklist).toContain("RUN_DB_INTEGRATION=true");
+  });
+});
+
+describe("B-07 executable HTTP contract examples", () => {
+  const app = createApp({ readinessCheck: async () => undefined });
+  const adminToken = generateToken({ id: "contract-admin", role: UserRole.ADMIN });
+  const studentToken = generateToken({ id: "contract-student", role: UserRole.STUDENT });
+
+  function expectErrorContract(response: request.Response, status: number, code: string) {
+    expect(response.status).toBe(status);
+    expect(response.body).toMatchObject({
+      code,
+      message: expect.any(String),
+      requestId: expect.any(String),
+    });
+    expect(response.body).toHaveProperty("details");
+  }
+
+  it("returns the documented validation envelope for an invalid public request", async () => {
+    const response = await request(app)
+      .post("/api/v1/auth/register")
+      .set("X-Request-Id", "contract-validation")
+      .send({ email: "not-an-email" });
+
+    expectErrorContract(response, 400, "VALIDATION_ERROR");
+    expect(response.body.requestId).toBe("contract-validation");
+  });
+
+  it("enforces the documented authentication and RBAC boundary", async () => {
+    const unauthenticated = await request(app).get("/api/v1/me");
+    expectErrorContract(unauthenticated, 401, "AUTH_TOKEN_MISSING");
+
+    const forbidden = await request(app)
+      .get("/api/v1/cohorts/cohort-1/admin/overview")
+      .set("Authorization", `Bearer ${studentToken}`);
+    expectErrorContract(forbidden, 403, "INSUFFICIENT_PERMISSIONS");
+  });
+
+  it("validates cohort context and upload media type before domain access", async () => {
+    const missingContext = await request(app)
+      .get("/api/v1/tracks")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expectErrorContract(missingContext, 400, "COHORT_CONTEXT_MISSING");
+
+    const invalidUpload = await request(app)
+      .put("/api/v1/me/applications/application-1/report")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .attach("report", Buffer.from("plain text"), {
+        filename: "report.txt",
+        contentType: "text/plain",
+      });
+    expectErrorContract(invalidUpload, 400, "UPLOAD_FILE_TYPE_NOT_ALLOWED");
+  });
+
+  it("rejects malformed JSON and removed legacy mount paths consistently", async () => {
+    const malformedJson = await request(app)
+      .post("/api/v1/auth/login")
+      .set("Content-Type", "application/json")
+      .send('{"email":');
+    expectErrorContract(malformedJson, 400, "INVALID_JSON");
+
+    const legacyPath = await request(app)
+      .get("/api/v1/admin/cohorts/cohort-1/admin/overview")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expectErrorContract(legacyPath, 404, "ROUTE_NOT_FOUND");
   });
 });

@@ -1,54 +1,107 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
+import { AppError } from "../../middlewares/error.middleware";
 import { AuthService } from "./auth.service";
 import { registerSchema } from "./dto/register.dto";
 import { loginSchema } from "./dto/login.dto";
 
 export class AuthController {
-  static async register(req: Request, res: Response) {
+  static async register(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     const result = registerSchema.safeParse(req.body);
     if (!result.success) {
-      return res.status(400).json({ message: "Validation failed", errors: result.error.issues });
+      return next(
+        new AppError(
+          "Validation failed",
+          400,
+          "VALIDATION_ERROR",
+          result.error.issues
+        )
+      );
     }
 
     try {
       const { email, password, full_name } = result.data;
       const user = await AuthService.register(email, password, full_name);
       res.status(201).json(user);
-    } catch (e: any) {
-      if (e.message.toLowerCase().includes("exists")) {
-        return res.status(409).json({ message: "User already exists" });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.toLowerCase().includes("exists")
+      ) {
+        return next(
+          new AppError(
+            "User already exists",
+            409,
+            "USER_ALREADY_EXISTS"
+          )
+        );
       }
-      res.status(400).json({ message: e.message });
+      return next(error);
     }
   }
 
-  static async login(req: Request, res: Response) {
-  const result = loginSchema.safeParse(req.body);
+  static async login(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    const result = loginSchema.safeParse(req.body);
     if (!result.success) {
-      return res.status(400).json({ message: "Validation failed", errors: result.error.issues });
+      return next(
+        new AppError(
+          "Validation failed",
+          400,
+          "VALIDATION_ERROR",
+          result.error.issues
+        )
+      );
     }
 
     try {
       const { email, password } = result.data;
       const resultData = await AuthService.login(email, password);
       res.json(resultData);
-    } catch (e: any) {
-      res.status(401).json({ message: "Invalid credentials" });
+    } catch {
+      return next(
+        new AppError(
+          "Invalid credentials",
+          401,
+          "INVALID_CREDENTIALS"
+        )
+      );
     }
   }
 
-  static async me(req: Request, res: Response) {
+  static async me(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
 
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
+        return next(
+          new AppError(
+            "Authentication required",
+            401,
+            "AUTH_REQUIRED"
+          )
+        );
       }
 
       const user = await AuthService.getMe(userId);
       res.json(user);
-    } catch (e: any) {
-      res.status(400).json({ message: e.message });
+    } catch (error) {
+      return next(
+        error instanceof Error &&
+          error.message === "User not found"
+          ? new AppError(
+              "User not found",
+              404,
+              "USER_NOT_FOUND"
+            )
+          : error
+      );
     }
   }
 }

@@ -139,9 +139,9 @@ npm.cmd test
 | Область | Автоматическая проверка |
 |---|---|
 | Route inventory и `/api/v1` | `backend/src/routes/api-v1.routes.test.ts` |
-| Central contract parity/JSON | `backend/src/routes/api-contract.test.ts` |
+| Central contract parity/JSON and executable HTTP errors | `backend/src/routes/api-contract.test.ts` |
 | Candidate module flow | `backend/src/test/admissions.integration.test.ts` |
-| Production candidate/practice flow | `backend/src/test/b06-production-flow.integration.test.ts` |
+| Production admin setup + approve/reject candidate/practice flow | `backend/src/test/b06-production-flow.integration.test.ts` |
 | Progress PostgreSQL isolation | `backend/src/modules/tasks/daily-task-progress.integration.test.ts` |
 | Admin PostgreSQL filters/isolation | `backend/src/modules/admin/admin.integration.test.ts` |
 | Protected document files | document file route/service tests |

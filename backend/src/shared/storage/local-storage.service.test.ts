@@ -15,6 +15,7 @@ import {
   describe,
   expect,
   it,
+  vi,
 } from "vitest";
 import {
   InvalidStorageKeyError,
@@ -102,6 +103,49 @@ describe("LocalStorageService", () => {
     );
 
     expect(physicalContent).toEqual(content);
+  });
+
+  it("records runtime audit events for storage mutations", async () => {
+    const record = vi.fn();
+    const generatedIds = [FIRST_UUID, SECOND_UUID];
+    const storage = new LocalStorageService({
+      rootDirectory,
+      generateId: () => generatedIds.shift()!,
+      audit: { record },
+    });
+
+    const first = await storage.save({
+      category: "reports",
+      content: Buffer.from("old"),
+      originalName: "old.pdf",
+      contentType: "application/pdf",
+    });
+    const replacement = await storage.replace({
+      previousKey: first.key,
+      file: {
+        category: "reports",
+        content: Buffer.from("new"),
+        originalName: "new.pdf",
+        contentType: "application/pdf",
+      },
+    });
+    await storage.remove(replacement.key);
+
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({
+      action: "FILE_STORED",
+      outcome: "success",
+      resourceId: first.key,
+    }));
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({
+      action: "FILE_REPLACED",
+      outcome: "success",
+      resourceId: replacement.key,
+    }));
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({
+      action: "FILE_REMOVED",
+      outcome: "success",
+      resourceId: replacement.key,
+    }));
   });
 
   it("does not use the original name as a physical path", async () => {

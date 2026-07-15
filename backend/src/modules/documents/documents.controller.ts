@@ -273,7 +273,8 @@ export class DocumentsController {
           req.user?.id ?? "unknown",
           cohortId,
           applicationId,
-          status
+          status,
+          req.requestId ?? null
         );
 
       return res.status(200).json(result);

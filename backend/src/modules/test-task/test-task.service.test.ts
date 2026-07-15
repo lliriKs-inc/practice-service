@@ -67,12 +67,19 @@ describe("TestTaskService", () => {
     } as any);
     vi.spyOn(prisma.application, "findMany").mockResolvedValue([{ user: { email: "one@example.com" } }, { user: { email: "two@example.com" } }] as any);
     const mail = fakeMail();
+    const record = vi.fn();
 
-    await new TestTaskService({ mail }).publish("cohort-1", "track-1");
+    await new TestTaskService({ mail, audit: { record } }).publish("cohort-1", "track-1", "admin-1", "request-1");
 
     expect(mail.send).toHaveBeenCalledTimes(2);
     expect(mail.send).toHaveBeenCalledWith(expect.objectContaining({ to: "one@example.com" }));
     expect(mail.send).toHaveBeenCalledWith(expect.objectContaining({ to: "two@example.com" }));
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({
+      action: "TEST_TASK_PUBLISHED",
+      actorId: "admin-1",
+      requestId: "request-1",
+      resourceId: "task-1",
+    }));
   });
 
   it("keeps publication successful when one notification fails", async () => {

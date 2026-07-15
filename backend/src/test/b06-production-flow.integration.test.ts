@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { createApp } from "../app";
+import { prisma } from "../shared/prisma";
 import {
   cleanupAdmissionsFixture,
   createAdmissionsFixture,
@@ -25,12 +26,32 @@ describeIntegration("B-06 production API candidate and practice flow", () => {
   let studentToken = "";
   let adminToken = "";
   let applicationId = "";
+  let rejectedApplicationId = "";
+  let apiSetupCohortId = "";
 
   beforeAll(async () => {
-    fixture = await createAdmissionsFixture();
+    fixture = await createAdmissionsFixture({ includeSecondTrack: true });
   });
 
   afterAll(async () => {
+    if (apiSetupCohortId) {
+      const tracks = await prisma.track.findMany({
+        where: { cohort_id: apiSetupCohortId },
+        select: { id: true },
+      });
+      const surveys = await prisma.survey.findMany({
+        where: { cohort_id: apiSetupCohortId },
+        select: { id: true },
+      });
+      const trackIds = tracks.map(({ id }) => id);
+      const surveyIds = surveys.map(({ id }) => id);
+      await prisma.testTask.deleteMany({ where: { track_id: { in: trackIds } } });
+      await prisma.invitation.deleteMany({ where: { cohort_id: apiSetupCohortId } });
+      await prisma.question.deleteMany({ where: { survey_id: { in: surveyIds } } });
+      await prisma.survey.deleteMany({ where: { id: { in: surveyIds } } });
+      await prisma.track.deleteMany({ where: { id: { in: trackIds } } });
+      await prisma.cohort.deleteMany({ where: { id: apiSetupCohortId } });
+    }
     if (fixture) {
       await cleanupAdmissionsFixture(fixture, studentId ? [studentId] : []);
     }
@@ -76,6 +97,16 @@ describeIntegration("B-06 production API candidate and practice flow", () => {
     expect(submitted.status).toBe(201);
     applicationId = submitted.body.id;
 
+    const rejectedSubmission = await request(app)
+      .post(`${API}/public/invitations/${fixture.invitationToken}/applications`)
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({
+        track_id: fixture.secondTrackId!,
+        answers: [{ question_id: fixture.questionId, answer_value: "Alternative track" }],
+      });
+    expect(rejectedSubmission.status).toBe(201);
+    rejectedApplicationId = rejectedSubmission.body.id;
+
     const task = await request(app)
       .get(`${API}/me/applications/${applicationId}/test-task`)
       .set("Authorization", `Bearer ${studentToken}`);
@@ -91,12 +122,75 @@ describeIntegration("B-06 production API candidate and practice flow", () => {
       });
     expect(submission.status).toBe(200);
 
+    const rejected = await request(app)
+      .patch(`${API}/cohorts/${fixture.cohortId}/applications/${rejectedApplicationId}/status`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ status: "REJECTED", rejection_reason: "Another track was selected" });
+    expect(rejected.status).toBe(200);
+    expect(rejected.body).toMatchObject({
+      id: rejectedApplicationId,
+      status: "REJECTED",
+      rejection_reason: "Another track was selected",
+    });
+
     const approved = await request(app)
       .patch(`${API}/cohorts/${fixture.cohortId}/applications/${applicationId}/status`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ status: "APPROVED" });
     expect(approved.status).toBe(200);
     expect(approved.body.status).toBe("APPROVED");
+  });
+
+  it("performs admin cohort setup through production routes", async () => {
+    const now = Date.now();
+    const cohort = await request(app)
+      .post(`${API}/cohorts`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: `${fixture.prefix} API setup cohort`,
+        status: "DRAFT",
+        practice_start: new Date(now + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        practice_end: new Date(now + 10 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+    expect(cohort.status).toBe(201);
+    apiSetupCohortId = cohort.body.id;
+
+    const track = await request(app)
+      .post(`${API}/tracks`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ cohort_id: apiSetupCohortId, title: "API setup track" });
+    expect(track.status).toBe(201);
+
+    const survey = await request(app)
+      .post(`${API}/surveys`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ cohort_id: apiSetupCohortId, title: "API setup survey" });
+    expect(survey.status).toBe(201);
+
+    const question = await request(app)
+      .post(`${API}/surveys/${survey.body.id}/questions`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ label: "Motivation", type: "TEXTAREA", required: true });
+    expect(question.status).toBe(201);
+
+    const invitation = await request(app)
+      .post(`${API}/invitations`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ cohort_id: apiSetupCohortId, expires_in_days: 7 });
+    expect(invitation.status).toBe(201);
+    expect(invitation.body.token).toEqual(expect.any(String));
+
+    const testTask = await request(app)
+      .put(`${API}/cohorts/${apiSetupCohortId}/tracks/${track.body.id}/test-task`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ title: "API setup test task", description: "Verify the setup flow" });
+    expect(testTask.status).toBe(200);
+
+    const published = await request(app)
+      .post(`${API}/cohorts/${apiSetupCohortId}/tracks/${track.body.id}/test-task/publish`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(published.status).toBe(200);
+    expect(published.body.available).toBe(true);
   });
 
   it("completes progress, report and all document workflows", async () => {
@@ -127,6 +221,14 @@ describeIntegration("B-06 production API candidate and practice flow", () => {
       .set("Authorization", `Bearer ${adminToken}`);
     expect(cohortProgress.status).toBe(200);
     expect(JSON.stringify(cohortProgress.body)).toContain(applicationId);
+    expect(JSON.stringify(cohortProgress.body)).not.toContain(rejectedApplicationId);
+
+    await expect(prisma.dailyTask.count({
+      where: { application_id: applicationId },
+    })).resolves.toBeGreaterThan(0);
+    await expect(prisma.dailyTask.count({
+      where: { application_id: rejectedApplicationId },
+    })).resolves.toBe(0);
 
     const studentFields: Record<string, string[]> = {
       INDIVIDUAL_TASK: [

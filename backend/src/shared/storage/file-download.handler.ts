@@ -6,6 +6,11 @@ import {
 } from "express";
 import { AppError } from "../../middlewares/error.middleware";
 import {
+  auditLogger,
+  type AuditLogger,
+} from "../logger";
+import { AuditedFileAccessPolicy } from "./audited-file-access.policy";
+import {
   FileDownloadNotFoundError,
   FileDownloadStreamError,
 } from "./file-download.errors";
@@ -22,6 +27,7 @@ import {
 export interface FileDownloadHandlerOptions {
   storage: StorageService;
   accessPolicy: FileAccessPolicy;
+  audit?: AuditLogger;
 }
 
 function sanitizeDownloadName(
@@ -38,6 +44,11 @@ function sanitizeDownloadName(
 export function createFileDownloadHandler(
   options: FileDownloadHandlerOptions
 ): RequestHandler {
+  const accessPolicy = new AuditedFileAccessPolicy(
+    options.accessPolicy,
+    options.audit ?? auditLogger
+  );
+
   return async (
     req: Request,
     res: Response,
@@ -75,7 +86,7 @@ export function createFileDownloadHandler(
       }
 
       const authorization =
-        await options.accessPolicy.authorize({
+        await accessPolicy.authorize({
         actor,
         key,
         requestId: req.requestId ?? null,
