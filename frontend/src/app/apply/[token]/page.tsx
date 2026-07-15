@@ -397,7 +397,22 @@ function QuestionInput({
         )
     }
 
-    if (question.type === 'select' || question.type === 'radio') {
+    if (question.type === 'select') {
+        return (
+            <div className="flex flex-col gap-1.5">
+                {label}
+                <select value={value} onChange={e => onChange(e.target.value)} required={question.required}
+                    className="w-full text-sm rounded-lg border-[1.5px] border-[#E4E2F4] bg-[#F5F4FD] px-3 py-2 text-[#1C1A3A] focus:outline-none focus:border-[#6C63FF]">
+                    <option value="" disabled>Выбери вариант</option>
+                    {question.options.map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                </select>
+            </div>
+        )
+    }
+
+    if (question.type === 'radio') {
         return (
             <div className="flex flex-col gap-1.5">
                 {label}

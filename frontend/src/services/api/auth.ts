@@ -38,7 +38,7 @@ export {
 
 export function logout() {
     clearSession()
-    window.location.href = '/login'
+    window.location.href = '/'
 }
 
 // POST /auth/register

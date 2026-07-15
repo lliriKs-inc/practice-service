@@ -1,17 +1,39 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
     createCohort,
+    getCohort,
     saveCohortDraft,
+    updateTrackTestTask,
+    uploadTestTaskFile,
     type Cohort,
     type CohortStatus,
     type Track,
     type Question,
+    type TestTask,
 } from '@/services/api/cohorts'
 import { useCohortWorkspace } from '../cohort-context'
+import { describeApiErrors } from '@/lib/api/error-messages'
+import { downloadProtectedFile } from '@/lib/api/download'
 
 type EditTab = 'general' | 'tracks' | 'survey' | 'invitation'
+
+// Оверлей модалки закрывается только по клику НАЧАВШЕМУСЯ и ЗАКОНЧИВШЕМУСЯ на
+// самом оверлее — иначе выделение текста мышью, отпущенной за пределами
+// модалки (mouseup на оверлее), тоже засчитывалось бы как клик по нему и
+// закрывало окно посреди выделения.
+function useOverlayClose(onClose: () => void) {
+    const mouseDownOnOverlay = useRef(false)
+    return {
+        onMouseDown: (e: React.MouseEvent<HTMLDivElement>) => {
+            mouseDownOnOverlay.current = e.target === e.currentTarget
+        },
+        onClick: (e: React.MouseEvent<HTMLDivElement>) => {
+            if (e.target === e.currentTarget && mouseDownOnOverlay.current) onClose()
+        },
+    }
+}
 
 const STATUS_LABELS: Record<CohortStatus, string> = {
     draft: 'Черновик',
@@ -47,11 +69,28 @@ function uid() {
 export default function AdminCohortsPage() {
     const { cohorts, cohortsLoading, cohortsError, refetchCohorts, selectedCohortId, setSelectedCohortId } = useCohortWorkspace()
 
+    const EMPTY_NEW_COHORT = { title: '', application_start: '', application_end: '', start_date: '', end_date: '' }
+
     // Создание когорты
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [createLoading, setCreateLoading] = useState(false)
-    const [createError, setCreateError] = useState('')
-    const [newCohort, setNewCohort] = useState({ title: '', application_start: '', application_end: '', start_date: '', end_date: '' })
+    const [createErrors, setCreateErrors] = useState<string[]>([])
+    const [newCohort, setNewCohort] = useState(EMPTY_NEW_COHORT)
+
+    function openCreateModal() {
+        setNewCohort(EMPTY_NEW_COHORT)
+        setCreateErrors([])
+        setShowCreateModal(true)
+    }
+
+    function closeCreateModal() {
+        setShowCreateModal(false)
+        setNewCohort(EMPTY_NEW_COHORT)
+        setCreateErrors([])
+    }
+
+    const createModalOverlay = useOverlayClose(closeCreateModal)
+    const editModalOverlay = useOverlayClose(() => closeEdit())
 
     // ── Редактирование: локальный черновик ────────────────────────
     // Все правки в модалке применяются только к editDraft. Ничего не
@@ -59,27 +98,49 @@ export default function AdminCohortsPage() {
     const [editDraft, setEditDraft] = useState<Cohort | null>(null)
     const [editTab, setEditTab] = useState<EditTab>('general')
     const [editSaving, setEditSaving] = useState(false)
-    const [editError, setEditError] = useState('')
+    const [editErrors, setEditErrors] = useState<string[]>([])
     const [newTrackTitle, setNewTrackTitle] = useState('')
 
+    // Пока открыта любая модалка — блокируем скролл страницы позади неё,
+    // иначе движение мыши за пределы модалки листает фон.
+    useEffect(() => {
+        if (showCreateModal || editDraft) {
+            const previousOverflow = document.body.style.overflow
+            document.body.style.overflow = 'hidden'
+            return () => { document.body.style.overflow = previousOverflow }
+        }
+    }, [showCreateModal, editDraft])
+
     // ── Создание когорты (отдельная модалка, без изменений) ───────
+    function isCreateFormComplete() {
+        return Boolean(
+            newCohort.title.trim() &&
+            newCohort.application_start &&
+            newCohort.application_end &&
+            newCohort.start_date &&
+            newCohort.end_date
+        )
+    }
+
     async function handleCreateCohort() {
-        if (!newCohort.title) return
+        if (!isCreateFormComplete()) {
+            setCreateErrors(['Заполни название и все 4 даты'])
+            return
+        }
         setCreateLoading(true)
-        setCreateError('')
+        setCreateErrors([])
         try {
             await createCohort({
                 title: newCohort.title,
-                application_start: newCohort.application_start || undefined,
-                application_end: newCohort.application_end || undefined,
-                start_date: newCohort.start_date || new Date().toISOString().slice(0, 10),
-                end_date: newCohort.end_date || new Date().toISOString().slice(0, 10),
+                application_start: newCohort.application_start,
+                application_end: newCohort.application_end,
+                start_date: newCohort.start_date,
+                end_date: newCohort.end_date,
             })
             await refetchCohorts()
-            setShowCreateModal(false)
-            setNewCohort({ title: '', application_start: '', application_end: '', start_date: '', end_date: '' })
+            closeCreateModal()
         } catch (err: unknown) {
-            setCreateError(err instanceof Error ? err.message : 'Ошибка создания когорты')
+            setCreateErrors(describeApiErrors(err, 'Ошибка создания когорты'))
         } finally {
             setCreateLoading(false)
         }
@@ -91,36 +152,97 @@ export default function AdminCohortsPage() {
         // списке не трогается, пока не нажата "Сохранить"
         setEditDraft(JSON.parse(JSON.stringify(cohort)))
         setEditTab('general')
-        setEditError('')
+        setEditErrors([])
         setNewTrackTitle('')
     }
 
     function closeEdit() {
         // Черновик просто выбрасывается — все несохранённые правки исчезают
         setEditDraft(null)
+        setEditErrors([])
     }
 
     function patchDraft(patch: Partial<Cohort>) {
         setEditDraft(prev => (prev ? { ...prev, ...patch } : prev))
     }
 
+    // saveCohortDraft применяет изменения по шагам (трек/вопрос/статус/
+    // приглашение отдельными запросами) — если один шаг упал посреди
+    // сохранения, предыдущие шаги уже применились на сервере, но черновик в
+    // модалке всё ещё думает, что это "новые" (локальные id) записи. Без
+    // пересинхронизации повторное «Сохранить» пыталось бы создать их ещё раз
+    // и падало с "уже существует". При этом НЕЛЬЗЯ просто заменить весь
+    // черновик на свежие данные с сервера — так теряются все несохранённые
+    // правки (например, вопрос анкеты, который как раз и не смог сохраниться
+    // из-за ошибки валидации). Поэтому патчим только id уже реально созданных
+    // на сервере треков/анкеты/вопросов (сопоставляя по названию/тексту), не
+    // трогая остальную структуру локального черновика.
+    function reconcileDraftIds(local: Cohort, fresh: Cohort): Cohort {
+        const freshTrackIds = new Set(fresh.tracks.map(t => t.id))
+        const usedFreshTrackIds = new Set<string>()
+        const tracks = local.tracks.map(track => {
+            if (freshTrackIds.has(track.id)) return track
+            const match = fresh.tracks.find(t => t.title === track.title && !usedFreshTrackIds.has(t.id))
+            if (!match) return track
+            usedFreshTrackIds.add(match.id)
+            return { ...track, id: match.id }
+        })
+
+        let survey = local.survey
+        if (survey && fresh.survey) {
+            const surveyId = survey.id === fresh.survey.id ? survey.id : fresh.survey.id
+            const freshQuestionIds = new Set(fresh.survey.questions.map(q => q.id))
+            const usedFreshQuestionIds = new Set<string>()
+            const questions = survey.questions.map(question => {
+                if (freshQuestionIds.has(question.id)) return question
+                const match = fresh.survey!.questions.find(q => q.label === question.label && !usedFreshQuestionIds.has(q.id))
+                if (!match) return question
+                usedFreshQuestionIds.add(match.id)
+                return { ...question, id: match.id }
+            })
+            survey = { ...survey, id: surveyId, questions }
+        }
+
+        return { ...local, tracks, survey }
+    }
+
     async function handleSaveEdit() {
         if (!editDraft) return
         setEditSaving(true)
-        setEditError('')
+        setEditErrors([])
         try {
             await saveCohortDraft(editDraft.id, editDraft)
             await refetchCohorts()
             setEditDraft(null)
         } catch (err: unknown) {
-            setEditError(err instanceof Error ? err.message : 'Не удалось сохранить изменения')
+            setEditErrors(describeApiErrors(err, 'Не удалось сохранить изменения'))
+            try {
+                const fresh = await getCohort(editDraft.id)
+                await refetchCohorts()
+                setEditDraft(prev => (prev ? reconcileDraftIds(prev, fresh) : prev))
+            } catch {
+                // Не удалось обновить черновик — оставляем как есть, пользователь
+                // увидит ошибку сохранения и может закрыть/переоткрыть модалку сам.
+            }
         } finally {
             setEditSaving(false)
         }
     }
 
     // ── Статус (теперь тоже часть черновика) ───────────────────────
+    // Backend поддерживает переходы строго в одну сторону: Черновик → Активна →
+    // Закрыта. Вернуться в «Черновик» нельзя никогда — ни из «Активна», ни из
+    // «Закрыта» — поэтому такой переход не должен быть доступен в UI вообще.
+    function canSetStatus(current: CohortStatus, target: CohortStatus): boolean {
+        if (target === current) return true
+        if (target === 'draft') return false
+        if (current === 'draft') return target === 'active'
+        if (current === 'active') return target === 'closed'
+        return false
+    }
+
     function handleStatusChange(status: CohortStatus) {
+        if (!editDraft || !canSetStatus(editDraft.status, status)) return
         patchDraft({ status })
     }
 
@@ -147,19 +269,22 @@ export default function AdminCohortsPage() {
         patchDraft({
             tracks: editDraft.tracks.map(t => {
                 if (t.id !== trackId) return t
-                const current = t.testTask ?? { title: '', description: '', fileUrl: null, publishedAt: null }
+                const current = t.testTask ?? { title: '', description: '', hasFile: false, downloadPath: null, publishedAt: null }
                 return { ...t, testTask: { ...current, ...patch } }
             }),
         })
     }
 
-    function toggleTrackPublish(trackId: string) {
+    // Backend поддерживает только одностороннюю публикацию (POST .../publish
+    // кидает "already published", если уже опубликовано) — ручки "снять с
+    // публикации" не существует вообще, поэтому кнопка тоже должна быть
+    // односторонней, а не тоглом.
+    function publishTrack(trackId: string) {
         if (!editDraft) return
         patchDraft({
             tracks: editDraft.tracks.map(t => {
-                if (t.id !== trackId || !t.testTask) return t
-                const isPublished = !!t.testTask.publishedAt
-                return { ...t, testTask: { ...t.testTask, publishedAt: isPublished ? null : new Date().toISOString() } }
+                if (t.id !== trackId || !t.testTask || t.testTask.publishedAt) return t
+                return { ...t, testTask: { ...t.testTask, publishedAt: new Date().toISOString() } }
             }),
         })
     }
@@ -234,7 +359,7 @@ export default function AdminCohortsPage() {
                         <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1">Когорты</h1>
                         <p className="text-sm text-[#6B6880]">Управление потоками практики.</p>
                     </div>
-                    <button onClick={() => setShowCreateModal(true)}
+                    <button onClick={openCreateModal}
                         className="text-sm font-semibold text-white px-5 py-2.5 rounded-xl shadow-md"
                         style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
                         + Создать когорту
@@ -343,19 +468,19 @@ export default function AdminCohortsPage() {
             {/* ── МОДАЛКА: СОЗДАТЬ КОГОРТУ ── */}
             {showCreateModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-                    onClick={() => setShowCreateModal(false)}>
+                    {...createModalOverlay}>
                     <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg mx-4"
                         onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="font-bold text-xl text-[#1C1A3A]">Новая когорта</h3>
-                            <button onClick={() => setShowCreateModal(false)}
+                            <button onClick={closeCreateModal}
                                 className="text-[#6B6880] hover:text-[#1C1A3A] text-2xl leading-none">×</button>
                         </div>
 
                         <div className="flex flex-col gap-5">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-sm font-medium text-[#1C1A3A]">Название потока</label>
-                                <input type="text" placeholder="Практика 2027"
+                                <label className="text-sm font-medium text-[#1C1A3A]">Название потока <span className="text-[#4A42D4]">*</span></label>
+                                <input type="text" placeholder="Практика 2027" required
                                     value={newCohort.title}
                                     onChange={e => setNewCohort(prev => ({ ...prev, title: e.target.value }))}
                                     className="w-full text-sm" />
@@ -363,14 +488,14 @@ export default function AdminCohortsPage() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#1C1A3A]">Начало приёма заявок</label>
-                                    <input type="date" value={newCohort.application_start}
+                                    <label className="text-sm font-medium text-[#1C1A3A]">Начало приёма заявок <span className="text-[#4A42D4]">*</span></label>
+                                    <input type="date" required value={newCohort.application_start}
                                         onChange={e => setNewCohort(prev => ({ ...prev, application_start: e.target.value }))}
                                         className="w-full text-sm" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#1C1A3A]">Конец приёма заявок</label>
-                                    <input type="date" value={newCohort.application_end}
+                                    <label className="text-sm font-medium text-[#1C1A3A]">Конец приёма заявок <span className="text-[#4A42D4]">*</span></label>
+                                    <input type="date" required value={newCohort.application_end}
                                         onChange={e => setNewCohort(prev => ({ ...prev, application_end: e.target.value }))}
                                         className="w-full text-sm" />
                                 </div>
@@ -378,14 +503,14 @@ export default function AdminCohortsPage() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#1C1A3A]">Начало практики</label>
-                                    <input type="date" value={newCohort.start_date}
+                                    <label className="text-sm font-medium text-[#1C1A3A]">Начало практики <span className="text-[#4A42D4]">*</span></label>
+                                    <input type="date" required value={newCohort.start_date}
                                         onChange={e => setNewCohort(prev => ({ ...prev, start_date: e.target.value }))}
                                         className="w-full text-sm" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#1C1A3A]">Конец практики</label>
-                                    <input type="date" value={newCohort.end_date}
+                                    <label className="text-sm font-medium text-[#1C1A3A]">Конец практики <span className="text-[#4A42D4]">*</span></label>
+                                    <input type="date" required value={newCohort.end_date}
                                         onChange={e => setNewCohort(prev => ({ ...prev, end_date: e.target.value }))}
                                         className="w-full text-sm" />
                                 </div>
@@ -398,18 +523,18 @@ export default function AdminCohortsPage() {
                                 </p>
                             </div>
 
-                            {createError && (
-                                <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
-                                    <p className="text-sm text-[#C93B3B]">⚠️ {createError}</p>
+                            {createErrors.map((message, i) => (
+                                <div key={i} className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
+                                    <p className="text-sm text-[#C93B3B]">⚠️ {message}</p>
                                 </div>
-                            )}
+                            ))}
 
                             <div className="flex justify-end gap-3 mt-2">
-                                <button onClick={() => setShowCreateModal(false)}
+                                <button onClick={closeCreateModal}
                                     className="px-5 py-2.5 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-xl">
                                     Отмена
                                 </button>
-                                <button disabled={createLoading || !newCohort.title} onClick={handleCreateCohort}
+                                <button disabled={createLoading || !isCreateFormComplete()} onClick={handleCreateCohort}
                                     className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-md disabled:opacity-60"
                                     style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
                                     {createLoading ? 'Создаём…' : 'Создать'}
@@ -423,7 +548,7 @@ export default function AdminCohortsPage() {
             {/* ── МОДАЛКА: РЕДАКТИРОВАТЬ КОГОРТУ (черновик) ── */}
             {editDraft && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-                    onClick={closeEdit}>
+                    {...editModalOverlay}>
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col"
                         onClick={e => e.stopPropagation()}>
 
@@ -468,18 +593,25 @@ export default function AdminCohortsPage() {
                                     <div className="flex flex-col gap-2">
                                         <label className="text-sm font-medium text-[#1C1A3A]">Статус когорты</label>
                                         <div className="flex gap-2">
-                                            {(['draft', 'active', 'closed'] as CohortStatus[]).map(s => (
-                                                <button key={s} onClick={() => handleStatusChange(s)}
-                                                    className={`px-4 py-2 text-sm font-semibold rounded-lg border transition-all
-                                                        ${editDraft.status === s
-                                                            ? STATUS_STYLES[s] + ' border-current'
-                                                            : 'text-[#6B6880] border-[#E4E2F4] hover:bg-[#F5F4FD]'}`}>
-                                                    {STATUS_LABELS[s]}
-                                                </button>
-                                            ))}
+                                            {(['draft', 'active', 'closed'] as CohortStatus[]).map(s => {
+                                                const allowed = canSetStatus(editDraft.status, s)
+                                                return (
+                                                    <button key={s} disabled={!allowed} onClick={() => handleStatusChange(s)}
+                                                        title={!allowed ? 'Такой переход статуса недоступен' : undefined}
+                                                        className={`px-4 py-2 text-sm font-semibold rounded-lg border transition-all
+                                                            ${editDraft.status === s
+                                                                ? STATUS_STYLES[s] + ' border-current'
+                                                                : allowed
+                                                                    ? 'text-[#6B6880] border-[#E4E2F4] hover:bg-[#F5F4FD]'
+                                                                    : 'text-[#C7C5D6] border-[#E4E2F4] opacity-50 cursor-not-allowed'}`}>
+                                                        {STATUS_LABELS[s]}
+                                                    </button>
+                                                )
+                                            })}
                                         </div>
                                         <p className="text-xs text-[#6B6880]">
-                                            Черновик — невидим для кандидатов · Активна — принимаются заявки · Закрыта — только архив
+                                            Черновик — невидим для кандидатов · Активна — принимаются заявки · Закрыта — только архив.
+                                            Вернуть закрытую или активную когорту в черновик нельзя — переходы статуса односторонние.
                                         </p>
                                     </div>
 
@@ -551,11 +683,13 @@ export default function AdminCohortsPage() {
                                             {editDraft.tracks.map(track => (
                                                 <TrackEditor
                                                     key={track.id}
+                                                    cohortId={editDraft.id}
                                                     track={track}
                                                     onRemove={() => removeTrack(track.id)}
                                                     onTitleChange={title => updateTrackTitle(track.id, title)}
                                                     onSaveTestTask={patch => saveTrackTestTask(track.id, patch)}
-                                                    onTogglePublish={() => toggleTrackPublish(track.id)}
+                                                    onPublish={() => publishTrack(track.id)}
+                                                    onFileUploaded={task => saveTrackTestTask(track.id, task)}
                                                 />
                                             ))}
                                         </div>
@@ -647,11 +781,11 @@ export default function AdminCohortsPage() {
                                 </div>
                             )}
 
-                            {editError && (
-                                <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3 mt-5">
-                                    <p className="text-sm text-[#C93B3B]">⚠️ {editError}</p>
+                            {editErrors.map((message, i) => (
+                                <div key={i} className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3 mt-5">
+                                    <p className="text-sm text-[#C93B3B]">⚠️ {message}</p>
                                 </div>
-                            )}
+                            ))}
                         </div>
 
                         {/* Футер */}
@@ -675,20 +809,54 @@ export default function AdminCohortsPage() {
 
 // ── Редактор трека (название + тестовое задание) — правки идут в draft ──
 function TrackEditor({
+    cohortId,
     track,
     onRemove,
     onTitleChange,
     onSaveTestTask,
-    onTogglePublish,
+    onPublish,
+    onFileUploaded,
 }: {
+    cohortId: string
     track: Track
     onRemove: () => void
     onTitleChange: (title: string) => void
     onSaveTestTask: (patch: Partial<NonNullable<Track['testTask']>>) => void
-    onTogglePublish: () => void
+    onPublish: () => void
+    onFileUploaded: (task: TestTask) => void
 }) {
     const [title, setTitle] = useState(track.testTask?.title ?? '')
     const [description, setDescription] = useState(track.testTask?.description ?? '')
+    const [fileUploading, setFileUploading] = useState(false)
+    const [fileErrors, setFileErrors] = useState<string[]>([])
+
+    // Файл можно прикрепить только к уже существующему на сервере тестовому
+    // заданию — на самом верхнем "Сохранить" когорты это создалось бы само,
+    // но заставлять сохранять всю когорту только ради файла неудобно.
+    // Поэтому перед загрузкой файла сначала тихо сохраняем (upsert)
+    // заголовок/описание отдельным запросом — если сам ТРЕК уже существует
+    // на сервере (обычный случай при редактировании уже сохранённой когорты),
+    // это делает прикрепление файла одним действием без похода к общей
+    // кнопке "Сохранить". Если трек тоже ещё не сохранён (только что
+    // добавлен в этой сессии) — запрос упадёт с понятной подсказкой.
+    async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0]
+        e.target.value = ''
+        if (!file) return
+        setFileErrors([])
+        setFileUploading(true)
+        try {
+            await updateTrackTestTask(cohortId, track.id, { title: title.trim() || 'Тестовое задание', description: description.trim() })
+            const updated = await uploadTestTaskFile(cohortId, track.id, file)
+            setTitle(updated.title)
+            setDescription(updated.description)
+            onFileUploaded(updated)
+        } catch (err: unknown) {
+            setFileErrors(describeApiErrors(err, 'Не удалось загрузить файл'))
+        } finally {
+            setFileUploading(false)
+        }
+    }
 
     return (
         <div className="rounded-xl border border-[#E4E2F4] bg-[#FBFAFF] p-5 flex flex-col gap-4">
@@ -718,13 +886,36 @@ function TrackEditor({
                     placeholder="Опишите задание для этого трека…"
                     className="w-full text-sm resize-none rounded-lg border border-[#E4E2F4] bg-white px-3.5 py-2.5 focus:outline-none focus:border-[#6C63FF]" />
 
-                <button onClick={onTogglePublish} disabled={!title && !description}
-                    className={`self-start text-xs font-semibold px-4 py-1.5 rounded-lg border transition-all disabled:opacity-40
-                        ${track.testTask?.publishedAt
-                            ? 'border-[#D94F4F] text-[#C93B3B] hover:bg-[#FFF5F5]'
-                            : 'border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF]'}`}>
-                    {track.testTask?.publishedAt ? 'Снять с публикации' : 'Опубликовать'}
-                </button>
+                <div className="flex items-center gap-3">
+                    <label className={`text-xs font-semibold px-4 py-1.5 rounded-lg border transition-all cursor-pointer
+                        ${fileUploading ? 'opacity-50 pointer-events-none' : 'border-[#E4E2F4] text-[#6B6880] hover:bg-[#F5F4FD]'}`}>
+                        {fileUploading ? 'Загружаем…' : track.testTask?.hasFile ? '🔄 Заменить файл' : '📎 Прикрепить файл'}
+                        <input type="file" className="hidden" accept=".pdf,.doc,.docx,.zip" onChange={handleFileSelected} disabled={fileUploading} />
+                    </label>
+                    {track.testTask?.hasFile && track.testTask.downloadPath && (
+                        <button onClick={() => downloadProtectedFile(track.testTask!.downloadPath!, track.testTask!.title || 'Тестовое задание').catch(err => setFileErrors([err instanceof Error ? err.message : 'Не удалось скачать файл']))}
+                            className="text-xs font-semibold text-[#4A42D4] hover:underline">
+                            ⬇ Скачать текущий
+                        </button>
+                    )}
+                </div>
+
+                {fileErrors.map((message, i) => (
+                    <div key={i} className="bg-[#FFF5F5] border border-[#F0BABA] rounded-lg px-3 py-2">
+                        <p className="text-xs text-[#C93B3B]">⚠️ {message}</p>
+                    </div>
+                ))}
+
+                {track.testTask?.publishedAt ? (
+                    <span className="self-start text-xs text-[#6B6880]">
+                        Опубликовано — backend не поддерживает снятие с публикации, только удаление всего задания.
+                    </span>
+                ) : (
+                    <button onClick={onPublish} disabled={!title && !description}
+                        className="self-start text-xs font-semibold px-4 py-1.5 rounded-lg border transition-all disabled:opacity-40 border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF]">
+                        Опубликовать
+                    </button>
+                )}
             </div>
         </div>
     )

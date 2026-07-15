@@ -1,14 +1,26 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import AdminDocumentsPage from './page'
 import { saveToken, saveUser } from '@/lib/api/session'
 import { CohortWorkspaceContext, type CohortWorkspaceContextValue } from '../cohort-context'
-import type { Application } from '@/services/api/invitation'
 import type { Cohort } from '@/services/api/cohorts'
-import { uploadReport } from '@/services/api/documents'
+import type { AdminDocumentSummary } from '@/services/api/admin'
 
 const COHORT_ID = 'cohort-1'
 const APP_ID = 'app-1'
+
+const { getAdminDocuments, updateAdminDocumentField, updateReportStatus, getAdminApplicationDocumentDetail } = vi.hoisted(() => ({
+    getAdminDocuments: vi.fn(),
+    updateAdminDocumentField: vi.fn(),
+    updateReportStatus: vi.fn(),
+    getAdminApplicationDocumentDetail: vi.fn(),
+}))
+
+vi.mock('@/services/api/admin', () => ({ getAdminDocuments, updateAdminDocumentField, updateReportStatus }))
+vi.mock('@/services/api/documents', async () => {
+    const actual = await vi.importActual<typeof import('@/services/api/documents')>('@/services/api/documents')
+    return { ...actual, getAdminApplicationDocumentDetail }
+})
 
 function loginAsAdmin() {
     saveToken('mock-jwt-admin-1')
@@ -29,23 +41,24 @@ function makeCohort(): Cohort {
     }
 }
 
-function seedApprovedApplication() {
-    const apps: Application[] = [{
-        id: APP_ID,
-        status: 'approved',
-        submitted_at: '2027-07-05T00:00:00.000Z',
-        track: { id: 'track-1', title: 'Backend' },
-        cohort: { id: COHORT_ID, title: 'Практика 2027', start_date: '2027-07-01T00:00:00.000Z', end_date: '2027-07-31T00:00:00.000Z' },
-        student: { id: 'student-1', email: 'anna@urfu.ru' },
-        answers: [],
-    }]
-    localStorage.setItem('mock_applications', JSON.stringify(apps))
-}
+const DOCUMENT_TYPES = ['INDIVIDUAL_TASK', 'TITLE_PAGE', 'REVIEW', 'NOTICE'] as const
 
-function makeFile(name: string, sizeBytes: number): File {
-    const file = new File(['x'.repeat(Math.min(sizeBytes, 1024))], name, { type: 'application/pdf' })
-    Object.defineProperty(file, 'size', { value: sizeBytes })
-    return file
+function makeDocumentSummary(overrides: Partial<AdminDocumentSummary> = {}): AdminDocumentSummary {
+    return {
+        applicationId: APP_ID,
+        student: { id: 'student-1', email: 'anna@urfu.ru' },
+        track: { id: 'track-1', title: 'Backend' },
+        report: null,
+        documents: DOCUMENT_TYPES.map(type => ({
+            type,
+            ready: false,
+            missingFields: ['student_fio'],
+            generated: false,
+            generatedAt: null,
+            downloadPath: null,
+        })),
+        ...overrides,
+    }
 }
 
 function renderWithCohort() {
@@ -69,7 +82,14 @@ describe('AdminDocumentsPage', () => {
     beforeEach(() => {
         localStorage.clear()
         loginAsAdmin()
-        seedApprovedApplication()
+        vi.clearAllMocks()
+        getAdminDocuments.mockResolvedValue([makeDocumentSummary()])
+        getAdminApplicationDocumentDetail.mockResolvedValue({
+            applicationId: APP_ID,
+            fieldValues: DOCUMENT_TYPES.map(type => ({ type, values: [] })),
+        })
+        updateAdminDocumentField.mockResolvedValue({ id: 'field-1', key: 'review_grade', value: 'Отлично', filledBy: 'ADMIN' })
+        updateReportStatus.mockResolvedValue(undefined)
     })
 
     it('показывает карточку одобренной заявки со всеми 4 типами документов', async () => {
@@ -87,8 +107,6 @@ describe('AdminDocumentsPage', () => {
         await screen.findByText('anna@urfu.ru', {}, { timeout: 3000 })
 
         fireEvent.click(screen.getByText('▼ Показать детали и отзыв'))
-        // "Отзыв руководителя практики" встречается дважды: в сводке типов сверху
-        // и в развёрнутом блоке деталей — берём последнее вхождение (деталей)
         await waitFor(() => expect(screen.getAllByText('Отзыв руководителя практики').length).toBeGreaterThan(1), { timeout: 3000 })
         const occurrences = screen.getAllByText('Отзыв руководителя практики')
         const reviewCard = occurrences[occurrences.length - 1]
@@ -99,30 +117,31 @@ describe('AdminDocumentsPage', () => {
         fireEvent.change(gradeInput, { target: { value: 'Отлично' } })
         fireEvent.blur(gradeInput)
 
-        await waitFor(() => expect(within(card).queryByText('сохраняем…')).not.toBeInTheDocument(), { timeout: 3000 })
-        expect(gradeInput).toHaveValue('Отлично')
+        await waitFor(() => expect(updateAdminDocumentField).toHaveBeenCalledWith(COHORT_ID, APP_ID, 'REVIEW', 'review_grade', 'Отлично'))
     })
 
     it('одобряет загруженный отчёт', async () => {
-        await uploadReport(APP_ID, makeFile('otchet.pdf', 1024))
+        getAdminDocuments.mockResolvedValue([
+            makeDocumentSummary({ report: { status: 'PENDING', uploadedAt: '2027-07-06T00:00:00.000Z', reviewedAt: null, downloadPath: '/x' } }),
+        ])
         renderWithCohort()
 
         expect(await screen.findByText('Отчёт: На проверке', {}, { timeout: 3000 })).toBeInTheDocument()
         fireEvent.click(screen.getByRole('button', { name: 'Одобрить' }))
 
-        await waitFor(() => expect(screen.getByText('Отчёт: Одобрен')).toBeInTheDocument(), { timeout: 3000 })
-        const stored = JSON.parse(localStorage.getItem('mock_reports') ?? '[]')
-        expect(stored[0].status).toBe('APPROVED')
+        await waitFor(() => expect(updateReportStatus).toHaveBeenCalledWith(COHORT_ID, APP_ID, 'APPROVED'))
     })
 
     it('фильтрует по готовности документов', async () => {
         renderWithCohort()
         await screen.findByText('anna@urfu.ru', {}, { timeout: 3000 })
 
+        getAdminDocuments.mockResolvedValue([])
         const selects = screen.getAllByRole('combobox')
         const readinessSelect = selects[2] // трек / статус отчёта / готовность
         fireEvent.change(readinessSelect, { target: { value: 'READY' } })
 
         expect(await screen.findByText('Ничего не найдено', {}, { timeout: 3000 })).toBeInTheDocument()
+        expect(getAdminDocuments).toHaveBeenLastCalledWith(COHORT_ID, expect.objectContaining({ readiness: 'READY' }))
     })
 })

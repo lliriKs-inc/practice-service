@@ -1,37 +1,10 @@
 // services/api/invitation.ts
 //
-// ┌───────────────────────────────────────────────────────────────┐
-// │ [MOCK] Как убрать моки, когда бэк будет готов:                │
-// │  1. grep -rn "\[MOCK\]" services/  — найдёт все места в проекте│
-// │  2. Здесь: поставить USE_MOCKS = false                        │
-// │  3. Удалить блок "[MOCK-DATA]" ниже и все ветки if (USE_MOCKS) │
-// │                                                                 │
-// │ [MOCK-LINK] Этот файл читает когорты из общего мок-хранилища  │
-// │ cohorts.ts (localStorage key mock_cohorts) через mockPeekCohorts│
-// │ — так /apply/[token] видит РЕАЛЬНЫЕ треки и вопросы анкеты,   │
-// │ настроенные в админке, а не статичный набор.                  │
-// │                                                                 │
-// │ [MOCK-LINK] Заявки хранят student.id — getMyApplications()    │
-// │ показывает только СВОИ заявки, getAllApplications() — отдаёт  │
-// │ админке полный список.                                        │
-// │                                                                 │
-// │ [MOCK-LINK] Заявка теперь хранит даты практики когорты и      │
-// │ подписанные ответы анкеты (label+value) прямо на себе — это   │
-// │ снимок на момент подачи, не требует повторного джойна.        │
-// └───────────────────────────────────────────────────────────────┘
+// Реальный API (см. docs/api/admissions.md, docs/api-contract.md). Контракт
+// подтверждён вручную (curl/E2E) против backend после мержа cohort-api-complete.
 
-import { getToken, getUser } from './auth'
-import { mockPeekCohorts } from './cohorts'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-
-// [MOCK-CONFIG] Единственный переключатель. false — реальные запросы к API.
-export const USE_MOCKS = true
-
-// [MOCK] искусственная задержка, чтобы UI (спиннеры/скелетоны) вели себя как с реальной сетью
-function mockDelay(ms = 400) {
-    return new Promise(resolve => setTimeout(resolve, ms))
-}
+import { getUser } from './auth'
+import { apiFetch } from '@/lib/api/http'
 
 export interface Track {
     id: string
@@ -51,7 +24,6 @@ export interface InvitationForm {
     cohort: {
         id: string
         title: string
-        status: 'draft' | 'active' | 'closed'
     }
     tracks: Track[]
     questions: Question[]
@@ -71,116 +43,88 @@ export interface Application {
     id: string
     status: 'pending' | 'approved' | 'rejected'
     submitted_at: string
+    rejection_reason?: string | null
     track: { id: string; title: string }
     cohort: {
         id: string
         title: string
-        // [MOCK-LINK] нужны, чтобы дневник задач знал границы практики
-        // именно ДЛЯ ЭТОЙ конкретной когорты, а не общий заглушечный диапазон
+        // Совпадает с реальным полем практики (practice_start/practice_end) —
+        // нужны дневнику задач, чтобы знать границы практики этой когорты.
         start_date: string
         end_date: string
     }
-    // [MOCK-LINK] кто подал заявку — на реальном бэке выводится из JWT на сервере
+    // Есть только в админских ответах (listForCohort/getForCohort) — сервер
+    // подставляет из JWT/route, в собственном /me/applications его нет.
     student?: { id: string; email: string }
-    // [MOCK-LINK] снимок ответов анкеты на момент подачи — чтобы админ видел,
-    // что кандидат написал, без повторного похода к вопросам когорты
     answers?: ApplicationAnswer[]
 }
 
-function authHeaders() {
+function mapQuestionType(type: string): Question['type'] {
+    return type.toLowerCase() as Question['type']
+}
+
+function mapQuestion(raw: any): Question {
     return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getToken()}`,
+        id: raw.id,
+        label: raw.label,
+        type: mapQuestionType(raw.type),
+        required: raw.required,
+        options: Array.isArray(raw.options) ? raw.options : [],
+        order_index: raw.order_index ?? 0,
     }
 }
 
-// ════════════════════════════════════════════════════════════════
-// [MOCK-DATA] — весь этот блок удаляется при отключении моков
-// ════════════════════════════════════════════════════════════════
-
-const MOCK_APPS_KEY = 'mock_applications' // [MOCK] localStorage key — тоже подчистить
-
-function mockLoadApplications(): Application[] {
-    if (typeof window === 'undefined') return []
-    try {
-        const raw = localStorage.getItem(MOCK_APPS_KEY)
-        return raw ? JSON.parse(raw) : []
-    } catch {
-        return []
+function mapApplication(raw: any): Application {
+    return {
+        id: raw.id,
+        status: String(raw.status).toLowerCase() as Application['status'],
+        submitted_at: raw.submitted_at,
+        rejection_reason: raw.rejection_reason ?? null,
+        track: { id: raw.track.id, title: raw.track.title },
+        cohort: {
+            id: raw.track.cohort.id,
+            title: raw.track.cohort.title,
+            start_date: raw.track.cohort.practice_start,
+            end_date: raw.track.cohort.practice_end,
+        },
+        student: raw.user ? { id: raw.user.id, email: raw.user.email } : undefined,
+        answers: Array.isArray(raw.answers)
+            ? raw.answers.map((a: any) => ({ label: a.question?.label ?? 'Вопрос', value: a.answer_value }))
+            : undefined,
     }
-}
-
-function mockSaveApplications(apps: Application[]) {
-    if (typeof window === 'undefined') return
-    localStorage.setItem(MOCK_APPS_KEY, JSON.stringify(apps))
-}
-
-function mockUid() {
-    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
-    return Math.random().toString(36).slice(2, 11)
-}
-
-// [MOCK] находит когорту по токену приглашения среди РЕАЛЬНЫХ когорт,
-// созданных в админке — единая точка правды вместо статичного мока
-function mockFindCohortByToken(token: string) {
-    return mockPeekCohorts().find(c => c.invitation?.token === token)
-}
-
-// [MOCK-ONLY] вызывать из консоли браузера чтобы обнулить архив заявок при тестировании
-export function resetMockApplications() {
-    if (typeof window === 'undefined') return
-    localStorage.removeItem(MOCK_APPS_KEY)
 }
 
 // У студента может быть только одна "активная" заявка одновременно —
 // на рассмотрении или уже одобренная. Пока она не отклонена, подать новую
 // анкету нельзя (иначе непонятно, какая заявка ведёт дневник задач).
 // Отклонённые заявки в счёт не идут — по ним можно попробовать снова.
+//
+// Реальный backend разрешает несколько заявок от одного пользователя (по
+// одной на трек — уникальность (user_id, track_id)), поэтому это правило
+// сейчас проверяется только на фронте; см. вопрос backend-команде в прогрессе.
 export async function hasActiveApplication(): Promise<boolean> {
     const currentUser = getUser()
     if (!currentUser) return false
-    if (USE_MOCKS) {
-        await mockDelay(150)
-        return mockLoadApplications().some(
-            a => a.student?.id === currentUser.id && (a.status === 'pending' || a.status === 'approved')
-        )
-    }
     const apps = await getMyApplications()
     return apps.some(a => a.status === 'pending' || a.status === 'approved')
 }
 
-// ════════════════════════════════════════════════════════════════
-// [MOCK-DATA] конец блока
-// ════════════════════════════════════════════════════════════════
-
 // GET /public/invitations/:token/form — публичный, без авторизации
 export async function getInvitationForm(token: string): Promise<InvitationForm> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay()
-
-        if (token === 'invalid') throw new Error('Ссылка недействительна')
-        if (token === 'expired') throw new Error('Срок действия ссылки истёк')
-
-        const cohort = mockFindCohortByToken(token)
-        if (!cohort) throw new Error('Ссылка недействительна')
-        if (cohort.status === 'draft') throw new Error('Приём заявок в эту когорту ещё не открыт')
-        if (cohort.status === 'closed') throw new Error('Приём заявок в эту когорту закрыт')
-
+    try {
+        const data = await apiFetch<any>(`/public/invitations/${token}/form`, { skipAuthRedirect: true })
         return {
-            cohort: { id: cohort.id, title: cohort.title, status: cohort.status },
-            tracks: cohort.tracks.map(t => ({ id: t.id, title: t.title })),
-            questions: cohort.survey?.questions ?? [],
+            cohort: { id: data.cohort.id, title: data.cohort.title },
+            tracks: data.tracks.map((t: any) => ({ id: t.id, title: t.title })),
+            questions: (data.survey?.questions ?? []).map(mapQuestion),
         }
+    } catch (err: unknown) {
+        const code = (err as { details?: { code?: string } } | undefined)?.details?.code
+        if (code === 'INVALID_TOKEN') throw new Error('Ссылка недействительна')
+        if (code === 'TOKEN_EXPIRED') throw new Error('Срок действия ссылки истёк')
+        if (code === 'APPLICATION_WINDOW_CLOSED') throw new Error('Приём заявок в эту когорту сейчас закрыт')
+        throw err instanceof Error ? err : new Error('Не удалось загрузить анкету')
     }
-
-    const res = await fetch(`${API_URL}/public/invitations/${token}/form`)
-    if (res.status === 404) throw new Error('Ссылка недействительна')
-    if (res.status === 410) throw new Error('Срок действия ссылки истёк')
-    if (!res.ok) throw new Error('Не удалось загрузить анкету')
-    const data = await res.json()
-    if (data.success && data.data) return data.data
-    return data
 }
 
 // POST /public/invitations/:token/applications — требует авторизации
@@ -189,139 +133,50 @@ export async function submitApplication(
     trackId: string,
     answers: ApplicationAnswerDto[]
 ): Promise<Application> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay(600)
-
-        const cohort = mockFindCohortByToken(token)
-        if (!cohort) throw new Error('Ссылка недействительна')
-
-        const currentUser = getUser()
-        const alreadyActive = mockLoadApplications().some(
-            a => a.student?.id === currentUser?.id && (a.status === 'pending' || a.status === 'approved')
-        )
-        if (alreadyActive) {
-            throw new Error('У тебя уже есть активная заявка (на рассмотрении или одобренная). Новую можно подать только после отказа по текущей.')
-        }
-
-        const track = cohort.tracks.find(t => t.id === trackId)
-
-        // [MOCK] резолвим label вопроса на момент подачи, чтобы не джойнить повторно
-        const resolvedAnswers: ApplicationAnswer[] = answers
-            .map(a => {
-                const question = cohort.survey?.questions.find(q => q.id === a.question_id)
-                return { label: question?.label ?? 'Вопрос', value: a.answer_value }
-            })
-            .filter(a => a.value.trim() !== '')
-
-        const app: Application = {
-            id: mockUid(),
-            status: 'pending',
-            submitted_at: new Date().toISOString(),
-            track: track ? { id: track.id, title: track.title } : { id: trackId, title: 'Неизвестный трек' },
-            cohort: {
-                id: cohort.id,
-                title: cohort.title,
-                start_date: cohort.start_date,
-                end_date: cohort.end_date,
-            },
-            student: currentUser ? { id: currentUser.id, email: currentUser.email } : undefined,
-            answers: resolvedAnswers,
-        }
-        mockSaveApplications([app, ...mockLoadApplications()])
-        return app
-    }
-
-    const res = await fetch(`${API_URL}/public/invitations/${token}/applications`, {
+    const data = await apiFetch<any>(`/public/invitations/${token}/applications`, {
         method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ track_id: trackId, answers }),
+        body: { track_id: trackId, answers },
     })
-    const data = await res.json()
-    if (!res.ok) {
-        throw new Error(data.message || data.errors?.[0] || 'Не удалось подать заявку')
-    }
-    if (data.success && data.data) return data.data
-    return data
+    return mapApplication(data)
 }
 
 // GET /me/applications — архив заявок ТЕКУЩЕГО студента
 export async function getMyApplications(): Promise<Application[]> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay()
-        const currentUser = getUser()
-        return mockLoadApplications().filter(a => a.student?.id === currentUser?.id)
-    }
-
-    const res = await fetch(`${API_URL}/me/applications`, { headers: authHeaders() })
-    if (!res.ok) throw new Error('Не удалось загрузить заявки')
-    const data = await res.json()
-    if (Array.isArray(data)) return data
-    if (data.success && Array.isArray(data.data)) return data.data
-    return []
+    const data = await apiFetch<any[]>('/me/applications')
+    return data.map(mapApplication)
 }
 
 // GET /me/applications/:id — одна заявка
 export async function getMyApplication(applicationId: string): Promise<Application> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay()
-        const app = mockLoadApplications().find(a => a.id === applicationId)
-        if (!app) throw new Error('Заявка не найдена')
-        return app
-    }
-
-    const res = await fetch(`${API_URL}/me/applications/${applicationId}`, { headers: authHeaders() })
-    if (!res.ok) throw new Error('Заявка не найдена')
-    const data = await res.json()
-    if (data.success && data.data) return data.data
-    return data
+    return mapApplication(await apiFetch<any>(`/me/applications/${applicationId}`))
 }
 
 // ── Админ: видит заявки ВСЕХ студентов ────────────────────────────
 
-// GET /cohorts/:id/applications (ADMIN) — все заявки, опционально по когорте
-export async function getAllApplications(cohortId?: string): Promise<Application[]> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay()
-        const all = mockLoadApplications()
-        return cohortId ? all.filter(a => a.cohort.id === cohortId) : all
-    }
-
-    const url = cohortId ? `${API_URL}/cohorts/${cohortId}/applications` : `${API_URL}/applications`
-    const res = await fetch(url, { headers: authHeaders() })
-    if (!res.ok) throw new Error('Не удалось загрузить заявки')
-    const data = await res.json()
-    if (Array.isArray(data)) return data
-    if (data.success && Array.isArray(data.data)) return data.data
-    return []
+// GET /cohorts/:id/applications (ADMIN) — все заявки когорты
+export async function getAllApplications(cohortId: string): Promise<Application[]> {
+    const data = await apiFetch<any[]>(`/cohorts/${cohortId}/applications`)
+    return data.map(mapApplication)
 }
 
-// PATCH /applications/:id/status (ADMIN) — одобрить/отклонить заявку
-export async function updateApplicationStatus(
-    applicationId: string,
-    status: 'approved' | 'rejected'
-): Promise<Application> {
-    if (USE_MOCKS) {
-        // [MOCK]
-        await mockDelay()
-        const apps = mockLoadApplications()
-        const idx = apps.findIndex(a => a.id === applicationId)
-        if (idx === -1) throw new Error('Заявка не найдена')
-        apps[idx] = { ...apps[idx], status }
-        mockSaveApplications(apps)
-        return apps[idx]
-    }
+// GET /cohorts/:cohortId/applications/:applicationId (ADMIN)
+export async function getApplicationForCohort(cohortId: string, applicationId: string): Promise<Application> {
+    return mapApplication(await apiFetch<any>(`/cohorts/${cohortId}/applications/${applicationId}`))
+}
 
-    const res = await fetch(`${API_URL}/applications/${applicationId}/status`, {
+// PATCH /cohorts/:cohortId/applications/:applicationId/status (ADMIN)
+export async function updateApplicationStatus(
+    cohortId: string,
+    applicationId: string,
+    status: 'approved' | 'rejected',
+    rejectionReason?: string
+): Promise<Application> {
+    const data = await apiFetch<any>(`/cohorts/${cohortId}/applications/${applicationId}/status`, {
         method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify({ status }),
+        body: {
+            status: status.toUpperCase(),
+            ...(status === 'rejected' ? { rejection_reason: rejectionReason ?? 'Не указана' } : {}),
+        },
     })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Не удалось обновить статус заявки')
-    if (data.success && data.data) return data.data
-    return data
+    return mapApplication(data)
 }

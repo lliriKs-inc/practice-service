@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// F-06: E2E — работает поверх мокового домена (localStorage), как и весь
-// остальной фронт до появления интеграционного контракта на cohort/track/
-// survey/invitation API (см. BACKEND_GAP_COHORT_API.md в корне репозитория).
+// E2E поверх настоящего backend (Docker, порт 3001) — cohort/track/survey/
+// invitation/application/tasks/documents больше не мокаются, см.
+// infa/HANDOFF_2026-07-15_REAL_API_CUTOVER.md.
 export default defineConfig({
     testDir: './e2e',
     // Последовательно: register/login идут через реальный backend rate
