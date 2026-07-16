@@ -76,13 +76,14 @@ npm.cmd test
 3. `PUT /api/v1/me/daily-tasks/:taskId` с description и links → `200`, `saved_at` обновлён.
 4. Повторное сохранение полностью заменяет links.
 5. ADMIN читает `/cohorts/:cohortId/progress` и видит application.
+   STUDENT с `APPROVED` application в этой когорте через explicit toggle видит всех approved участников; студент без участия не получает данные.
 6. ADMIN читает `/cohorts/:cohortId/progress/missed`; future days не считаются пропусками.
 7. Student заполняет required fields `INDIVIDUAL_TASK`, `TITLE_PAGE`, `NOTICE` через autosave.
 8. ADMIN заполняет required fields `REVIEW` через admin autosave.
 9. Student загружает report multipart field `report`; response не содержит storage key.
 10. ADMIN переводит report в `APPROVED`.
 11. Readiness показывает все четыре document types ready.
-12. Сгенерировать `individual-task`, `review`, `title-page`, `notice`; каждый ответ — DOCX attachment.
+12. Сгенерировать `INDIVIDUAL_TASK`, `REVIEW`, `TITLE_PAGE`, `NOTICE` через `POST /me/applications/:applicationId/documents/:type/generate`; каждый ответ — DOCX attachment.
 13. Readiness после generation показывает `generated=true` для всех четырёх types.
 14. Student скачивает собственные report и generated document.
 15. ADMIN скачивает те же resources через cohort-scoped paths.

@@ -15,19 +15,11 @@ export type DocumentType = 'INDIVIDUAL_TASK' | 'TITLE_PAGE' | 'REVIEW' | 'NOTICE
 // Совпадает с backend/src/modules/documents/document.config.ts
 export const DOCUMENT_TYPES: DocumentType[] = ['INDIVIDUAL_TASK', 'TITLE_PAGE', 'REVIEW', 'NOTICE']
 
-// Slug-и для generate-эндпоинтов (docs/api/documents.md)
-export const DOCUMENT_TYPE_SLUGS: Record<DocumentType, string> = {
-    INDIVIDUAL_TASK: 'individual-task',
-    TITLE_PAGE: 'title-page',
-    REVIEW: 'review',
-    NOTICE: 'notice',
-}
-
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
     INDIVIDUAL_TASK: 'Индивидуальное задание',
     TITLE_PAGE: 'Титульный лист отчёта',
     REVIEW: 'Отзыв руководителя практики',
-    NOTICE: 'Направление на практику',
+    NOTICE: 'Извещение о прохождении практики',
 }
 
 export interface DocumentFieldConfig {
@@ -57,6 +49,8 @@ export const DOCUMENT_FIELD_CONFIG: Record<DocumentType, DocumentFieldConfig[]> 
         { key: 'practice_topic', label: 'Тема практики', owner: 'STUDENT', required: true },
     ],
     REVIEW: [
+        { key: 'student_fio', label: 'ФИО студента', owner: 'STUDENT', required: true },
+        { key: 'group', label: 'Группа', owner: 'STUDENT', required: true },
         { key: 'review_activities', label: 'Виды деятельности', owner: 'ADMIN', required: true, multiline: true },
         { key: 'review_characteristic', label: 'Характеристика', owner: 'ADMIN', required: true, multiline: true },
         { key: 'review_employed', label: 'Трудоустроен', owner: 'ADMIN', required: true },
@@ -221,11 +215,11 @@ export async function updateDocumentField(
     return mapFieldValue(data)
 }
 
-// GET /me/applications/:applicationId/documents/:type/generate
+// POST /me/applications/:applicationId/documents/:type/generate
 export async function generateDocument(applicationId: string, type: DocumentType): Promise<DocumentReadinessItem> {
     const res = await fetch(
-        `${API_URL}/me/applications/${applicationId}/documents/${DOCUMENT_TYPE_SLUGS[type]}/generate`,
-        { headers: { Authorization: `Bearer ${getToken()}` } }
+        `${API_URL}/me/applications/${applicationId}/documents/${type}/generate`,
+        { method: 'POST', headers: { Authorization: `Bearer ${getToken()}` } }
     )
     if (!res.ok) {
         const data = await res.json()

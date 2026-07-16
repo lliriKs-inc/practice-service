@@ -124,6 +124,14 @@ describeIntegration(
 
       applicationId = application.id;
 
+      await db.application.create({
+        data: {
+          user_id: anotherStudentId,
+          track_id: trackId,
+          status: ApplicationStatus.APPROVED,
+        },
+      });
+
       const task = await db.dailyTask.create({
         data: {
           application_id: applicationId,
@@ -139,7 +147,7 @@ describeIntegration(
       await db.dailyTask.deleteMany();
       await db.application.deleteMany({
         where: {
-          id: applicationId,
+          track_id: trackId,
         },
       });
       await db.track.deleteMany({
@@ -286,6 +294,25 @@ describeIntegration(
             item.student.id === studentId
         )
       ).toBe(true);
+    });
+
+    it("limits cohort progress for a student to their approved application", async () => {
+      const result = await readService.getCohort(
+        cohortId,
+        "2026-07-13",
+        { id: studentId, role: UserRole.STUDENT }
+      );
+
+      expect(result.students).toHaveLength(2);
+      expect(result.students.map(({ student }) => student.id))
+        .toEqual(expect.arrayContaining([studentId, anotherStudentId]));
+
+      await expect(
+        readService.getCohort(otherCohortId, "2026-07-13", {
+          id: studentId,
+          role: UserRole.STUDENT,
+        })
+      ).rejects.toMatchObject({ code: "APPLICATION_NOT_FOUND" });
     });
   }
 );

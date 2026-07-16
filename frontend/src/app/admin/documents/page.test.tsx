@@ -98,7 +98,7 @@ describe('AdminDocumentsPage', () => {
         expect(screen.getByText('Индивидуальное задание')).toBeInTheDocument()
         expect(screen.getByText('Титульный лист отчёта')).toBeInTheDocument()
         expect(screen.getByText('Отзыв руководителя практики')).toBeInTheDocument()
-        expect(screen.getByText('Направление на практику')).toBeInTheDocument()
+        expect(screen.getByText('Извещение о прохождении практики')).toBeInTheDocument()
         expect(screen.getByText('Отчёт: Не загружен')).toBeInTheDocument()
     })
 

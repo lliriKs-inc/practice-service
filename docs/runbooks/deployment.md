@@ -32,7 +32,7 @@ Invoke-RestMethod http://localhost:3001/ready
 Invoke-WebRequest http://localhost:3000 -UseBasicParsing
 ```
 
-Then execute the candidate/practice/admin checklist in `docs/e2e-api-checklist.md`. Verify a protected report download, one audit log event and persistence after `docker compose restart backend postgres`.
+Then execute the candidate/practice/admin checklist in `docs/e2e-api-checklist.md` and the target-environment steps in `docs/runbooks/staging-acceptance.md`. Verify a protected report download, one audit log event and persistence after `docker compose restart backend postgres`.
 
 ## Rollback
 

@@ -12,7 +12,25 @@ $env:LOAD_MAX_ERROR_RATE='0.01'
 npm.cmd run load:smoke
 ```
 
-Authenticated read models can be measured by setting `LOAD_BEARER_TOKEN` and a comma-separated `LOAD_PATHS`, for example the weekly progress and admin overview endpoints with prepared IDs/query parameters.
+Use the built-in authenticated scenarios against prepared staging data. Tokens are read only from environment variables and are not printed in the summary:
+
+```powershell
+# Cohort progress, missed days, overview and document list
+$env:LOAD_SCENARIO='admin-reads'
+$env:LOAD_COHORT_ID='<cohort-id>'
+$env:LOAD_ADMIN_BEARER_TOKEN='<temporary-admin-jwt>'
+$env:LOAD_MAX_P95_MS='1500'
+npm.cmd run load:smoke
+
+# Weekly tasks, readiness, document and report read models
+$env:LOAD_SCENARIO='student-reads'
+$env:LOAD_APPLICATION_ID='<application-id>'
+$env:LOAD_STUDENT_BEARER_TOKEN='<temporary-student-jwt>'
+$env:LOAD_WEEK_START='2026-07-13' # optional
+npm.cmd run load:smoke
+```
+
+`LOAD_PATHS` plus `LOAD_BEARER_TOKEN` remains available for custom GET-only paths. Do not load-test upload or document-generation mutations: run their single-pass staging checks from `staging-acceptance.md` with disposable data instead.
 
 Release thresholds for MVP:
 
@@ -32,4 +50,6 @@ Local production Compose rehearsal on 15.07.2026, branch `release/b-production-h
 |---:|---:|---|---:|---:|---:|---:|
 | 200 | 10 | `/health`, `/ready` | 5.35 ms | 20.48 ms | 23.08 ms | 0% |
 
-The run stayed below the 750 ms p95 and 1% error-rate operational thresholds. Authenticated aggregate reads must be measured again in the target staging infrastructure because network, proxy and database sizing differ from the local rehearsal.
+The run stayed below the 750 ms p95 and 1% error-rate operational thresholds. Authenticated aggregate reads are still unchecked externally and must be measured in the target staging infrastructure because network, proxy and database sizing differ from the local rehearsal.
+
+Follow-up production-image smoke on 16.07.2026: 200 requests at concurrency 10 against `/health` and `/ready`, 0 errors, p50 5.15 ms, p95 16.95 ms and p99 26.95 ms. This does not replace the authenticated `admin-reads` and `student-reads` staging scenarios above.

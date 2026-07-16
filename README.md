@@ -96,6 +96,8 @@ npm.cmd run build
 | **Backend Developer B** | documents/, tasks/, admin/, platform/shared, route integration | Documents, Reports, Progress, Admin, итоговый API Contract |
 | **Frontend Developer** | весь `frontend/**`, включая общий transport и feature API clients | Потребитель frozen contract; frontend acceptance |
 
+Operational handoff: [administrator guide](docs/admin-guide.md), [student guide](docs/user-guide.md), [staging acceptance](docs/runbooks/staging-acceptance.md) and [production release checklist](docs/release-checklist.md).
+
 ## **7. Регламент работы с Git и политика безопасности данных**
 
 Для поддержания высокой скорости поставки фич и чистоты истории коммитов установлены следующие жесткие правила:

@@ -1,4 +1,5 @@
 import { performance } from "node:perf_hooks";
+import { createLoadRequests } from "./scenarios.mjs";
 
 function positiveNumber(name, fallback) {
   const value = Number(process.env[name] ?? fallback);
@@ -10,21 +11,13 @@ function positiveNumber(name, fallback) {
 
 const baseUrl = (process.env.LOAD_BASE_URL ?? "http://localhost:3001")
   .replace(/\/$/, "");
-const paths = (process.env.LOAD_PATHS ?? "/health,/ready")
-  .split(",")
-  .map((value) => value.trim())
-  .filter(Boolean);
+const requests = createLoadRequests();
 const concurrency = positiveNumber("LOAD_CONCURRENCY", 10);
 const durationMilliseconds = positiveNumber("LOAD_DURATION_SECONDS", 10) * 1000;
 const maximumRequests = positiveNumber("LOAD_MAX_REQUESTS", 2000);
 const timeoutMilliseconds = positiveNumber("LOAD_REQUEST_TIMEOUT_MS", 5000);
 const maximumP95Milliseconds = positiveNumber("LOAD_MAX_P95_MS", 750);
 const maximumErrorRate = Number(process.env.LOAD_MAX_ERROR_RATE ?? 0.01);
-const token = process.env.LOAD_BEARER_TOKEN;
-
-if (paths.length === 0) {
-  throw new Error("LOAD_PATHS must contain at least one path");
-}
 if (maximumErrorRate < 0 || maximumErrorRate > 1) {
   throw new Error("LOAD_MAX_ERROR_RATE must be between 0 and 1");
 }
@@ -39,23 +32,27 @@ async function worker(workerId) {
   while (performance.now() < deadline && issuedRequests < maximumRequests) {
     const requestNumber = issuedRequests;
     issuedRequests += 1;
-    const path = paths[(requestNumber + workerId) % paths.length];
+    const request = requests[(requestNumber + workerId) % requests.length];
     const startedAt = performance.now();
 
     try {
-      const response = await fetch(`${baseUrl}${path}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      const response = await fetch(`${baseUrl}${request.path}`, {
+        headers: request.token
+          ? { Authorization: `Bearer ${request.token}` }
+          : undefined,
         signal: AbortSignal.timeout(timeoutMilliseconds),
       });
       durations.push(performance.now() - startedAt);
       statuses.set(response.status, (statuses.get(response.status) ?? 0) + 1);
       await response.arrayBuffer();
       if (!response.ok) {
-        errors.push(`${path}: HTTP ${response.status}`);
+        errors.push(`${request.name}: HTTP ${response.status}`);
       }
     } catch (error) {
       durations.push(performance.now() - startedAt);
-      errors.push(`${path}: ${error instanceof Error ? error.message : String(error)}`);
+      errors.push(
+        `${request.name}: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 }
@@ -76,7 +73,10 @@ const percentile = (value) => {
 const errorRate = durations.length === 0 ? 1 : errors.length / durations.length;
 const summary = {
   baseUrl,
-  paths,
+  scenario: process.env.LOAD_PATHS?.trim()
+    ? "custom"
+    : process.env.LOAD_SCENARIO ?? "operational",
+  targets: requests.map(({ name, path }) => ({ name, path })),
   concurrency,
   requests: durations.length,
   statuses: Object.fromEntries(statuses),

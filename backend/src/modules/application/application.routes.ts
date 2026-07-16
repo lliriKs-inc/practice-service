@@ -41,7 +41,7 @@ router.get(
 
 router.get(
   "/cohorts/:cohortId/progress",
-  requireRole(UserRole.ADMIN),
+  requireRole(UserRole.ADMIN, UserRole.STUDENT),
   tasksController.getCohortProgress.bind(tasksController)
 );
 
@@ -94,7 +94,7 @@ router.patch(
   )
 );
 
-router.get(
+router.post(
   "/me/applications/:applicationId/documents/:type/generate",
   requireRole(UserRole.STUDENT),
   documentsController.generateApplicationDocument.bind(

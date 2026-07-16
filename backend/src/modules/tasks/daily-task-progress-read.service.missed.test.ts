@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "../../shared/prisma";
 import { DailyTaskProgressReadService } from "./daily-task-progress-read.service";
 
@@ -21,6 +21,13 @@ function utcDateOnly(offsetDays: number): Date {
 const service = new DailyTaskProgressReadService();
 
 describe("DailyTaskProgressReadService.getMissed", () => {
+  beforeEach(() => {
+    vi.spyOn(prisma.cohort, "findUnique").mockResolvedValue({
+      practice_start: new Date("2026-07-01T00:00:00.000Z"),
+      practice_end: new Date("2099-12-31T00:00:00.000Z"),
+    } as any);
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -136,5 +143,40 @@ describe("DailyTaskProgressReadService.getMissed", () => {
 
     expect(result.missed).toEqual([]);
     expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown cohort even when the requested week is in the future", async () => {
+    vi.mocked(prisma.cohort.findUnique).mockResolvedValueOnce(null);
+
+    await expect(
+      service.getMissed("missing-cohort", "2099-01-04")
+    ).rejects.toMatchObject({ code: "COHORT_NOT_FOUND" });
+  });
+
+  it("clips missed task lookup to the cohort practice period", async () => {
+    vi.mocked(prisma.cohort.findUnique).mockResolvedValueOnce({
+      practice_start: new Date("2026-07-15T00:00:00.000Z"),
+      practice_end: new Date("2026-07-16T00:00:00.000Z"),
+    } as any);
+    const findMany = vi
+      .spyOn(prisma.application, "findMany")
+      .mockResolvedValue([]);
+
+    await service.getMissed("cohort-1", "2026-07-13");
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          dailyTasks: expect.objectContaining({
+            where: expect.objectContaining({
+              task_date: {
+                gte: new Date("2026-07-15T00:00:00.000Z"),
+                lte: new Date("2026-07-16T00:00:00.000Z"),
+              },
+            }),
+          }),
+        }),
+      })
+    );
   });
 });

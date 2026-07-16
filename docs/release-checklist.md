@@ -1,5 +1,7 @@
 # Production release checklist
 
+Use this together with the [deployment runbook](runbooks/deployment.md) and [staging acceptance checklist](runbooks/staging-acceptance.md). Every box requires evidence from the target release environment; local rehearsal alone is not sufficient.
+
 ## Before deployment
 
 - [ ] A-08, B-07 and F-06 are merged; feature freeze is active.
@@ -10,6 +12,7 @@
 - [ ] Current PostgreSQL/uploads backup is verified and copied off host.
 - [ ] Migration and rollback compatibility are reviewed.
 - [ ] Load/resilience thresholds are met in staging.
+- [ ] Admin and student acceptance owners have completed their guide-based demo flows.
 
 ## Deployment
 

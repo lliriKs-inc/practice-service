@@ -41,3 +41,12 @@ Operational smoke: 200 requests, concurrency 10, `/health` + `/ready`, 0 errors,
 - Resolve the React hook dependency and unused helper warnings in frontend.
 - Re-run dependency audit before release and remove moderate exceptions when non-breaking upstream versions are available.
 - Observe the `pg` concurrent-query deprecation warning before upgrading to pg 9.
+
+## Follow-up verification — 16.07.2026
+
+- Clean isolated PostgreSQL database: all 6 migrations and 56/56 backend suites, 301/301 tests passed.
+- Frontend: 12/12 suites, 65/65 tests, typecheck and 15-route production build passed; lint remained at 0 errors and the documented 63-warning baseline.
+- Production images rebuilt; isolated stack returned backend `health=ok`, `ready=ready`, frontend HTTP 200, runtime UID `10001`, migration exit `0`.
+- Operational load: 200 requests, concurrency 10, 0 errors, p95 16.95 ms.
+- All four generated DOCX files were checked for unresolved placeholders; `INDIVIDUAL_TASK`, `REVIEW`, `TITLE_PAGE` and the rebuilt `NOTICE` each rendered as one readable page in Microsoft Word.
+- Authenticated aggregate load and public proxy/TLS checks remain target-staging acceptance gates; use `staging-acceptance.md`.

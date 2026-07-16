@@ -152,7 +152,7 @@ describe('DashboardDocumentsPage', () => {
         expect(await screen.findByText('Индивидуальное задание', {}, { timeout: 3000 })).toBeInTheDocument()
         expect(screen.getByText('Титульный лист отчёта')).toBeInTheDocument()
         expect(screen.getByText('Отзыв руководителя практики')).toBeInTheDocument()
-        expect(screen.getByText('Направление на практику')).toBeInTheDocument()
+        expect(screen.getByText('Извещение о прохождении практики')).toBeInTheDocument()
         expect(screen.getByText('Отчёт ещё не загружен')).toBeInTheDocument()
         expect(screen.getByText('Заполняется куратором практики — доступно только для просмотра.')).toBeInTheDocument()
     })
@@ -161,8 +161,8 @@ describe('DashboardDocumentsPage', () => {
         getMyApplications.mockResolvedValue([makeApplication('approved')])
         render(<DashboardDocumentsPage />)
 
-        await screen.findByText('Направление на практику', {}, { timeout: 3000 })
-        const noticeCard = screen.getByText('Направление на практику').closest('div.bg-white') as HTMLElement
+        await screen.findByText('Извещение о прохождении практики', {}, { timeout: 3000 })
+        const noticeCard = screen.getByText('Извещение о прохождении практики').closest('div.bg-white') as HTMLElement
 
         const fioInput = getFieldInput(noticeCard, /ФИО студента/)
         fireEvent.change(fioInput, { target: { value: 'Иванов Иван' } })
