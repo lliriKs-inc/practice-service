@@ -9,6 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "load:smoke": "node scripts/load/smoke.mjs",
+    "release:staging-smoke": "node scripts/release/staging-smoke.mjs",
     "start": "node dist/index.js"
   },
   "keywords": [],

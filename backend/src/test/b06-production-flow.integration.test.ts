@@ -236,6 +236,7 @@ describeIntegration("B-06 production API candidate and practice flow", () => {
         "program_name", "practice_topic", "main_stage_tasks",
       ],
       TITLE_PAGE: ["student_fio", "group", "specialty", "practice_topic"],
+      REVIEW: ["student_fio", "group"],
       NOTICE: ["student_fio", "group", "practice_topic"],
     };
     for (const [type, fields] of Object.entries(studentFields)) {
@@ -276,9 +277,9 @@ describeIntegration("B-06 production API candidate and practice flow", () => {
       .send({ status: "APPROVED" });
     expect(reviewed.status).toBe(200);
 
-    for (const type of ["individual-task", "review", "title-page", "notice"]) {
+    for (const type of ["INDIVIDUAL_TASK", "REVIEW", "TITLE_PAGE", "NOTICE"]) {
       const generated = await request(app)
-        .get(`${API}/me/applications/${applicationId}/documents/${type}/generate`)
+        .post(`${API}/me/applications/${applicationId}/documents/${type}/generate`)
         .set("Authorization", `Bearer ${studentToken}`);
       expect(generated.status).toBe(200);
       expect(generated.headers["content-type"]).toContain("application/vnd.openxmlformats");

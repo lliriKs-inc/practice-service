@@ -127,7 +127,8 @@ export class TasksController {
       const result =
         await dailyTaskProgressReadService.getCohort(
           cohortId,
-          weekStart
+          weekStart,
+          req.user
         );
 
       return res.status(200).json(result);

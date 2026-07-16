@@ -32,6 +32,15 @@ describe("GeneratedDocumentService", () => {
     vi.spyOn(prisma.application, "findFirst").mockResolvedValue({
       id: "application-1",
       status: ApplicationStatus.APPROVED,
+      user: { full_name: "Student Profile" },
+      track: {
+        title: "Backend",
+        cohort: {
+          title: "Summer practice",
+          practice_start: new Date("2026-07-01T00:00:00.000Z"),
+          practice_end: new Date("2026-07-31T00:00:00.000Z"),
+        },
+      },
       report: null,
       documents: [
         {
@@ -64,7 +73,11 @@ describe("GeneratedDocumentService", () => {
     const result = await new GeneratedDocumentService(
       storage,
       generator
-    ).generateMine("student-1", "application-1", "notice");
+    ).generateMine(
+      "student-1",
+      "application-1",
+      DocumentType.NOTICE
+    );
 
     expect(storage.replace).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -83,12 +96,36 @@ describe("GeneratedDocumentService", () => {
         },
       })
     );
+    expect(generator.generate).toHaveBeenCalledWith(
+      "notice",
+      expect.objectContaining({
+        student_fio: "Student",
+        practice_start: "01.07.2026",
+        practice_end: "31.07.2026",
+        practice_stage1_finish: "01.07.2026",
+        practice_stage2_finish: "30.07.2026",
+        practice_stage3_start: "31.07.2026",
+        year: "2026",
+        cohort_title: "Summer practice",
+        track_title: "Backend",
+        profile_full_name: "Student Profile",
+      })
+    );
     expect(result.buffer).toEqual(Buffer.from("docx"));
   });
 
   it("does not create a file when required fields are missing", async () => {
     vi.spyOn(prisma.application, "findFirst").mockResolvedValue({
       id: "application-1",
+      user: { full_name: "Student Profile" },
+      track: {
+        title: "Backend",
+        cohort: {
+          title: "Summer practice",
+          practice_start: new Date("2026-07-01T00:00:00.000Z"),
+          practice_end: new Date("2026-07-31T00:00:00.000Z"),
+        },
+      },
       report: null,
       documents: [],
     } as never);
@@ -97,7 +134,7 @@ describe("GeneratedDocumentService", () => {
       new GeneratedDocumentService(storage, generator).generateMine(
         "student-1",
         "application-1",
-        "notice"
+        DocumentType.NOTICE
       )
     ).rejects.toMatchObject({
       code: "DOCUMENT_NOT_READY",

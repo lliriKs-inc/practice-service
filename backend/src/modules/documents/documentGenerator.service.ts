@@ -1,3 +1,4 @@
+import { DocumentType } from "@prisma/client";
 import fs from "fs";
 import path from "path";
 import PizZip from "pizzip";
@@ -14,6 +15,16 @@ const templateFileByType: Record<DocumentTemplate, string> = {
   review: "review.docx",
   "title-page": "title-page.docx",
   notice: "notice.docx",
+};
+
+export const documentTemplateByType: Record<
+  DocumentType,
+  DocumentTemplate
+> = {
+  [DocumentType.INDIVIDUAL_TASK]: "individual-task",
+  [DocumentType.TITLE_PAGE]: "title-page",
+  [DocumentType.REVIEW]: "review",
+  [DocumentType.NOTICE]: "notice",
 };
 
 export class DocumentGeneratorService {

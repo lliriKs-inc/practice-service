@@ -1,5 +1,16 @@
-import { describe, expect, it } from 'vitest'
-import { validateReportFile, describeMissingField, DocumentValidationError, MAX_REPORT_SIZE_BYTES } from './documents'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+    validateReportFile,
+    describeMissingField,
+    DocumentValidationError,
+    MAX_REPORT_SIZE_BYTES,
+    generateDocument,
+} from './documents'
+
+afterEach(() => {
+    vi.restoreAllMocks()
+    localStorage.clear()
+})
 
 function makeFile(name: string, sizeBytes: number, type = 'application/pdf'): File {
     const file = new File(['x'.repeat(Math.min(sizeBytes, 1024))], name, { type })
@@ -33,5 +44,24 @@ describe('describeMissingField', () => {
 
     it('возвращает лейбл обычного поля', () => {
         expect(describeMissingField('NOTICE', 'student_fio')).toBe('ФИО студента')
+    })
+})
+
+describe('generateDocument', () => {
+    it('uses POST and the uppercase DocumentType contract value', async () => {
+        localStorage.setItem('jwt', 'student-token')
+        const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            new Response('docx', { status: 200 })
+        )
+
+        await generateDocument('application-1', 'INDIVIDUAL_TASK')
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            'http://localhost:3001/api/v1/me/applications/application-1/documents/INDIVIDUAL_TASK/generate',
+            {
+                method: 'POST',
+                headers: { Authorization: 'Bearer student-token' },
+            }
+        )
     })
 })

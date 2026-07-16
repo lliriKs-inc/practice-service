@@ -18,6 +18,7 @@ const MAIL_ENV_KEYS = [
   "SMTP_USER",
   "SMTP_PASS",
   "SMTP_FROM",
+  "CORS_ORIGIN",
 ] as const;
 
 const originalEnvironment = Object.fromEntries(
@@ -82,6 +83,37 @@ describe("mail environment configuration", () => {
 
     await expect(import("./config")).rejects.toThrow(
       /MAIL_ENABLED must be true in production/
+    );
+  });
+
+  it("rejects a wildcard CORS origin in production", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.MAIL_ENABLED = "true";
+    process.env.SMTP_HOST = "smtp.example.com";
+    process.env.SMTP_USER = "user@example.com";
+    process.env.SMTP_PASS = "smtp-password";
+    process.env.CORS_ORIGIN = "*";
+
+    vi.resetModules();
+
+    await expect(import("./config")).rejects.toThrow(
+      /CORS_ORIGIN cannot contain a wildcard/
+    );
+  });
+
+  it("rejects a placeholder JWT secret in production", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.MAIL_ENABLED = "true";
+    process.env.SMTP_HOST = "smtp.example.com";
+    process.env.SMTP_USER = "user@example.com";
+    process.env.SMTP_PASS = "smtp-password";
+    process.env.JWT_SECRET =
+      "replace_with_at_least_32_random_characters";
+
+    vi.resetModules();
+
+    await expect(import("./config")).rejects.toThrow(
+      /JWT_SECRET uses a known placeholder/
     );
   });
 

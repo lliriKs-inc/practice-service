@@ -50,6 +50,7 @@ describe("B-06 API v1 route registry", () => {
         "GET /api/v1/cohorts/public/current",
         "GET /api/v1/public/invitations/:token/form",
         "GET /api/v1/me/applications",
+        "POST /api/v1/me/applications/:applicationId/documents/:type/generate",
         "GET /api/v1/cohorts/:cohortId/progress",
         "GET /api/v1/cohorts/:cohortId/admin/overview",
         "PUT /api/v1/cohorts/:cohortId/admin/applications/:applicationId/documents/:type/fields/:fieldKey",

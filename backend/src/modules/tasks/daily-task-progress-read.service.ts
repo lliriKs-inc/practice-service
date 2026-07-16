@@ -1,6 +1,7 @@
 import {
   ApplicationStatus,
   Prisma,
+  UserRole,
 } from "@prisma/client";
 import { AppError } from "../../middlewares/error.middleware";
 import { prisma } from "../../shared/prisma";
@@ -46,6 +47,24 @@ function buildWeekdays(weekStart: Date): Date[] {
   }
 
   return days;
+}
+
+function maxDate(first: Date, second: Date): Date {
+  return first.getTime() >= second.getTime() ? first : second;
+}
+
+function minDate(first: Date, second: Date): Date {
+  return first.getTime() <= second.getTime() ? first : second;
+}
+
+function clipWeekdaysToPracticePeriod(
+  weekdays: Date[],
+  practiceStart: Date,
+  practiceEnd: Date
+): Date[] {
+  return weekdays.filter(
+    (date) => date >= practiceStart && date <= practiceEnd
+  );
 }
 
 function normalizeWeekStart(value: Date): Date {
@@ -110,13 +129,20 @@ export class DailyTaskProgressReadService {
         "APPLICATION_NOT_FOUND"
       );
     }
+    const practiceStart = application.track.cohort.practice_start;
+    const practiceEnd = application.track.cohort.practice_end;
+    const practiceWeekdays = clipWeekdaysToPracticePeriod(
+      weekdays,
+      practiceStart,
+      practiceEnd
+    );
 
     const tasks = await prisma.dailyTask.findMany({
       where: {
         application_id: application.id,
         task_date: {
-          gte: weekStart,
-          lte: weekEnd,
+          gte: maxDate(weekStart, practiceStart),
+          lte: minDate(weekEnd, practiceEnd),
         },
       },
       include: taskInclude,
@@ -138,7 +164,7 @@ export class DailyTaskProgressReadService {
       },
       weekStart: formatDate(weekStart),
       weekEnd: formatDate(weekEnd),
-      days: weekdays.map((date) => ({
+      days: practiceWeekdays.map((date) => ({
         date: formatDate(date),
         task: tasksByDate.get(formatDate(date)) ?? null,
       })),
@@ -147,7 +173,8 @@ export class DailyTaskProgressReadService {
 
   async getCohort(
     cohortId: string,
-    weekStartValue: string
+    weekStartValue: string,
+    viewer: { id: string; role: UserRole }
   ) {
     const requestedWeekStart = parseUtcDateOnly(weekStartValue);
     const weekStart = normalizeWeekStart(requestedWeekStart);
@@ -206,6 +233,28 @@ export class DailyTaskProgressReadService {
         "COHORT_NOT_FOUND"
       );
     }
+    const applications = cohort.tracks.flatMap(
+      (track) => track.applications
+    );
+
+    if (
+      viewer.role === UserRole.STUDENT &&
+      !applications.some(
+        (application) => application.user.id === viewer.id
+      )
+    ) {
+      throw new AppError(
+        "Approved application not found",
+        404,
+        "APPLICATION_NOT_FOUND"
+      );
+    }
+
+    const practiceWeekdays = clipWeekdaysToPracticePeriod(
+      weekdays,
+      cohort.practice_start,
+      cohort.practice_end
+    );
 
     return {
       cohort: {
@@ -216,7 +265,7 @@ export class DailyTaskProgressReadService {
       },
       weekStart: formatDate(weekStart),
       weekEnd: formatDate(weekEnd),
-      days: weekdays.map((date) => formatDate(date)),
+      days: practiceWeekdays.map((date) => formatDate(date)),
       students: cohort.tracks.flatMap((track) =>
         track.applications.map((application) => {
           const tasksByDate = new Map(
@@ -233,7 +282,7 @@ export class DailyTaskProgressReadService {
               id: track.id,
               title: track.title,
             },
-            tasks: weekdays.map((date) => ({
+            tasks: practiceWeekdays.map((date) => ({
               date: formatDate(date),
               task: tasksByDate.get(formatDate(date)) ?? null,
             })),
@@ -257,6 +306,22 @@ export class DailyTaskProgressReadService {
 
     const weekEnd = addUtcDays(weekStart, 6);
 
+    const cohort = await prisma.cohort.findUnique({
+      where: { id: cohortId },
+      select: {
+        practice_start: true,
+        practice_end: true,
+      },
+    });
+
+    if (!cohort) {
+      throw new AppError(
+        "Cohort not found",
+        404,
+        "COHORT_NOT_FOUND"
+      );
+    }
+
     const now = new Date();
 
     const todayUtc = new Date(
@@ -267,12 +332,22 @@ export class DailyTaskProgressReadService {
       )
     );
 
-    const effectiveEnd =
+    const effectiveStart = maxDate(
+      weekStart,
+      cohort.practice_start
+    );
+
+    const weekOrTodayEnd =
       weekEnd.getTime() < todayUtc.getTime()
         ? weekEnd
         : todayUtc;
 
-    if (effectiveEnd.getTime() < weekStart.getTime()) {
+    const effectiveEnd = minDate(
+      weekOrTodayEnd,
+      cohort.practice_end
+    );
+
+    if (effectiveEnd.getTime() < effectiveStart.getTime()) {
       return {
         cohortId,
         weekStart: formatDate(weekStart),
@@ -312,7 +387,7 @@ export class DailyTaskProgressReadService {
           dailyTasks: {
             where: {
               task_date: {
-                gte: weekStart,
+                gte: effectiveStart,
                 lte: effectiveEnd,
               },
               description: null,

@@ -8,21 +8,43 @@ import type { StorageService } from "../../shared/storage";
 import { buildDocumentReadiness } from "./document-readiness.service";
 import {
   DocumentGeneratorService,
-  type DocumentTemplate,
+  documentTemplateByType,
 } from "./documentGenerator.service";
 
 export const DOCX_CONTENT_TYPE =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-const documentTypeByTemplate: Record<
-  DocumentTemplate,
-  DocumentType
-> = {
-  "individual-task": DocumentType.INDIVIDUAL_TASK,
-  review: DocumentType.REVIEW,
-  "title-page": DocumentType.TITLE_PAGE,
-  notice: DocumentType.NOTICE,
-};
+function formatDate(value: Date): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(value);
+}
+
+function practiceStageDates(start: Date, end: Date) {
+  const weekdays: Date[] = [];
+  const cursor = new Date(start);
+
+  while (cursor.getTime() <= end.getTime()) {
+    const day = cursor.getUTCDay();
+    if (day !== 0 && day !== 6) {
+      weekdays.push(new Date(cursor));
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  const first = weekdays[0] ?? start;
+  const last = weekdays.at(-1) ?? end;
+  const beforeLast = weekdays.at(-2) ?? first;
+
+  return {
+    practice_stage1_finish: formatDate(first),
+    practice_stage2_finish: formatDate(beforeLast),
+    practice_stage3_start: formatDate(last),
+  };
+}
 
 export class GeneratedDocumentService {
   constructor(
@@ -33,9 +55,9 @@ export class GeneratedDocumentService {
   async generateMine(
     userId: string,
     applicationId: string,
-    template: DocumentTemplate
+    type: DocumentType
   ) {
-    const type = documentTypeByTemplate[template];
+    const template = documentTemplateByType[type];
     const application = await prisma.application.findFirst({
       where: {
         id: applicationId,
@@ -44,6 +66,23 @@ export class GeneratedDocumentService {
       },
       select: {
         id: true,
+        user: {
+          select: {
+            full_name: true,
+          },
+        },
+        track: {
+          select: {
+            title: true,
+            cohort: {
+              select: {
+                title: true,
+                practice_start: true,
+                practice_end: true,
+              },
+            },
+          },
+        },
         report: true,
         documents: {
           select: {
@@ -84,18 +123,34 @@ export class GeneratedDocumentService {
       );
     }
 
-    const values = Object.fromEntries(
-      application.documents.flatMap((document) =>
-        document.fieldValues.map((field) => [
-          field.field_key,
-          field.value,
-        ])
-      )
-    );
-    const buffer = this.generator.generate(template, values);
     const current = application.documents.find(
       (document) => document.type === type
     );
+    const values = {
+      ...Object.fromEntries(
+        (current?.fieldValues ?? []).map((field) => [
+          field.field_key,
+          field.value,
+        ])
+      ),
+      practice_start: formatDate(
+        application.track.cohort.practice_start
+      ),
+      practice_end: formatDate(
+        application.track.cohort.practice_end
+      ),
+      ...practiceStageDates(
+        application.track.cohort.practice_start,
+        application.track.cohort.practice_end
+      ),
+      year: application.track.cohort.practice_end
+        .getUTCFullYear()
+        .toString(),
+      cohort_title: application.track.cohort.title,
+      track_title: application.track.title,
+      profile_full_name: application.user.full_name,
+    };
+    const buffer = this.generator.generate(template, values);
     const stored = await this.storage.replace({
       previousKey: current?.generated_file_url ?? null,
       file: {

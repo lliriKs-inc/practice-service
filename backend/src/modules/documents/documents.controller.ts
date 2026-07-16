@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { DocumentType } from "@prisma/client";
 import { AppError } from "../../middlewares/error.middleware";
 import { DocumentReadinessService } from "./document-readiness.service";
 import { DocumentEavService } from "./document-eav.service";
@@ -7,9 +8,7 @@ import { ReportService } from "./report.service";
 import { reportStatusSchema } from "./dto/report-status.dto";
 import { LocalStorageService } from "../../shared/storage";
 import { config } from "../../shared/config";
-import {
-  DocumentTemplate,
-} from "./documentGenerator.service";
+import { documentTemplateByType } from "./documentGenerator.service";
 import {
   DOCX_CONTENT_TYPE,
   GeneratedDocumentService,
@@ -298,7 +297,7 @@ export class DocumentsController {
       }
 
       const applicationId = req.params.applicationId;
-      const type = req.params.type as DocumentTemplate;
+      const type = req.params.type;
 
       if (
         typeof applicationId !== "string" ||
@@ -311,14 +310,7 @@ export class DocumentsController {
         );
       }
 
-      const allowedTypes: DocumentTemplate[] = [
-        "individual-task",
-        "review",
-        "title-page",
-        "notice",
-      ];
-
-      if (!allowedTypes.includes(type)) {
+      if (!Object.values(DocumentType).includes(type as DocumentType)) {
         throw new AppError(
           "Invalid document type",
           400,
@@ -330,8 +322,10 @@ export class DocumentsController {
         await generatedDocumentService.generateMine(
           req.user.id,
           applicationId,
-          type
+          type as DocumentType
         );
+
+      const template = documentTemplateByType[type as DocumentType];
 
       res.setHeader(
         "Content-Type",
@@ -340,7 +334,7 @@ export class DocumentsController {
 
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${type}.docx"`
+        `attachment; filename="${template}.docx"`
       );
 
       return res.send(buffer);

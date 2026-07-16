@@ -51,6 +51,8 @@ export const DOCUMENT_CONFIG: Record<
   REVIEW: {
     type: DocumentType.REVIEW,
     fields: [
+      "student_fio",
+      "group",
       "review_activities",
       "review_characteristic",
       "review_employed",
@@ -60,7 +62,9 @@ export const DOCUMENT_CONFIG: Record<
       "review_grade",
     ].map((key) => ({
       key,
-      owner: UserRole.ADMIN,
+      owner: ["student_fio", "group"].includes(key)
+        ? UserRole.STUDENT
+        : UserRole.ADMIN,
       required: true,
     })),
   },

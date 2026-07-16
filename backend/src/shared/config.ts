@@ -37,7 +37,17 @@ const environmentSchema = z.object({
   CORS_ORIGIN: z
     .string()
     .min(1)
-    .default("http://localhost:3001"),
+    .default("http://localhost:3001")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+    )
+    .refine(
+      (origins) => origins.length > 0,
+      "CORS_ORIGIN must contain at least one origin"
+    ),
 
   JSON_BODY_LIMIT: z
     .string()
@@ -74,6 +84,18 @@ const environmentSchema = z.object({
     .int()
     .positive()
     .default(10),
+
+  UPLOAD_RATE_LIMIT_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(15 * 60 * 1000),
+
+  UPLOAD_RATE_LIMIT_MAX_REQUESTS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30),
 
   UPLOAD_DIR: z
     .string()
@@ -147,6 +169,33 @@ if (
   );
 }
 
+if (
+  result.data.NODE_ENV === "production" &&
+  result.data.CORS_ORIGIN.includes("*")
+) {
+  throw new Error(
+    "Invalid environment configuration: CORS_ORIGIN cannot contain a wildcard in production"
+  );
+}
+
+const insecureSecretMarkers = [
+  "change_me",
+  "dev_secret",
+  "replace_with",
+  "your_ultra_secure",
+];
+
+if (
+  result.data.NODE_ENV === "production" &&
+  insecureSecretMarkers.some((marker) =>
+    result.data.JWT_SECRET.toLowerCase().includes(marker)
+  )
+) {
+  throw new Error(
+    "Invalid environment configuration: JWT_SECRET uses a known placeholder"
+  );
+}
+
 if (result.data.MAIL_ENABLED) {
   const requiredMailVariables = {
     SMTP_HOST: result.data.SMTP_HOST,
@@ -189,7 +238,8 @@ export const config = {
   },
 
   cors: {
-    origin: result.data.CORS_ORIGIN,
+    origin: result.data.CORS_ORIGIN[0],
+    origins: result.data.CORS_ORIGIN,
   },
 
   http: {
@@ -212,6 +262,13 @@ export const config = {
         result.data.AUTH_RATE_LIMIT_WINDOW_MS,
       maximumRequests:
         result.data.AUTH_RATE_LIMIT_MAX_REQUESTS,
+    },
+
+    uploadRateLimit: {
+      windowMilliseconds:
+        result.data.UPLOAD_RATE_LIMIT_WINDOW_MS,
+      maximumRequests:
+        result.data.UPLOAD_RATE_LIMIT_MAX_REQUESTS,
     },
   },
 

@@ -25,7 +25,7 @@
 
 ## DOCX generation
 
-`GET /me/applications/:applicationId/documents/:type/generate` генерирует DOCX. Для генерации используются slug-типы `individual-task`, `review`, `title-page`, `notice`.
+`POST /me/applications/:applicationId/documents/:type/generate` генерирует DOCX. `:type` принимает uppercase `DocumentType`: `INDIVIDUAL_TASK`, `TITLE_PAGE`, `REVIEW`, `NOTICE`.
 
 Сгенерированный файл сохраняется через `StorageService`; повторная генерация заменяет предыдущий. Скачать его можно через:
 
