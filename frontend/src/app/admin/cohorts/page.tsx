@@ -66,6 +66,20 @@ function uid() {
     return Math.random().toString(36).slice(2, 11)
 }
 
+function normalizeTrackTitle(title: string): string {
+    return title.trim().toLocaleLowerCase('ru-RU')
+}
+
+function getDuplicateTrackTitle(tracks: Track[]): string | null {
+    const seen = new Set<string>()
+    for (const track of tracks) {
+        const normalizedTitle = normalizeTrackTitle(track.title)
+        if (!normalizedTitle || seen.has(normalizedTitle)) return track.title.trim() || 'Без названия'
+        seen.add(normalizedTitle)
+    }
+    return null
+}
+
 export default function AdminCohortsPage() {
     const { cohorts, cohortsLoading, cohortsError, refetchCohorts, selectedCohortId, setSelectedCohortId } = useCohortWorkspace()
 
@@ -100,6 +114,8 @@ export default function AdminCohortsPage() {
     const [editSaving, setEditSaving] = useState(false)
     const [editErrors, setEditErrors] = useState<string[]>([])
     const [newTrackTitle, setNewTrackTitle] = useState('')
+    const [newTrackError, setNewTrackError] = useState('')
+    const [trackTitleErrors, setTrackTitleErrors] = useState<Record<string, string>>({})
 
     // Пока открыта любая модалка — блокируем скролл страницы позади неё,
     // иначе движение мыши за пределы модалки листает фон.
@@ -154,12 +170,16 @@ export default function AdminCohortsPage() {
         setEditTab('general')
         setEditErrors([])
         setNewTrackTitle('')
+        setNewTrackError('')
+        setTrackTitleErrors({})
     }
 
     function closeEdit() {
         // Черновик просто выбрасывается — все несохранённые правки исчезают
         setEditDraft(null)
         setEditErrors([])
+        setNewTrackError('')
+        setTrackTitleErrors({})
     }
 
     function patchDraft(patch: Partial<Cohort>) {
@@ -208,6 +228,20 @@ export default function AdminCohortsPage() {
 
     async function handleSaveEdit() {
         if (!editDraft) return
+        const duplicateTitle = getDuplicateTrackTitle(editDraft.tracks)
+        if (duplicateTitle) {
+            const duplicateTrack = editDraft.tracks.find((track, index, tracks) =>
+                tracks.slice(0, index).some(existing => normalizeTrackTitle(existing.title) === normalizeTrackTitle(track.title))
+            )
+            setEditTab('tracks')
+            if (duplicateTrack) {
+                setTrackTitleErrors(previous => ({
+                    ...previous,
+                    [duplicateTrack.id]: `Трек «${duplicateTitle}» уже есть в этой когорте.`,
+                }))
+            }
+            return
+        }
         setEditSaving(true)
         setEditErrors([])
         try {
@@ -249,19 +283,41 @@ export default function AdminCohortsPage() {
     // ── Треки (локально, без сети) ─────────────────────────────────
     function addTrack() {
         if (!newTrackTitle.trim() || !editDraft) return
-        const track: Track = { id: uid(), title: newTrackTitle.trim(), testTask: null }
+        const title = newTrackTitle.trim()
+        if (editDraft.tracks.some(track => normalizeTrackTitle(track.title) === normalizeTrackTitle(title))) {
+            setNewTrackError(`Трек «${title}» уже есть в этой когорте.`)
+            return
+        }
+        const track: Track = { id: uid(), title, testTask: null }
         patchDraft({ tracks: [...editDraft.tracks, track] })
         setNewTrackTitle('')
+        setNewTrackError('')
     }
 
     function removeTrack(trackId: string) {
         if (!editDraft) return
-        patchDraft({ tracks: editDraft.tracks.filter(t => t.id !== trackId) })
+        const tracks = editDraft.tracks.filter(t => t.id !== trackId)
+        patchDraft({ tracks })
+        setTrackTitleErrors(previous => {
+            const next = { ...previous }
+            delete next[trackId]
+            return next
+        })
     }
 
     function updateTrackTitle(trackId: string, title: string) {
         if (!editDraft) return
-        patchDraft({ tracks: editDraft.tracks.map(t => t.id === trackId ? { ...t, title } : t) })
+        const tracks = editDraft.tracks.map(t => t.id === trackId ? { ...t, title } : t)
+        patchDraft({ tracks })
+        const duplicate = tracks.some(track =>
+            track.id !== trackId && normalizeTrackTitle(track.title) === normalizeTrackTitle(title)
+        )
+        setTrackTitleErrors(previous => {
+            const next = { ...previous }
+            if (duplicate) next[trackId] = `Трек «${title.trim()}» уже есть в этой когорте.`
+            else delete next[trackId]
+            return next
+        })
     }
 
     function saveTrackTestTask(trackId: string, patch: Partial<NonNullable<Track['testTask']>>) {
@@ -674,6 +730,10 @@ export default function AdminCohortsPage() {
                                         </button>
                                     </div>
 
+                                    {newTrackError && (
+                                        <p className="text-xs text-[#C93B3B]">⚠️ {newTrackError}</p>
+                                    )}
+
                                     {editDraft.tracks.length === 0 ? (
                                         <div className="rounded-xl border border-dashed border-[#E4E2F4] px-4 py-8 text-center">
                                             <p className="text-sm text-[#6B6880]">Треков пока нет. Добавьте первое направление.</p>
@@ -685,6 +745,7 @@ export default function AdminCohortsPage() {
                                                     key={track.id}
                                                     cohortId={editDraft.id}
                                                     track={track}
+                                                    titleError={trackTitleErrors[track.id]}
                                                     onRemove={() => removeTrack(track.id)}
                                                     onTitleChange={title => updateTrackTitle(track.id, title)}
                                                     onSaveTestTask={patch => saveTrackTestTask(track.id, patch)}
@@ -811,6 +872,7 @@ export default function AdminCohortsPage() {
 function TrackEditor({
     cohortId,
     track,
+    titleError,
     onRemove,
     onTitleChange,
     onSaveTestTask,
@@ -819,6 +881,7 @@ function TrackEditor({
 }: {
     cohortId: string
     track: Track
+    titleError?: string
     onRemove: () => void
     onTitleChange: (title: string) => void
     onSaveTestTask: (patch: Partial<NonNullable<Track['testTask']>>) => void
@@ -866,6 +929,9 @@ function TrackEditor({
                     className="flex-1 text-sm font-semibold" />
                 <button onClick={onRemove} className="text-[#6B6880] hover:text-[#C93B3B] text-xl leading-none px-1">×</button>
             </div>
+            {titleError && (
+                <p className="pl-10 -mt-2 text-xs text-[#C93B3B]">⚠️ {titleError}</p>
+            )}
 
             <div className="flex flex-col gap-3 pl-10">
                 <div className="flex items-center justify-between">
