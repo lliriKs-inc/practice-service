@@ -1,4 +1,34 @@
+'use client'
+
+import { useMemo, useSyncExternalStore } from 'react'
+import { logout, type User } from '@/services/api/auth'
+
+function subscribeToSession() {
+    return () => undefined
+}
+
+function getServerSession(): string | null {
+    return null
+}
+
+function getSessionSnapshot(): string | null {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem('user')
+}
+
 export default function HomePage() {
+    const session = useSyncExternalStore(subscribeToSession, getSessionSnapshot, getServerSession)
+    const user = useMemo<User | null>(() => {
+        if (!session) return null
+        try {
+            return JSON.parse(session) as User
+        } catch {
+            return null
+        }
+    }, [session])
+
+    const dashboardHref = user?.role === 'ADMIN' ? '/admin/cohorts' : '/dashboard'
+
     return (
         <div className="min-h-screen bg-white">
 
@@ -18,14 +48,29 @@ export default function HomePage() {
                     </nav>
 
                     <div className="flex items-center gap-3">
-                        <a href="/login" className="text-sm font-semibold text-[#1C1A3A] hover:text-[#4A42D4] transition-colors">
-                            Войти
-                        </a>
-                        <a href="/register"
-                            className="text-sm font-semibold text-white px-4 py-2 rounded-lg shadow-sm hover:opacity-90 transition-opacity"
-                            style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
-                            Регистрация
-                        </a>
+                        {user ? (
+                            <>
+                                <a href={dashboardHref} className="text-sm font-semibold text-[#1C1A3A] hover:text-[#4A42D4] transition-colors">
+                                    В кабинет
+                                </a>
+                                <button type="button" onClick={logout}
+                                    className="text-sm font-semibold text-white px-4 py-2 rounded-lg shadow-sm hover:opacity-90 transition-opacity"
+                                    style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                                    Выйти
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <a href="/login" className="text-sm font-semibold text-[#1C1A3A] hover:text-[#4A42D4] transition-colors">
+                                    Войти
+                                </a>
+                                <a href="/register"
+                                    className="text-sm font-semibold text-white px-4 py-2 rounded-lg shadow-sm hover:opacity-90 transition-opacity"
+                                    style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                                    Регистрация
+                                </a>
+                            </>
+                        )}
                     </div>
                 </div>
             </header>
@@ -54,10 +99,10 @@ export default function HomePage() {
                         </p>
 
                         <div className="flex items-center gap-4 mt-2">
-                            <a href="/login"
+                            <a href={user ? dashboardHref : '/login'}
                                 className="text-sm font-semibold text-white px-6 py-3.5 rounded-xl shadow-md hover:opacity-90 transition-opacity"
                                 style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
-                                Войти в кабинет →
+                                {user ? 'Перейти в кабинет →' : 'Войти в кабинет →'}
                             </a>
                             <a href="#how" className="text-sm font-semibold text-[#1C1A3A] hover:text-[#4A42D4] transition-colors">
                                 Как это устроено
