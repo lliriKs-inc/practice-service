@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
     createCohort,
+    copySurvey,
     deleteCohort,
     getCohort,
     saveCohortDraft,
@@ -94,6 +95,10 @@ export default function AdminCohortsPage() {
     const [deletingCohortId, setDeletingCohortId] = useState<string | null>(null)
     const [deleteErrors, setDeleteErrors] = useState<string[]>([])
     const [cohortToDelete, setCohortToDelete] = useState<Cohort | null>(null)
+    const [showCopySurveyModal, setShowCopySurveyModal] = useState(false)
+    const [copyTargetCohortId, setCopyTargetCohortId] = useState('')
+    const [copySurveyLoading, setCopySurveyLoading] = useState(false)
+    const [copySurveyErrors, setCopySurveyErrors] = useState<string[]>([])
 
     function openCreateModal() {
         setNewCohort(EMPTY_NEW_COHORT)
@@ -110,6 +115,7 @@ export default function AdminCohortsPage() {
     const createModalOverlay = useOverlayClose(closeCreateModal)
     const editModalOverlay = useOverlayClose(() => closeEdit())
     const deleteModalOverlay = useOverlayClose(() => closeDeleteModal())
+    const copySurveyModalOverlay = useOverlayClose(() => closeCopySurveyModal())
 
     // ── Редактирование: локальный черновик ────────────────────────
     // Все правки в модалке применяются только к editDraft. Ничего не
@@ -125,12 +131,12 @@ export default function AdminCohortsPage() {
     // Пока открыта любая модалка — блокируем скролл страницы позади неё,
     // иначе движение мыши за пределы модалки листает фон.
     useEffect(() => {
-        if (showCreateModal || editDraft || cohortToDelete) {
+        if (showCreateModal || editDraft || cohortToDelete || showCopySurveyModal) {
             const previousOverflow = document.body.style.overflow
             document.body.style.overflow = 'hidden'
             return () => { document.body.style.overflow = previousOverflow }
         }
-    }, [showCreateModal, editDraft, cohortToDelete])
+    }, [showCreateModal, editDraft, cohortToDelete, showCopySurveyModal])
 
     // ── Создание когорты (отдельная модалка, без изменений) ───────
     function isCreateFormComplete() {
@@ -192,6 +198,39 @@ export default function AdminCohortsPage() {
             setDeleteErrors(describeApiErrors(err, 'Не удалось удалить когорту'))
         } finally {
             setDeletingCohortId(null)
+        }
+    }
+
+    function openCopySurveyModal() {
+        if (!editDraft?.survey) return
+        const sourceSurvey = cohorts.find(cohort => cohort.id === editDraft.id)?.survey
+        if (sourceSurvey?.id !== editDraft.survey.id) {
+            setEditErrors(['Сначала сохраните анкету, затем откройте когорту снова для копирования.'])
+            return
+        }
+
+        const target = cohorts.find(cohort => cohort.id !== editDraft.id && !cohort.survey)
+        setCopyTargetCohortId(target?.id ?? '')
+        setCopySurveyErrors([])
+        setShowCopySurveyModal(true)
+    }
+
+    function closeCopySurveyModal() {
+        if (!copySurveyLoading) setShowCopySurveyModal(false)
+    }
+
+    async function handleCopySurvey() {
+        if (!editDraft?.survey || !copyTargetCohortId) return
+        setCopySurveyLoading(true)
+        setCopySurveyErrors([])
+        try {
+            await copySurvey(editDraft.survey.id, copyTargetCohortId)
+            await refetchCohorts()
+            setShowCopySurveyModal(false)
+        } catch (err: unknown) {
+            setCopySurveyErrors(describeApiErrors(err, 'Не удалось скопировать анкету'))
+        } finally {
+            setCopySurveyLoading(false)
         }
     }
 
@@ -598,6 +637,56 @@ export default function AdminCohortsPage() {
                 </div>
             )}
 
+            {showCopySurveyModal && editDraft?.survey && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+                    {...copySurveyModalOverlay}>
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg mx-4"
+                        onClick={e => e.stopPropagation()}>
+                        <div className="w-12 h-12 rounded-full bg-[#EBE9FF] flex items-center justify-center text-2xl mb-5">📋</div>
+                        <h3 className="font-bold text-xl text-[#1C1A3A] mb-2">Скопировать анкету</h3>
+                        <p className="text-sm text-[#6B6880] leading-relaxed mb-5">
+                            Будут скопированы название анкеты, вопросы, их типы, обязательность и варианты ответов.
+                        </p>
+                        <label className="flex flex-col gap-1.5 text-sm font-medium text-[#1C1A3A]">
+                            Целевая когорта
+                            <select value={copyTargetCohortId} onChange={e => setCopyTargetCohortId(e.target.value)}
+                                disabled={copySurveyLoading || !cohorts.some(cohort => cohort.id !== editDraft.id && !cohort.survey)}
+                                className="w-full text-sm">
+                                {cohorts.filter(cohort => cohort.id !== editDraft.id && !cohort.survey).length === 0 ? (
+                                    <option value="">Нет когорт без анкеты</option>
+                                ) : (
+                                    cohorts.filter(cohort => cohort.id !== editDraft.id && !cohort.survey).map(cohort => (
+                                        <option key={cohort.id} value={cohort.id}>{cohort.title}</option>
+                                    ))
+                                )}
+                            </select>
+                        </label>
+                        <p className="mt-3 text-xs text-[#6B6880]">
+                            Скопировать можно только в когорту, у которой ещё нет собственной анкеты.
+                        </p>
+                        {copySurveyErrors.length > 0 && (
+                            <div className="mt-4 bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
+                                {copySurveyErrors.map(message => (
+                                    <p key={message} className="text-sm text-[#C93B3B]">⚠️ {message}</p>
+                                ))}
+                            </div>
+                        )}
+                        <div className="mt-7 flex justify-end gap-3">
+                            <button type="button" onClick={closeCopySurveyModal} disabled={copySurveyLoading}
+                                className="px-5 py-2.5 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-xl disabled:opacity-50">
+                                Отмена
+                            </button>
+                            <button type="button" onClick={handleCopySurvey}
+                                disabled={copySurveyLoading || !copyTargetCohortId}
+                                className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-sm disabled:opacity-50"
+                                style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                                {copySurveyLoading ? 'Копируем…' : 'Скопировать'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ── МОДАЛКА: СОЗДАТЬ КОГОРТУ ── */}
             {showCreateModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
@@ -840,10 +929,18 @@ export default function AdminCohortsPage() {
                                 <div className="flex flex-col gap-5">
                                     <div className="flex items-center justify-between">
                                         <p className="text-sm text-[#6B6880]">Вопросы публичной анкеты когорты.</p>
-                                        <button onClick={addQuestion}
-                                            className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF] transition-all whitespace-nowrap">
-                                            + Вопрос
-                                        </button>
+                                        <div className="flex gap-2">
+                                            {editDraft.survey && (
+                                                <button onClick={openCopySurveyModal}
+                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#E4E2F4] text-[#6B6880] hover:bg-[#F5F4FD] transition-all whitespace-nowrap">
+                                                    Копировать в когорту
+                                                </button>
+                                            )}
+                                            <button onClick={addQuestion}
+                                                className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF] transition-all whitespace-nowrap">
+                                                + Вопрос
+                                            </button>
+                                        </div>
                                     </div>
 
                                     {(!editDraft.survey || editDraft.survey.questions.length === 0) ? (

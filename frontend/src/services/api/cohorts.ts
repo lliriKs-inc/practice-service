@@ -513,6 +513,15 @@ async function createSurvey(cohortId: string, title: string): Promise<Survey> {
     return { id: data.id, title: data.title, questions: (data.questions ?? []).map(mapQuestion) }
 }
 
+// POST /surveys/:surveyId/copy
+export async function copySurvey(surveyId: string, targetCohortId: string): Promise<Survey> {
+    const data = await apiRequest<any>(`/surveys/${surveyId}/copy`, {
+        method: 'POST',
+        body: JSON.stringify({ target_cohort_id: targetCohortId }),
+    })
+    return { id: data.id, title: data.title, questions: (data.questions ?? []).map(mapQuestion) }
+}
+
 // PATCH /cohorts/:id/survey/questions/:questionId
 export async function updateQuestion(
     cohortId: string,
