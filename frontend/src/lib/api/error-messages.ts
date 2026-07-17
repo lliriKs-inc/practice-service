@@ -18,6 +18,8 @@ interface BackendErrorBody {
 const CODE_MESSAGES: Record<string, string> = {
     ACTIVE_COHORT_EXISTS: 'Уже есть другая активная когорта — активной может быть только одна одновременно.',
     COHORT_NOT_FOUND: 'Когорта не найдена — возможно, её уже изменили в другой вкладке.',
+    COHORT_NOT_DRAFT: 'Удалить можно только когорту в статусе «Черновик».',
+    COHORT_HAS_APPLICATIONS: 'Нельзя удалить когорту, пока в ней есть заявки.',
     APPLICATION_NOT_FOUND: 'Заявка не найдена.',
     SURVEY_NOT_FOUND: 'У этой когорты ещё нет анкеты.',
     TOKEN_EXPIRED: 'Срок действия ссылки-приглашения истёк.',

@@ -375,6 +375,18 @@ export async function closeCohort(id: string): Promise<Cohort> {
     return mapCohort(await apiRequest<any>(`/cohorts/${id}/close`, { method: 'PATCH' }))
 }
 
+export async function deleteCohort(id: string): Promise<void> {
+    if (USE_MOCKS) {
+        await mockDelay()
+        const cohorts = mockLoadCohorts()
+        const cohort = mockFindCohort(cohorts, id)
+        if (cohort.status !== 'draft') throw new Error('Удалить можно только когорту в статусе «Черновик»')
+        mockSaveCohorts(cohorts.filter(item => item.id !== id))
+        return
+    }
+    await apiRequest<void>(`/cohorts/${id}`, { method: 'DELETE' })
+}
+
 // ── Треки ──────────────────────────────────────────────────────
 
 // POST /cohorts/:id/tracks

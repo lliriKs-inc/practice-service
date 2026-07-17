@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
     createCohort,
+    deleteCohort,
     getCohort,
     saveCohortDraft,
     updateTrackTestTask,
@@ -90,6 +91,9 @@ export default function AdminCohortsPage() {
     const [createLoading, setCreateLoading] = useState(false)
     const [createErrors, setCreateErrors] = useState<string[]>([])
     const [newCohort, setNewCohort] = useState(EMPTY_NEW_COHORT)
+    const [deletingCohortId, setDeletingCohortId] = useState<string | null>(null)
+    const [deleteErrors, setDeleteErrors] = useState<string[]>([])
+    const [cohortToDelete, setCohortToDelete] = useState<Cohort | null>(null)
 
     function openCreateModal() {
         setNewCohort(EMPTY_NEW_COHORT)
@@ -105,6 +109,7 @@ export default function AdminCohortsPage() {
 
     const createModalOverlay = useOverlayClose(closeCreateModal)
     const editModalOverlay = useOverlayClose(() => closeEdit())
+    const deleteModalOverlay = useOverlayClose(() => closeDeleteModal())
 
     // ── Редактирование: локальный черновик ────────────────────────
     // Все правки в модалке применяются только к editDraft. Ничего не
@@ -120,12 +125,12 @@ export default function AdminCohortsPage() {
     // Пока открыта любая модалка — блокируем скролл страницы позади неё,
     // иначе движение мыши за пределы модалки листает фон.
     useEffect(() => {
-        if (showCreateModal || editDraft) {
+        if (showCreateModal || editDraft || cohortToDelete) {
             const previousOverflow = document.body.style.overflow
             document.body.style.overflow = 'hidden'
             return () => { document.body.style.overflow = previousOverflow }
         }
-    }, [showCreateModal, editDraft])
+    }, [showCreateModal, editDraft, cohortToDelete])
 
     // ── Создание когорты (отдельная модалка, без изменений) ───────
     function isCreateFormComplete() {
@@ -159,6 +164,34 @@ export default function AdminCohortsPage() {
             setCreateErrors(describeApiErrors(err, 'Ошибка создания когорты'))
         } finally {
             setCreateLoading(false)
+        }
+    }
+
+    function openDeleteModal(cohort: Cohort) {
+        if (cohort.status !== 'draft') return
+        setDeleteErrors([])
+        setCohortToDelete(cohort)
+    }
+
+    function closeDeleteModal() {
+        if (!deletingCohortId) setCohortToDelete(null)
+    }
+
+    async function handleDeleteCohort() {
+        if (!cohortToDelete) return
+        const cohort = cohortToDelete
+
+        setDeletingCohortId(cohort.id)
+        setDeleteErrors([])
+        try {
+            await deleteCohort(cohort.id)
+            if (editDraft?.id === cohort.id) closeEdit()
+            await refetchCohorts()
+            setCohortToDelete(null)
+        } catch (err: unknown) {
+            setDeleteErrors(describeApiErrors(err, 'Не удалось удалить когорту'))
+        } finally {
+            setDeletingCohortId(null)
         }
     }
 
@@ -413,7 +446,7 @@ export default function AdminCohortsPage() {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1">Когорты</h1>
-                        <p className="text-sm text-[#6B6880]">Управление потоками практики.</p>
+                        <p className="text-sm text-[#6B6880]">Управление потоками практики. Удалить можно только когорту в статусе «Черновик».</p>
                     </div>
                     <button onClick={openCreateModal}
                         className="text-sm font-semibold text-white px-5 py-2.5 rounded-xl shadow-md"
@@ -432,6 +465,14 @@ export default function AdminCohortsPage() {
                 {cohortsError && (
                     <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
                         <p className="text-sm text-[#C93B3B]">⚠️ {cohortsError}</p>
+                    </div>
+                )}
+
+                {deleteErrors.length > 0 && (
+                    <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
+                        {deleteErrors.map(message => (
+                            <p key={message} className="text-sm text-[#C93B3B]">⚠️ {message}</p>
+                        ))}
                     </div>
                 )}
 
@@ -471,6 +512,15 @@ export default function AdminCohortsPage() {
                                         className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF] transition-all inline-flex items-center gap-1.5">
                                         <span className="text-sm leading-none">✎</span> Редактировать
                                     </button>
+                                    {cohort.status === 'draft' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => openDeleteModal(cohort)}
+                                            disabled={deletingCohortId === cohort.id}
+                                            className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#F0BABA] text-[#C93B3B] hover:bg-[#FFF5F5] transition-all disabled:opacity-50">
+                                            {deletingCohortId === cohort.id ? 'Удаляем…' : 'Удалить'}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
@@ -520,6 +570,33 @@ export default function AdminCohortsPage() {
                     })}
                 </div>
             </div>
+
+            {cohortToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+                    {...deleteModalOverlay}>
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md mx-4"
+                        onClick={e => e.stopPropagation()}>
+                        <div className="w-12 h-12 rounded-full bg-[#FFF5F5] flex items-center justify-center text-2xl mb-5">🗑️</div>
+                        <h3 className="font-bold text-xl text-[#1C1A3A] mb-2">Удалить когорту?</h3>
+                        <p className="text-sm text-[#6B6880] leading-relaxed mb-3">
+                            Когорта «{cohortToDelete.title}» будет удалена безвозвратно.
+                        </p>
+                        <p className="text-sm text-[#6B6880] leading-relaxed">
+                            Вместе с ней удалятся треки, анкета, приглашение и другие черновые настройки.
+                        </p>
+                        <div className="mt-7 flex justify-end gap-3">
+                            <button type="button" onClick={closeDeleteModal} disabled={Boolean(deletingCohortId)}
+                                className="px-5 py-2.5 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-xl disabled:opacity-50">
+                                Отмена
+                            </button>
+                            <button type="button" onClick={handleDeleteCohort} disabled={Boolean(deletingCohortId)}
+                                className="px-5 py-2.5 text-sm font-semibold text-white bg-[#C93B3B] hover:bg-[#B72F2F] rounded-xl shadow-sm disabled:opacity-50">
+                                {deletingCohortId ? 'Удаляем…' : 'Удалить'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ── МОДАЛКА: СОЗДАТЬ КОГОРТУ ── */}
             {showCreateModal && (
