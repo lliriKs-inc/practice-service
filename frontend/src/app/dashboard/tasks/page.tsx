@@ -9,6 +9,7 @@ import {
     type DailyTask,
 } from '@/services/api/tasks'
 import { getMyApplications, type Application } from '@/services/api/invitation'
+import { getActiveApplicationId } from '@/lib/active-application'
 
 // ── Утилиты дат (UTC — согласовано с бэком: даты обрабатываются как UTC date-only) ─
 function getMondayOfWeek(date: Date): Date {
@@ -85,7 +86,11 @@ export default function DashboardTasksPage() {
 
     // Дневник задач имеет смысл только после того, как заявку одобрили —
     // до этого момента нет ни роли, ни согласованных дат практики.
-    const approvedApplication = applications.find(a => a.status === 'approved') ?? null
+    const approvedApplications = applications.filter(a => a.status === 'approved')
+    const preferredApplicationId = getActiveApplicationId()
+    const approvedApplication = approvedApplications.find(a => a.id === preferredApplicationId)
+        ?? approvedApplications[0]
+        ?? null
 
     const [weekStart, setWeekStart] = useState<string>(() => toISODate(getMondayOfWeek(new Date())))
     const [weekData, setWeekData] = useState<StudentWeekResponse | null>(null)
@@ -131,7 +136,7 @@ export default function DashboardTasksPage() {
                 setWeekStart(practiceLastMonday)
             }
         })()
-    }, [weekData])
+    }, [weekData, weekStart])
 
     // При появлении одобренной заявки — сразу ставим неделю на начало практики,
     // а не на "сегодня" (которое почти наверняка вне диапазона)
@@ -255,6 +260,7 @@ export default function DashboardTasksPage() {
                     {weekData && (
                         <p className="text-sm text-[#6B6880]">{formatWeekLabel(weekData.weekStart, weekData.weekEnd)}</p>
                     )}
+                    <p className="text-sm text-[#6B6880]">Текущий трек: {weekData?.track.title ?? approvedApplication.track.title}</p>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={goPrevWeek} disabled={!canGoPrev() || tasksLoading}

@@ -3,7 +3,6 @@
 // Реальный API (см. docs/api/admissions.md, docs/api-contract.md). Контракт
 // подтверждён вручную (curl/E2E) против backend после мержа cohort-api-complete.
 
-import { getUser } from './auth'
 import { apiFetch } from '@/lib/api/http'
 
 export interface Track {
@@ -92,21 +91,6 @@ function mapApplication(raw: any): Application {
             ? raw.answers.map((a: any) => ({ label: a.question?.label ?? 'Вопрос', value: a.answer_value }))
             : undefined,
     }
-}
-
-// У студента может быть только одна "активная" заявка одновременно —
-// на рассмотрении или уже одобренная. Пока она не отклонена, подать новую
-// анкету нельзя (иначе непонятно, какая заявка ведёт дневник задач).
-// Отклонённые заявки в счёт не идут — по ним можно попробовать снова.
-//
-// Реальный backend разрешает несколько заявок от одного пользователя (по
-// одной на трек — уникальность (user_id, track_id)), поэтому это правило
-// сейчас проверяется только на фронте; см. вопрос backend-команде в прогрессе.
-export async function hasActiveApplication(): Promise<boolean> {
-    const currentUser = getUser()
-    if (!currentUser) return false
-    const apps = await getMyApplications()
-    return apps.some(a => a.status === 'pending' || a.status === 'approved')
 }
 
 // GET /public/invitations/:token/form — публичный, без авторизации

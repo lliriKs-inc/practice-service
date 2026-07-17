@@ -9,13 +9,12 @@ vi.mock('next/navigation', () => ({
     useParams: () => mockUseParams(),
 }))
 
-const { getInvitationForm, submitApplication, hasActiveApplication } = vi.hoisted(() => ({
+const { getInvitationForm, submitApplication } = vi.hoisted(() => ({
     getInvitationForm: vi.fn(),
     submitApplication: vi.fn(),
-    hasActiveApplication: vi.fn(),
 }))
 
-vi.mock('@/services/api/invitation', () => ({ getInvitationForm, submitApplication, hasActiveApplication }))
+vi.mock('@/services/api/invitation', () => ({ getInvitationForm, submitApplication }))
 
 const TOKEN = 'test-token'
 
@@ -51,7 +50,6 @@ describe('ApplyByInvitationPage', () => {
         mockUseParams.mockReturnValue({ token: TOKEN })
         vi.clearAllMocks()
         getInvitationForm.mockResolvedValue(FULL_FORM)
-        hasActiveApplication.mockResolvedValue(false)
         submitApplication.mockResolvedValue({ id: 'new-app', status: 'pending' })
     })
 
@@ -82,17 +80,7 @@ describe('ApplyByInvitationPage', () => {
         expect(screen.queryByText('Заявка на практику')).not.toBeInTheDocument()
     })
 
-    it('не даёт подать новую заявку, если есть активная (на рассмотрении или одобренная)', async () => {
-        hasActiveApplication.mockResolvedValue(true)
-        loginAsStudent()
-        render(<ApplyByInvitationPage />)
-
-        expect(await screen.findByText('У тебя уже есть активная заявка')).toBeInTheDocument()
-        expect(screen.queryByText('Заявка на практику')).not.toBeInTheDocument()
-    })
-
-    it('разрешает подать новую заявку, если активной нет (предыдущая отклонена)', async () => {
-        hasActiveApplication.mockResolvedValue(false)
+    it('разрешает подать ещё одну заявку студенту', async () => {
         loginAsStudent()
         render(<ApplyByInvitationPage />)
 

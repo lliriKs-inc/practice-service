@@ -1,4 +1,4 @@
-import { CohortStatus } from "@prisma/client";
+import { ApplicationStatus, CohortStatus } from "@prisma/client";
 import { prisma } from "../../shared/prisma";
 import { AppError } from "../../middlewares/error.middleware";
 import { config } from "../../shared/config";
@@ -88,7 +88,23 @@ export class CohortService {
     const cohort = await this.getCohort(id);
     if (!cohort) throw new AppError("Cohort not found", 404, "COHORT_NOT_FOUND");
     if (cohort.status !== CohortStatus.ACTIVE) throw new AppError("Only an active cohort can be closed", 409, "INVALID_COHORT_STATUS");
-    return prisma.cohort.update({ where: { id }, data: { status: CohortStatus.CLOSED }, include: cohortInclude });
+    return prisma.$transaction(async (tx) => {
+      await tx.application.updateMany({
+        where: {
+          status: ApplicationStatus.PENDING,
+          track: { cohort_id: id },
+        },
+        data: {
+          status: ApplicationStatus.REJECTED,
+          rejection_reason: "Когорта закрыта до рассмотрения заявки",
+        },
+      });
+      return tx.cohort.update({
+        where: { id },
+        data: { status: CohortStatus.CLOSED },
+        include: cohortInclude,
+      });
+    });
   }
 
   async deleteCohort(

@@ -53,9 +53,14 @@ describe("ApplicationService", () => {
   });
 
   it("calls B-02 calendar only on transition to approved", async () => {
-    vi.spyOn(prisma.application, "findFirst").mockResolvedValue({ id: "application-1", status: ApplicationStatus.PENDING } as any);
+    vi.spyOn(prisma.application, "findFirst").mockResolvedValue({ id: "application-1", user_id: "user-1", status: ApplicationStatus.PENDING } as any);
     const update = vi.fn().mockResolvedValue({ ...application, status: ApplicationStatus.APPROVED });
-    const tx = { application: { update, findUnique: vi.fn().mockResolvedValue({ ...application, status: ApplicationStatus.APPROVED }) } } as any;
+    const tx = {
+      application: {
+        update,
+        findUnique: vi.fn().mockResolvedValue({ ...application, status: ApplicationStatus.APPROVED }),
+      },
+    } as any;
     const transaction = vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => callback(tx));
     const calendar = { ensureForApprovedApplication: vi.fn().mockResolvedValue({ applicationId: "application-1", expectedTaskCount: 5, createdTaskCount: 5 }) };
     const record = vi.fn();
@@ -67,6 +72,24 @@ describe("ApplicationService", () => {
       actorId: "admin-1",
       requestId: "request-1",
       resourceId: "application-1",
+    }));
+  });
+
+  it("allows approving multiple applications for one student in a cohort", async () => {
+    vi.spyOn(prisma.application, "findFirst").mockResolvedValue({ id: "application-2", status: ApplicationStatus.PENDING } as any);
+    const tx = {
+      application: {
+        update: vi.fn().mockResolvedValue({ ...application, id: "application-2", status: ApplicationStatus.APPROVED }),
+        findUnique: vi.fn().mockResolvedValue({ ...application, id: "application-2", status: ApplicationStatus.APPROVED }),
+      },
+    } as any;
+    vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => callback(tx));
+
+    const calendar = { ensureForApprovedApplication: vi.fn().mockResolvedValue(undefined) };
+    await new ApplicationService(calendar as any).updateStatus("cohort-1", "application-2", { status: "APPROVED" });
+    expect(tx.application.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "application-2" },
+      data: expect.objectContaining({ status: ApplicationStatus.APPROVED }),
     }));
   });
 
@@ -89,8 +112,15 @@ describe("ApplicationService", () => {
   });
 
   it("propagates calendar errors so the transaction can roll back", async () => {
-    vi.spyOn(prisma.application, "findFirst").mockResolvedValue({ id: "application-1", status: ApplicationStatus.PENDING } as any);
-    const tx = { application: { update: vi.fn().mockResolvedValue(application), findUnique: vi.fn() } } as any;
+    vi.spyOn(prisma.application, "findFirst").mockResolvedValue({ id: "application-1", user_id: "user-1", status: ApplicationStatus.PENDING } as any);
+    const tx = {
+      application: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        update: vi.fn().mockResolvedValue(application),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+        findUnique: vi.fn(),
+      },
+    } as any;
     vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => callback(tx));
     const calendar = { ensureForApprovedApplication: vi.fn().mockRejectedValue(new Error("calendar failed")) };
     await expect(new ApplicationService(calendar as any).updateStatus("cohort-1", "application-1", { status: "APPROVED" })).rejects.toThrow("calendar failed");

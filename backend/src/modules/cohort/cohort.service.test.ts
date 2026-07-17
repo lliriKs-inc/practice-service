@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CohortStatus } from "@prisma/client";
+import { ApplicationStatus, CohortStatus } from "@prisma/client";
 import { CohortService } from "./cohort.service";
 import { prisma } from "../../shared/prisma";
 
@@ -33,6 +33,36 @@ describe("CohortService", () => {
     const service = new CohortService();
     vi.spyOn(service, "getCohort").mockResolvedValue({ id: "cohort-1", status: CohortStatus.DRAFT } as any);
     await expect(service.closeCohort("cohort-1")).rejects.toMatchObject({ code: "INVALID_COHORT_STATUS" });
+  });
+
+  it("rejects pending applications when closing an active cohort", async () => {
+    const service = new CohortService();
+    vi.spyOn(service, "getCohort").mockResolvedValue({
+      id: "cohort-1",
+      status: CohortStatus.ACTIVE,
+    } as any);
+    const updateMany = vi.fn().mockResolvedValue({ count: 2 });
+    const update = vi.fn().mockResolvedValue({ id: "cohort-1", status: CohortStatus.CLOSED });
+    vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => callback({
+      application: { updateMany },
+      cohort: { update },
+    }));
+
+    await service.closeCohort("cohort-1");
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        status: ApplicationStatus.PENDING,
+        track: { cohort_id: "cohort-1" },
+      },
+      data: {
+        status: ApplicationStatus.REJECTED,
+        rejection_reason: "Когорта закрыта до рассмотрения заявки",
+      },
+    });
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      data: { status: CohortStatus.CLOSED },
+    }));
   });
 
   it("does not reopen a closed cohort", async () => {
