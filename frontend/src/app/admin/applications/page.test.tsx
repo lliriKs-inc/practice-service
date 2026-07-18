@@ -8,14 +8,16 @@ import type { AdminApplicationSummary, AdminApplicationDetail } from '@/services
 
 const COHORT_ID = 'cohort-1'
 
-const { getAdminApplications, getAdminApplicationDetail, updateApplicationStatus } = vi.hoisted(() => ({
+const { getAdminApplications, getAdminApplicationDetail, updateApplicationStatus, downloadProtectedFile } = vi.hoisted(() => ({
     getAdminApplications: vi.fn(),
     getAdminApplicationDetail: vi.fn(),
     updateApplicationStatus: vi.fn(),
+    downloadProtectedFile: vi.fn(),
 }))
 
 vi.mock('@/services/api/admin', () => ({ getAdminApplications, getAdminApplicationDetail }))
 vi.mock('@/services/api/invitation', () => ({ updateApplicationStatus }))
+vi.mock('@/lib/api/download', () => ({ downloadProtectedFile }))
 
 function loginAsAdmin() {
     saveToken('mock-jwt-admin-1')
@@ -84,6 +86,7 @@ describe('AdminApplicationsPage', () => {
             documents: [],
         } satisfies AdminApplicationDetail)
         updateApplicationStatus.mockResolvedValue(undefined)
+        downloadProtectedFile.mockResolvedValue(undefined)
     })
 
     it('просит выбрать рабочую когорту, если она не выбрана', async () => {
@@ -126,6 +129,35 @@ describe('AdminApplicationsPage', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Подтвердить' }))
 
         await waitFor(() => expect(updateApplicationStatus).toHaveBeenCalledWith(COHORT_ID, 'app-pending', 'approved', undefined))
+    })
+
+    it('позволяет администратору скачать решение тестового задания', async () => {
+        getAdminApplications.mockResolvedValue([
+            makeApplication({
+                testTaskSubmission: {
+                    id: 'submission-1',
+                    fileName: 'solution.zip',
+                    submittedAt: '2027-07-05T00:00:00.000Z',
+                    downloadPath: '/files/test-task-submissions/solution.zip',
+                },
+            }),
+        ])
+        const cohort = makeCohort()
+        cohort.tracks[0].testTask = {
+            title: 'Тестовое задание',
+            description: 'Описание',
+            hasFile: false,
+            downloadPath: null,
+            publishedAt: '2027-07-01T00:00:00.000Z',
+        }
+        renderWithCohort({ cohorts: [cohort], selectedCohort: cohort })
+
+        fireEvent.click(await screen.findByRole('button', { name: '⬇ Скачать решение' }))
+
+        expect(downloadProtectedFile).toHaveBeenCalledWith(
+            '/files/test-task-submissions/solution.zip',
+            'solution.zip',
+        )
     })
 
     it('запрашивает подтверждение и причину перед отклонением заявки', async () => {

@@ -19,6 +19,7 @@ import {
   getUploadPolicy,
   validateUploadCandidate,
 } from "./upload-policy";
+import { normalizeUploadedFilename } from "./filename";
 
 export interface SingleFileUploadOptions {
   category: StorageCategory;
@@ -95,9 +96,11 @@ export function createSingleFileUpload(
       }
 
       try {
+        const originalName = normalizeUploadedFilename(file.originalname);
+
         validateUploadCandidate({
           category: options.category,
-          originalName: file.originalname,
+          originalName,
           contentType: file.mimetype,
           size: file.size,
         });
@@ -105,7 +108,7 @@ export function createSingleFileUpload(
         req.storageUpload = {
           category: options.category,
           content: file.buffer,
-          originalName: file.originalname,
+          originalName,
           contentType: file.mimetype,
         };
 

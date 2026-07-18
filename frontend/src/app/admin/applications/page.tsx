@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { updateApplicationStatus, type Application } from '@/services/api/invitation'
 import { getAdminApplications, getAdminApplicationDetail, type AdminApplicationSummary } from '@/services/api/admin'
 import { useCohortWorkspace } from '../cohort-context'
+import { downloadProtectedFile } from '@/lib/api/download'
 
 const STATUS_LABELS: Record<Application['status'], string> = {
     pending: 'На рассмотрении',
@@ -17,6 +18,7 @@ export default function AdminApplicationsPage() {
     const [applications, setApplications] = useState<AdminApplicationSummary[]>([])
     const [applicationsLoading, setApplicationsLoading] = useState(true)
     const [applicationsError, setApplicationsError] = useState('')
+    const [submissionDownloadError, setSubmissionDownloadError] = useState('')
     const [applicationActionId, setApplicationActionId] = useState<string | null>(null)
     const [applicationToApprove, setApplicationToApprove] = useState<AdminApplicationSummary | null>(null)
     const [applicationToReject, setApplicationToReject] = useState<AdminApplicationSummary | null>(null)
@@ -231,14 +233,36 @@ export default function AdminApplicationsPage() {
                                         <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Тестовое задание трека</span>
                                         <p className="text-sm font-semibold text-ink">{trackTestTask.title || '—'}</p>
                                         {app.testTaskSubmission ? (
-                                            <p className="text-[11px] text-success mt-1">
-                                                ✅ Решение загружено: {app.testTaskSubmission.fileName}
-                                                {' · '}
-                                                {new Date(app.testTaskSubmission.submittedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                            </p>
+                                            <div className="flex items-center gap-2 flex-wrap mt-1">
+                                                <p className="text-[11px] text-[#1A7A5A]">
+                                                    ✅ Решение загружено: {app.testTaskSubmission.fileName}
+                                                    {' · '}
+                                                    {new Date(app.testTaskSubmission.submittedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSubmissionDownloadError('')
+                                                        downloadProtectedFile(
+                                                            app.testTaskSubmission!.downloadPath,
+                                                            app.testTaskSubmission!.fileName,
+                                                        ).catch(err => setSubmissionDownloadError(
+                                                            err instanceof Error ? err.message : 'Не удалось скачать решение',
+                                                        ))
+                                                    }}
+                                                    className="text-xs font-semibold text-[#4A42D4] hover:underline">
+                                                    ⬇ Скачать решение
+                                                </button>
+                                            </div>
                                         ) : (
                                             <p className="text-[11px] text-muted-ink mt-1">Решение пока не загружено кандидатом.</p>
                                         )}
+                                    </div>
+                                )}
+
+                                {submissionDownloadError && (
+                                    <div className="mx-7 mb-4 bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
+                                        <p className="text-sm text-[#C93B3B]">⚠️ {submissionDownloadError}</p>
                                     </div>
                                 )}
 

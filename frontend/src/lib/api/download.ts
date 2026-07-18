@@ -45,9 +45,13 @@ export async function downloadProtectedFile(path: string, suggestedFilename?: st
     if (!res.ok) {
         throw new Error(res.status === 404 ? 'Файл не найден' : `Не удалось скачать файл (${res.status})`)
     }
-    const filename =
-        filenameFromContentDisposition(res.headers.get('Content-Disposition')) ??
-        guessFilename(res.headers.get('Content-Type'), suggestedFilename)
+    // The backend deliberately uses an ASCII-safe fallback in
+    // Content-Disposition. When the API has supplied the original filename,
+    // prefer it so Cyrillic and other Unicode names are preserved.
+    const filename = suggestedFilename?.trim()
+        ? guessFilename(res.headers.get('Content-Type'), suggestedFilename)
+        : filenameFromContentDisposition(res.headers.get('Content-Disposition')) ??
+          guessFilename(res.headers.get('Content-Type'))
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')

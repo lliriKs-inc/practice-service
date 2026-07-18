@@ -26,6 +26,10 @@ export {
   createSingleFileUpload,
 } from "./memory-upload.middleware";
 
+export {
+  normalizeUploadedFilename,
+} from "./filename";
+
 export type {
   SingleFileUploadOptions,
 } from "./memory-upload.middleware";
