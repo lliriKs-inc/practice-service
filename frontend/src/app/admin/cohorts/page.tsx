@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState } from 'react'
 import {
     createCohort,
+    createInvitation,
+    copySurvey,
+    deleteCohort,
+    deleteInvitation,
     getCohort,
+    regenerateInvitation,
     saveCohortDraft,
     updateTrackTestTask,
     uploadTestTaskFile,
@@ -66,6 +71,20 @@ function uid() {
     return Math.random().toString(36).slice(2, 11)
 }
 
+function normalizeTrackTitle(title: string): string {
+    return title.trim().toLocaleLowerCase('ru-RU')
+}
+
+function getDuplicateTrackTitle(tracks: Track[]): string | null {
+    const seen = new Set<string>()
+    for (const track of tracks) {
+        const normalizedTitle = normalizeTrackTitle(track.title)
+        if (!normalizedTitle || seen.has(normalizedTitle)) return track.title.trim() || 'Без названия'
+        seen.add(normalizedTitle)
+    }
+    return null
+}
+
 export default function AdminCohortsPage() {
     const { cohorts, cohortsLoading, cohortsError, refetchCohorts, selectedCohortId, setSelectedCohortId } = useCohortWorkspace()
 
@@ -76,6 +95,13 @@ export default function AdminCohortsPage() {
     const [createLoading, setCreateLoading] = useState(false)
     const [createErrors, setCreateErrors] = useState<string[]>([])
     const [newCohort, setNewCohort] = useState(EMPTY_NEW_COHORT)
+    const [deletingCohortId, setDeletingCohortId] = useState<string | null>(null)
+    const [deleteErrors, setDeleteErrors] = useState<string[]>([])
+    const [cohortToDelete, setCohortToDelete] = useState<Cohort | null>(null)
+    const [showCopySurveyModal, setShowCopySurveyModal] = useState(false)
+    const [copyTargetCohortId, setCopyTargetCohortId] = useState('')
+    const [copySurveyLoading, setCopySurveyLoading] = useState(false)
+    const [copySurveyErrors, setCopySurveyErrors] = useState<string[]>([])
 
     function openCreateModal() {
         setNewCohort(EMPTY_NEW_COHORT)
@@ -91,6 +117,8 @@ export default function AdminCohortsPage() {
 
     const createModalOverlay = useOverlayClose(closeCreateModal)
     const editModalOverlay = useOverlayClose(() => closeEdit())
+    const deleteModalOverlay = useOverlayClose(() => closeDeleteModal())
+    const copySurveyModalOverlay = useOverlayClose(() => closeCopySurveyModal())
 
     // ── Редактирование: локальный черновик ────────────────────────
     // Все правки в модалке применяются только к editDraft. Ничего не
@@ -98,18 +126,21 @@ export default function AdminCohortsPage() {
     const [editDraft, setEditDraft] = useState<Cohort | null>(null)
     const [editTab, setEditTab] = useState<EditTab>('general')
     const [editSaving, setEditSaving] = useState(false)
+    const [invitationSaving, setInvitationSaving] = useState(false)
     const [editErrors, setEditErrors] = useState<string[]>([])
     const [newTrackTitle, setNewTrackTitle] = useState('')
+    const [newTrackError, setNewTrackError] = useState('')
+    const [trackTitleErrors, setTrackTitleErrors] = useState<Record<string, string>>({})
 
     // Пока открыта любая модалка — блокируем скролл страницы позади неё,
     // иначе движение мыши за пределы модалки листает фон.
     useEffect(() => {
-        if (showCreateModal || editDraft) {
+        if (showCreateModal || editDraft || cohortToDelete || showCopySurveyModal) {
             const previousOverflow = document.body.style.overflow
             document.body.style.overflow = 'hidden'
             return () => { document.body.style.overflow = previousOverflow }
         }
-    }, [showCreateModal, editDraft])
+    }, [showCreateModal, editDraft, cohortToDelete, showCopySurveyModal])
 
     // ── Создание когорты (отдельная модалка, без изменений) ───────
     function isCreateFormComplete() {
@@ -146,6 +177,67 @@ export default function AdminCohortsPage() {
         }
     }
 
+    function openDeleteModal(cohort: Cohort) {
+        if (cohort.status !== 'draft') return
+        setDeleteErrors([])
+        setCohortToDelete(cohort)
+    }
+
+    function closeDeleteModal() {
+        if (!deletingCohortId) setCohortToDelete(null)
+    }
+
+    async function handleDeleteCohort() {
+        if (!cohortToDelete) return
+        const cohort = cohortToDelete
+
+        setDeletingCohortId(cohort.id)
+        setDeleteErrors([])
+        try {
+            await deleteCohort(cohort.id)
+            if (editDraft?.id === cohort.id) closeEdit()
+            await refetchCohorts()
+            setCohortToDelete(null)
+        } catch (err: unknown) {
+            setDeleteErrors(describeApiErrors(err, 'Не удалось удалить когорту'))
+        } finally {
+            setDeletingCohortId(null)
+        }
+    }
+
+    function openCopySurveyModal() {
+        if (!editDraft?.survey) return
+        const sourceSurvey = cohorts.find(cohort => cohort.id === editDraft.id)?.survey
+        if (sourceSurvey?.id !== editDraft.survey.id) {
+            setEditErrors(['Сначала сохраните анкету, затем откройте когорту снова для копирования.'])
+            return
+        }
+
+        const target = cohorts.find(cohort => cohort.id !== editDraft.id && !cohort.survey)
+        setCopyTargetCohortId(target?.id ?? '')
+        setCopySurveyErrors([])
+        setShowCopySurveyModal(true)
+    }
+
+    function closeCopySurveyModal() {
+        if (!copySurveyLoading) setShowCopySurveyModal(false)
+    }
+
+    async function handleCopySurvey() {
+        if (!editDraft?.survey || !copyTargetCohortId) return
+        setCopySurveyLoading(true)
+        setCopySurveyErrors([])
+        try {
+            await copySurvey(editDraft.survey.id, copyTargetCohortId)
+            await refetchCohorts()
+            setShowCopySurveyModal(false)
+        } catch (err: unknown) {
+            setCopySurveyErrors(describeApiErrors(err, 'Не удалось скопировать анкету'))
+        } finally {
+            setCopySurveyLoading(false)
+        }
+    }
+
     // ── Открыть/закрыть редактирование ─────────────────────────────
     function openEdit(cohort: Cohort) {
         // Глубокая копия — правки идут в черновик, исходная когорта в
@@ -154,12 +246,16 @@ export default function AdminCohortsPage() {
         setEditTab('general')
         setEditErrors([])
         setNewTrackTitle('')
+        setNewTrackError('')
+        setTrackTitleErrors({})
     }
 
     function closeEdit() {
         // Черновик просто выбрасывается — все несохранённые правки исчезают
         setEditDraft(null)
         setEditErrors([])
+        setNewTrackError('')
+        setTrackTitleErrors({})
     }
 
     function patchDraft(patch: Partial<Cohort>) {
@@ -208,6 +304,20 @@ export default function AdminCohortsPage() {
 
     async function handleSaveEdit() {
         if (!editDraft) return
+        const duplicateTitle = getDuplicateTrackTitle(editDraft.tracks)
+        if (duplicateTitle) {
+            const duplicateTrack = editDraft.tracks.find((track, index, tracks) =>
+                tracks.slice(0, index).some(existing => normalizeTrackTitle(existing.title) === normalizeTrackTitle(track.title))
+            )
+            setEditTab('tracks')
+            if (duplicateTrack) {
+                setTrackTitleErrors(previous => ({
+                    ...previous,
+                    [duplicateTrack.id]: `Трек «${duplicateTitle}» уже есть в этой когорте.`,
+                }))
+            }
+            return
+        }
         setEditSaving(true)
         setEditErrors([])
         try {
@@ -249,19 +359,41 @@ export default function AdminCohortsPage() {
     // ── Треки (локально, без сети) ─────────────────────────────────
     function addTrack() {
         if (!newTrackTitle.trim() || !editDraft) return
-        const track: Track = { id: uid(), title: newTrackTitle.trim(), testTask: null }
+        const title = newTrackTitle.trim()
+        if (editDraft.tracks.some(track => normalizeTrackTitle(track.title) === normalizeTrackTitle(title))) {
+            setNewTrackError(`Трек «${title}» уже есть в этой когорте.`)
+            return
+        }
+        const track: Track = { id: uid(), title, testTask: null }
         patchDraft({ tracks: [...editDraft.tracks, track] })
         setNewTrackTitle('')
+        setNewTrackError('')
     }
 
     function removeTrack(trackId: string) {
         if (!editDraft) return
-        patchDraft({ tracks: editDraft.tracks.filter(t => t.id !== trackId) })
+        const tracks = editDraft.tracks.filter(t => t.id !== trackId)
+        patchDraft({ tracks })
+        setTrackTitleErrors(previous => {
+            const next = { ...previous }
+            delete next[trackId]
+            return next
+        })
     }
 
     function updateTrackTitle(trackId: string, title: string) {
         if (!editDraft) return
-        patchDraft({ tracks: editDraft.tracks.map(t => t.id === trackId ? { ...t, title } : t) })
+        const tracks = editDraft.tracks.map(t => t.id === trackId ? { ...t, title } : t)
+        patchDraft({ tracks })
+        const duplicate = tracks.some(track =>
+            track.id !== trackId && normalizeTrackTitle(track.title) === normalizeTrackTitle(title)
+        )
+        setTrackTitleErrors(previous => {
+            const next = { ...previous }
+            if (duplicate) next[trackId] = `Трек «${title.trim()}» уже есть в этой когорте.`
+            else delete next[trackId]
+            return next
+        })
     }
 
     function saveTrackTestTask(trackId: string, patch: Partial<NonNullable<Track['testTask']>>) {
@@ -327,7 +459,7 @@ export default function AdminCohortsPage() {
         })
     }
 
-    // ── Приглашение (локально) ─────────────────────────────────────
+    // ── Приглашение ────────────────────────────────────────────────
     function getInvitationUrl(token: string) {
         if (typeof window === 'undefined') return ''
         return `${window.location.origin}/apply/${token}`
@@ -337,18 +469,51 @@ export default function AdminCohortsPage() {
         navigator.clipboard.writeText(getInvitationUrl(token))
     }
 
-    function createDraftInvitation() {
-        patchDraft({ invitation: { token: uid().slice(0, 8), expiresAt: null } })
+    async function createDraftInvitation() {
+        if (!editDraft) return
+        setInvitationSaving(true)
+        setEditErrors([])
+        try {
+            const invitation = await createInvitation(editDraft.id)
+            patchDraft({ invitation })
+            await refetchCohorts()
+        } catch (err: unknown) {
+            setEditErrors(describeApiErrors(err, 'Не удалось создать ссылку-приглашение'))
+        } finally {
+            setInvitationSaving(false)
+        }
     }
 
-    function regenerateDraftInvitation() {
-        patchDraft({ invitation: { token: uid().slice(0, 8), expiresAt: null } })
+    async function regenerateDraftInvitation() {
+        if (!editDraft) return
+        setInvitationSaving(true)
+        setEditErrors([])
+        try {
+            const invitation = await regenerateInvitation(editDraft.id)
+            patchDraft({ invitation })
+            await refetchCohorts()
+        } catch (err: unknown) {
+            setEditErrors(describeApiErrors(err, 'Не удалось перегенерировать ссылку-приглашение'))
+        } finally {
+            setInvitationSaving(false)
+        }
     }
 
     // [FIX] Раньше ссылку нельзя было убрать после создания — только
     // перегенерировать. Добавлена возможность удалить её полностью.
-    function deleteDraftInvitation() {
-        patchDraft({ invitation: null })
+    async function deleteDraftInvitation() {
+        if (!editDraft) return
+        setInvitationSaving(true)
+        setEditErrors([])
+        try {
+            await deleteInvitation(editDraft.id)
+            patchDraft({ invitation: null })
+            await refetchCohorts()
+        } catch (err: unknown) {
+            setEditErrors(describeApiErrors(err, 'Не удалось удалить ссылку-приглашение'))
+        } finally {
+            setInvitationSaving(false)
+        }
     }
 
     return (
@@ -357,7 +522,7 @@ export default function AdminCohortsPage() {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1">Когорты</h1>
-                        <p className="text-sm text-[#6B6880]">Управление потоками практики.</p>
+                        <p className="text-sm text-[#6B6880]">Управление потоками практики. Удалить можно только когорту в статусе «Черновик».</p>
                     </div>
                     <button onClick={openCreateModal}
                         className="text-sm font-semibold text-white px-5 py-2.5 rounded-xl shadow-md"
@@ -376,6 +541,14 @@ export default function AdminCohortsPage() {
                 {cohortsError && (
                     <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
                         <p className="text-sm text-[#C93B3B]">⚠️ {cohortsError}</p>
+                    </div>
+                )}
+
+                {deleteErrors.length > 0 && (
+                    <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
+                        {deleteErrors.map(message => (
+                            <p key={message} className="text-sm text-[#C93B3B]">⚠️ {message}</p>
+                        ))}
                     </div>
                 )}
 
@@ -415,6 +588,15 @@ export default function AdminCohortsPage() {
                                         className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF] transition-all inline-flex items-center gap-1.5">
                                         <span className="text-sm leading-none">✎</span> Редактировать
                                     </button>
+                                    {cohort.status === 'draft' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => openDeleteModal(cohort)}
+                                            disabled={deletingCohortId === cohort.id}
+                                            className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#F0BABA] text-[#C93B3B] hover:bg-[#FFF5F5] transition-all disabled:opacity-50">
+                                            {deletingCohortId === cohort.id ? 'Удаляем…' : 'Удалить'}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
@@ -464,6 +646,83 @@ export default function AdminCohortsPage() {
                     })}
                 </div>
             </div>
+
+            {cohortToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+                    {...deleteModalOverlay}>
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md mx-4"
+                        onClick={e => e.stopPropagation()}>
+                        <div className="w-12 h-12 rounded-full bg-[#FFF5F5] flex items-center justify-center text-2xl mb-5">🗑️</div>
+                        <h3 className="font-bold text-xl text-[#1C1A3A] mb-2">Удалить когорту?</h3>
+                        <p className="text-sm text-[#6B6880] leading-relaxed mb-3">
+                            Когорта «{cohortToDelete.title}» будет удалена безвозвратно.
+                        </p>
+                        <p className="text-sm text-[#6B6880] leading-relaxed">
+                            Вместе с ней удалятся треки, анкета, приглашение и другие черновые настройки.
+                        </p>
+                        <div className="mt-7 flex justify-end gap-3">
+                            <button type="button" onClick={closeDeleteModal} disabled={Boolean(deletingCohortId)}
+                                className="px-5 py-2.5 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-xl disabled:opacity-50">
+                                Отмена
+                            </button>
+                            <button type="button" onClick={handleDeleteCohort} disabled={Boolean(deletingCohortId)}
+                                className="px-5 py-2.5 text-sm font-semibold text-white bg-[#C93B3B] hover:bg-[#B72F2F] rounded-xl shadow-sm disabled:opacity-50">
+                                {deletingCohortId ? 'Удаляем…' : 'Удалить'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showCopySurveyModal && editDraft?.survey && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+                    {...copySurveyModalOverlay}>
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg mx-4"
+                        onClick={e => e.stopPropagation()}>
+                        <div className="w-12 h-12 rounded-full bg-[#EBE9FF] flex items-center justify-center text-2xl mb-5">📋</div>
+                        <h3 className="font-bold text-xl text-[#1C1A3A] mb-2">Скопировать анкету</h3>
+                        <p className="text-sm text-[#6B6880] leading-relaxed mb-5">
+                            Будут скопированы название анкеты, вопросы, их типы, обязательность и варианты ответов.
+                        </p>
+                        <label className="flex flex-col gap-1.5 text-sm font-medium text-[#1C1A3A]">
+                            Целевая когорта
+                            <select value={copyTargetCohortId} onChange={e => setCopyTargetCohortId(e.target.value)}
+                                disabled={copySurveyLoading || !cohorts.some(cohort => cohort.id !== editDraft.id && !cohort.survey)}
+                                className="w-full text-sm">
+                                {cohorts.filter(cohort => cohort.id !== editDraft.id && !cohort.survey).length === 0 ? (
+                                    <option value="">Нет когорт без анкеты</option>
+                                ) : (
+                                    cohorts.filter(cohort => cohort.id !== editDraft.id && !cohort.survey).map(cohort => (
+                                        <option key={cohort.id} value={cohort.id}>{cohort.title}</option>
+                                    ))
+                                )}
+                            </select>
+                        </label>
+                        <p className="mt-3 text-xs text-[#6B6880]">
+                            Скопировать можно только в когорту, у которой ещё нет собственной анкеты.
+                        </p>
+                        {copySurveyErrors.length > 0 && (
+                            <div className="mt-4 bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
+                                {copySurveyErrors.map(message => (
+                                    <p key={message} className="text-sm text-[#C93B3B]">⚠️ {message}</p>
+                                ))}
+                            </div>
+                        )}
+                        <div className="mt-7 flex justify-end gap-3">
+                            <button type="button" onClick={closeCopySurveyModal} disabled={copySurveyLoading}
+                                className="px-5 py-2.5 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-xl disabled:opacity-50">
+                                Отмена
+                            </button>
+                            <button type="button" onClick={handleCopySurvey}
+                                disabled={copySurveyLoading || !copyTargetCohortId}
+                                className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-sm disabled:opacity-50"
+                                style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                                {copySurveyLoading ? 'Копируем…' : 'Скопировать'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ── МОДАЛКА: СОЗДАТЬ КОГОРТУ ── */}
             {showCreateModal && (
@@ -674,6 +933,10 @@ export default function AdminCohortsPage() {
                                         </button>
                                     </div>
 
+                                    {newTrackError && (
+                                        <p className="text-xs text-[#C93B3B]">⚠️ {newTrackError}</p>
+                                    )}
+
                                     {editDraft.tracks.length === 0 ? (
                                         <div className="rounded-xl border border-dashed border-[#E4E2F4] px-4 py-8 text-center">
                                             <p className="text-sm text-[#6B6880]">Треков пока нет. Добавьте первое направление.</p>
@@ -685,6 +948,7 @@ export default function AdminCohortsPage() {
                                                     key={track.id}
                                                     cohortId={editDraft.id}
                                                     track={track}
+                                                    titleError={trackTitleErrors[track.id]}
                                                     onRemove={() => removeTrack(track.id)}
                                                     onTitleChange={title => updateTrackTitle(track.id, title)}
                                                     onSaveTestTask={patch => saveTrackTestTask(track.id, patch)}
@@ -702,10 +966,18 @@ export default function AdminCohortsPage() {
                                 <div className="flex flex-col gap-5">
                                     <div className="flex items-center justify-between">
                                         <p className="text-sm text-[#6B6880]">Вопросы публичной анкеты когорты.</p>
-                                        <button onClick={addQuestion}
-                                            className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF] transition-all whitespace-nowrap">
-                                            + Вопрос
-                                        </button>
+                                        <div className="flex gap-2">
+                                            {editDraft.survey && (
+                                                <button onClick={openCopySurveyModal}
+                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#E4E2F4] text-[#6B6880] hover:bg-[#F5F4FD] transition-all whitespace-nowrap">
+                                                    Копировать в когорту
+                                                </button>
+                                            )}
+                                            <button onClick={addQuestion}
+                                                className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF] transition-all whitespace-nowrap">
+                                                + Вопрос
+                                            </button>
+                                        </div>
                                     </div>
 
                                     {(!editDraft.survey || editDraft.survey.questions.length === 0) ? (
@@ -743,20 +1015,20 @@ export default function AdminCohortsPage() {
                                                     <input type="text" readOnly
                                                         value={getInvitationUrl(editDraft.invitation.token)}
                                                         className="flex-1 text-sm font-mono bg-[#F5F4FD]" />
-                                                    <button onClick={() => copyInvitation(editDraft.invitation!.token)}
+                                                    <button onClick={() => copyInvitation(editDraft.invitation!.token)} disabled={invitationSaving}
                                                         className="px-4 py-2 text-sm font-semibold border border-[#6C63FF] text-[#4A42D4] rounded-lg hover:bg-[#EBE9FF] shrink-0">
                                                         Копировать
                                                     </button>
                                                 </div>
-                                                <span className="text-xs text-[#6B6880]">Появится по этому адресу только после сохранения.</span>
+                                                <span className="text-xs text-[#6B6880]">Ссылка уже создана и готова к использованию.</span>
                                             </div>
                                             <div className="flex gap-3">
-                                                <button onClick={regenerateDraftInvitation}
-                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#E4E2F4] text-[#6B6880] hover:bg-[#F5F4FD] transition-all">
-                                                    🔄 Перегенерировать токен
+                                                <button onClick={regenerateDraftInvitation} disabled={invitationSaving}
+                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#E4E2F4] text-[#6B6880] hover:bg-[#F5F4FD] transition-all disabled:opacity-50">
+                                                    {invitationSaving ? 'Сохранение…' : '🔄 Перегенерировать токен'}
                                                 </button>
-                                                <button onClick={deleteDraftInvitation}
-                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#F0BABA] text-[#C93B3B] hover:bg-[#FFF5F5] transition-all">
+                                                <button onClick={deleteDraftInvitation} disabled={invitationSaving}
+                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#F0BABA] text-[#C93B3B] hover:bg-[#FFF5F5] transition-all disabled:opacity-50">
                                                     🗑 Удалить ссылку
                                                 </button>
                                             </div>
@@ -771,10 +1043,10 @@ export default function AdminCohortsPage() {
                                             <div className="rounded-xl border border-dashed border-[#E4E2F4] px-4 py-8 text-center">
                                                 <p className="text-sm text-[#6B6880]">Ссылка ещё не создана.</p>
                                             </div>
-                                            <button onClick={createDraftInvitation}
-                                                className="self-start text-sm font-semibold text-white px-5 py-2.5 rounded-xl shadow-md"
+                                            <button onClick={createDraftInvitation} disabled={invitationSaving}
+                                                className="self-start text-sm font-semibold text-white px-5 py-2.5 rounded-xl shadow-md disabled:opacity-50"
                                                 style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
-                                                Создать ссылку-приглашение
+                                                {invitationSaving ? 'Создание…' : 'Создать ссылку-приглашение'}
                                             </button>
                                         </div>
                                     )}
@@ -811,6 +1083,7 @@ export default function AdminCohortsPage() {
 function TrackEditor({
     cohortId,
     track,
+    titleError,
     onRemove,
     onTitleChange,
     onSaveTestTask,
@@ -819,6 +1092,7 @@ function TrackEditor({
 }: {
     cohortId: string
     track: Track
+    titleError?: string
     onRemove: () => void
     onTitleChange: (title: string) => void
     onSaveTestTask: (patch: Partial<NonNullable<Track['testTask']>>) => void
@@ -866,6 +1140,9 @@ function TrackEditor({
                     className="flex-1 text-sm font-semibold" />
                 <button onClick={onRemove} className="text-[#6B6880] hover:text-[#C93B3B] text-xl leading-none px-1">×</button>
             </div>
+            {titleError && (
+                <p className="pl-10 -mt-2 text-xs text-[#C93B3B]">⚠️ {titleError}</p>
+            )}
 
             <div className="flex flex-col gap-3 pl-10">
                 <div className="flex items-center justify-between">

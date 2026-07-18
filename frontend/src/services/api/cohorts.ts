@@ -375,6 +375,18 @@ export async function closeCohort(id: string): Promise<Cohort> {
     return mapCohort(await apiRequest<any>(`/cohorts/${id}/close`, { method: 'PATCH' }))
 }
 
+export async function deleteCohort(id: string): Promise<void> {
+    if (USE_MOCKS) {
+        await mockDelay()
+        const cohorts = mockLoadCohorts()
+        const cohort = mockFindCohort(cohorts, id)
+        if (cohort.status !== 'draft') throw new Error('Удалить можно только когорту в статусе «Черновик»')
+        mockSaveCohorts(cohorts.filter(item => item.id !== id))
+        return
+    }
+    await apiRequest<void>(`/cohorts/${id}`, { method: 'DELETE' })
+}
+
 // ── Треки ──────────────────────────────────────────────────────
 
 // POST /cohorts/:id/tracks
@@ -498,6 +510,15 @@ export async function createQuestion(cohortId: string, question: Omit<Question, 
 
 async function createSurvey(cohortId: string, title: string): Promise<Survey> {
     const data = await apiRequest<any>(`/cohorts/${cohortId}/survey`, { method: 'POST', body: JSON.stringify({ title }) })
+    return { id: data.id, title: data.title, questions: (data.questions ?? []).map(mapQuestion) }
+}
+
+// POST /surveys/:surveyId/copy
+export async function copySurvey(surveyId: string, targetCohortId: string): Promise<Survey> {
+    const data = await apiRequest<any>(`/surveys/${surveyId}/copy`, {
+        method: 'POST',
+        body: JSON.stringify({ target_cohort_id: targetCohortId }),
+    })
     return { id: data.id, title: data.title, questions: (data.questions ?? []).map(mapQuestion) }
 }
 

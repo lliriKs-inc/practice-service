@@ -122,6 +122,29 @@ describe('AdminApplicationsPage', () => {
 
         fireEvent.click(screen.getByRole('button', { name: 'Одобрить' }))
 
+        expect(await screen.findByRole('heading', { name: 'Одобрить заявку?' })).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Подтвердить' }))
+
         await waitFor(() => expect(updateApplicationStatus).toHaveBeenCalledWith(COHORT_ID, 'app-pending', 'approved', undefined))
+    })
+
+    it('запрашивает подтверждение и причину перед отклонением заявки', async () => {
+        renderWithCohort()
+        await screen.findByText('anna@urfu.ru', {}, { timeout: 3000 })
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Отклонить' }).at(-1)!)
+
+        expect(await screen.findByRole('heading', { name: 'Отклонить заявку?' })).toBeInTheDocument()
+        fireEvent.change(screen.getByPlaceholderText('Опишите причину (необязательно)'), {
+            target: { value: 'Не хватает опыта для выбранного направления' },
+        })
+        fireEvent.click(screen.getAllByRole('button', { name: 'Отклонить' }).at(-1)!)
+
+        await waitFor(() => expect(updateApplicationStatus).toHaveBeenCalledWith(
+            COHORT_ID,
+            'app-pending',
+            'rejected',
+            'Не хватает опыта для выбранного направления',
+        ))
     })
 })

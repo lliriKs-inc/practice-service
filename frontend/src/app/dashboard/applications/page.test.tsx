@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import DashboardApplicationsPage from './page'
 import { saveToken, saveUser } from '@/lib/api/session'
 import type { Application } from '@/services/api/invitation'
@@ -59,11 +59,27 @@ describe('DashboardApplicationsPage (архив заявок студента)',
         )
     })
 
+    it('запрашивает подтверждение перед выбором одобренного трека', async () => {
+        getMyApplications.mockResolvedValue([makeApplication({ status: 'approved' })])
+        render(<DashboardApplicationsPage />)
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Выбрать этот трек' }))
+        expect(screen.getByRole('heading', { name: 'Выбрать этот трек?' })).toBeInTheDocument()
+
+        fireEvent.click(screen.getByRole('button', { name: 'Выбрать трек' }))
+        expect(screen.getByRole('button', { name: '✓ Выбранный трек' })).toBeInTheDocument()
+    })
+
     it('не показывает ссылку на тестовое задание для отклонённой заявки', async () => {
-        getMyApplications.mockResolvedValue([makeApplication({ status: 'rejected' })])
+        getMyApplications.mockResolvedValue([makeApplication({
+            status: 'rejected',
+            rejection_reason: 'Выбран другой кандидат',
+        })])
         render(<DashboardApplicationsPage />)
 
         expect(await screen.findByText('Отклонена')).toBeInTheDocument()
+        expect(screen.getByText('Причина отклонения')).toBeInTheDocument()
+        expect(screen.getByText('Выбран другой кандидат')).toBeInTheDocument()
         expect(screen.queryByRole('link', { name: /Тестовое задание/ })).not.toBeInTheDocument()
     })
 })

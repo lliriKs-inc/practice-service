@@ -22,6 +22,7 @@ import {
     type ReportInfo,
 } from '@/services/api/documents'
 import { downloadProtectedFile } from '@/lib/api/download'
+import { getActiveApplicationId } from '@/lib/active-application'
 
 const REPORT_STATUS_CONFIG: Record<ReportInfo['status'], { label: string; className: string }> = {
     PENDING: { label: 'На проверке', className: 'bg-[#FFF8ED] border-[#F5D9A0] text-[#7A5C1A]' },
@@ -44,7 +45,11 @@ export default function DashboardDocumentsPage() {
         })()
     }, [])
 
-    const approvedApplication = applications.find(a => a.status === 'approved') ?? null
+    const approvedApplications = applications.filter(a => a.status === 'approved')
+    const preferredApplicationId = getActiveApplicationId()
+    const approvedApplication = approvedApplications.find(a => a.id === preferredApplicationId)
+        ?? approvedApplications[0]
+        ?? null
 
     const [readiness, setReadiness] = useState<ReadinessResponse | null>(null)
     const [documents, setDocuments] = useState<DocumentData[]>([])
@@ -218,6 +223,7 @@ export default function DashboardDocumentsPage() {
             <div>
                 <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1">Документы</h1>
                 <p className="text-sm text-[#6B6880]">Заполни поля — документы сформируются автоматически.</p>
+                <p className="text-sm text-[#6B6880]">Текущий трек: {approvedApplication.track.title}</p>
             </div>
 
             {error && (

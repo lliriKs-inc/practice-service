@@ -18,6 +18,8 @@ interface BackendErrorBody {
 const CODE_MESSAGES: Record<string, string> = {
     ACTIVE_COHORT_EXISTS: 'Уже есть другая активная когорта — активной может быть только одна одновременно.',
     COHORT_NOT_FOUND: 'Когорта не найдена — возможно, её уже изменили в другой вкладке.',
+    COHORT_NOT_DRAFT: 'Удалить можно только когорту в статусе «Черновик».',
+    COHORT_HAS_APPLICATIONS: 'Нельзя удалить когорту, пока в ней есть заявки.',
     APPLICATION_NOT_FOUND: 'Заявка не найдена.',
     SURVEY_NOT_FOUND: 'У этой когорты ещё нет анкеты.',
     TOKEN_EXPIRED: 'Срок действия ссылки-приглашения истёк.',
@@ -29,6 +31,7 @@ const CODE_MESSAGES: Record<string, string> = {
     RATE_LIMIT_EXCEEDED: 'Слишком много запросов подряд — подожди немного и попробуй снова.',
     AUTH_RATE_LIMIT_EXCEEDED: 'Слишком много попыток входа — подожди немного и попробуй снова.',
     TRACK_ALREADY_EXISTS: 'Трек с таким названием уже есть в этой когорте.',
+    APPLICATION_ALREADY_EXISTS: 'Заявка на этот трек уже была подана.',
     TRACK_HAS_APPLICATIONS: 'Нельзя удалить трек — по нему уже есть заявки.',
     SURVEY_ALREADY_EXISTS: 'У этой когорты уже есть анкета.',
     TARGET_SURVEY_ALREADY_EXISTS: 'У целевой когорты уже есть анкета.',

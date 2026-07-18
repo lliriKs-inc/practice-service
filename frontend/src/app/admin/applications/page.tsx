@@ -18,6 +18,9 @@ export default function AdminApplicationsPage() {
     const [applicationsLoading, setApplicationsLoading] = useState(true)
     const [applicationsError, setApplicationsError] = useState('')
     const [applicationActionId, setApplicationActionId] = useState<string | null>(null)
+    const [applicationToApprove, setApplicationToApprove] = useState<AdminApplicationSummary | null>(null)
+    const [applicationToReject, setApplicationToReject] = useState<AdminApplicationSummary | null>(null)
+    const [rejectionReason, setRejectionReason] = useState('')
 
     const [statusFilter, setStatusFilter] = useState<Application['status'] | ''>('')
     const [trackFilter, setTrackFilter] = useState('')
@@ -69,20 +72,41 @@ export default function AdminApplicationsPage() {
         }
     }
 
-    async function handleApplicationDecision(id: string, status: 'approved' | 'rejected') {
-        if (!selectedCohort) return
+    async function confirmApproval() {
+        if (!selectedCohort || !applicationToApprove) return
+        const applicationId = applicationToApprove.applicationId
 
-        let rejectionReason: string | undefined
-        if (status === 'rejected') {
-            const input = window.prompt('Причина отказа (покажем кандидату):')
-            if (input === null) return // отменил диалог
-            rejectionReason = input.trim() || 'Причина не указана'
-        }
-
-        setApplicationActionId(id)
+        setApplicationActionId(applicationId)
         try {
-            await updateApplicationStatus(selectedCohort.id, id, status, rejectionReason)
+            await updateApplicationStatus(selectedCohort.id, applicationId, 'approved', undefined)
             await loadApplications()
+            setApplicationToApprove(null)
+        } catch (err: unknown) {
+            setApplicationsError(err instanceof Error ? err.message : 'Не удалось изменить статус заявки')
+        } finally {
+            setApplicationActionId(null)
+        }
+    }
+
+    function openRejectionModal(application: AdminApplicationSummary) {
+        setApplicationToReject(application)
+        setRejectionReason('')
+    }
+
+    async function confirmRejection() {
+        if (!selectedCohort || !applicationToReject) return
+        const applicationId = applicationToReject.applicationId
+
+        setApplicationActionId(applicationId)
+        try {
+            await updateApplicationStatus(
+                selectedCohort.id,
+                applicationId,
+                'rejected',
+                rejectionReason.trim() || 'Причина не указана',
+            )
+            await loadApplications()
+            setApplicationToReject(null)
         } catch (err: unknown) {
             setApplicationsError(err instanceof Error ? err.message : 'Не удалось изменить статус заявки')
         } finally {
@@ -251,13 +275,13 @@ export default function AdminApplicationsPage() {
                                         <div className="flex gap-2">
                                             <button
                                                 disabled={applicationActionId === app.applicationId}
-                                                onClick={() => handleApplicationDecision(app.applicationId, 'rejected')}
+                                                onClick={() => openRejectionModal(app)}
                                                 className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#F0BABA] text-[#C93B3B] hover:bg-[#FFF5F5] disabled:opacity-50">
                                                 Отклонить
                                             </button>
                                             <button
                                                 disabled={applicationActionId === app.applicationId}
-                                                onClick={() => handleApplicationDecision(app.applicationId, 'approved')}
+                                                onClick={() => setApplicationToApprove(app)}
                                                 className="text-xs font-semibold px-4 py-1.5 rounded-lg text-white shadow-sm disabled:opacity-50"
                                                 style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
                                                 {applicationActionId === app.applicationId ? 'Сохраняем…' : 'Одобрить'}
@@ -268,6 +292,71 @@ export default function AdminApplicationsPage() {
                             </div>
                         )
                     })}
+                </div>
+            )}
+            {applicationToApprove && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
+                    onClick={event => {
+                        if (event.target === event.currentTarget && !applicationActionId) setApplicationToApprove(null)
+                    }}>
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+                        <div className="w-12 h-12 rounded-full bg-[#EBE9FF] flex items-center justify-center text-2xl mb-5">✅</div>
+                        <h2 className="font-bold text-xl text-[#1C1A3A] mb-2">Одобрить заявку?</h2>
+                        <p className="text-sm text-[#6B6880] leading-relaxed">
+                            Вы одобряете заявку {applicationToApprove.student?.email ?? 'кандидата'} на трек «{applicationToApprove.track.title}».
+                        </p>
+                        <p className="mt-3 text-sm text-[#6B6880] leading-relaxed">
+                            Если студент будет одобрен на нескольких треках, он самостоятельно выберет нужный трек в личном кабинете.
+                        </p>
+                        <div className="mt-7 flex justify-end gap-3">
+                            <button type="button" onClick={() => setApplicationToApprove(null)}
+                                disabled={Boolean(applicationActionId)}
+                                className="px-5 py-2.5 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-xl disabled:opacity-50">
+                                Отмена
+                            </button>
+                            <button type="button" onClick={confirmApproval}
+                                disabled={Boolean(applicationActionId)}
+                                className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-sm disabled:opacity-50"
+                                style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                                {applicationActionId ? 'Одобряем…' : 'Подтвердить'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {applicationToReject && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
+                    onClick={event => {
+                        if (event.target === event.currentTarget && !applicationActionId) setApplicationToReject(null)
+                    }}>
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+                        <div className="w-12 h-12 rounded-full bg-[#FFF5F5] flex items-center justify-center text-2xl mb-5">⚠️</div>
+                        <h2 className="font-bold text-xl text-[#1C1A3A] mb-2">Отклонить заявку?</h2>
+                        <p className="text-sm text-[#6B6880] leading-relaxed">
+                            Вы отклоняете заявку {applicationToReject.student?.email ?? 'кандидата'} на трек «{applicationToReject.track.title}».
+                        </p>
+                        <p className="mt-3 text-sm text-[#6B6880] leading-relaxed">
+                            После отклонения студент не сможет повторно подать заявку на этот трек.
+                        </p>
+                        <label className="mt-5 flex flex-col gap-1.5 text-sm font-medium text-[#1C1A3A]">
+                            Причина отклонения для студента
+                            <textarea value={rejectionReason} onChange={event => setRejectionReason(event.target.value)}
+                                placeholder="Опишите причину (необязательно)"
+                                className="min-h-24 text-sm font-normal" />
+                        </label>
+                        <div className="mt-7 flex justify-end gap-3">
+                            <button type="button" onClick={() => setApplicationToReject(null)}
+                                disabled={Boolean(applicationActionId)}
+                                className="px-5 py-2.5 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-xl disabled:opacity-50">
+                                Отмена
+                            </button>
+                            <button type="button" onClick={confirmRejection}
+                                disabled={Boolean(applicationActionId)}
+                                className="px-5 py-2.5 text-sm font-semibold text-white bg-[#C93B3B] hover:bg-[#B72F2F] rounded-xl shadow-sm disabled:opacity-50">
+                                {applicationActionId ? 'Отклоняем…' : 'Отклонить'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

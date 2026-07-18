@@ -194,7 +194,18 @@ describeIntegration("B-06 production API candidate and practice flow", () => {
   });
 
   it("completes progress, report and all document workflows", async () => {
-    const weekStart = mondayOf(new Date());
+    const firstGeneratedTask = await prisma.dailyTask.findFirst({
+      where: { application_id: applicationId },
+      orderBy: { task_date: "asc" },
+      select: { task_date: true },
+    });
+    expect(firstGeneratedTask).toBeDefined();
+
+    // The practice can start on a weekend. In that case the current calendar
+    // week has no practice days yet, even though approval correctly created
+    // tasks for the following weekday. Request the week containing an actual
+    // generated task rather than relying on the day CI happens to run.
+    const weekStart = mondayOf(firstGeneratedTask!.task_date);
     const progress = await request(app)
       .get(`${API}/me/applications/${applicationId}/tasks`)
       .query({ weekStart })
