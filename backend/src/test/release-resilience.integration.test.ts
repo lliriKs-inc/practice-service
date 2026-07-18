@@ -13,6 +13,12 @@ const describeIntegration = process.env.RUN_DB_INTEGRATION === "true"
   : describe.skip;
 const API = "/api/v1";
 
+function tokenFromSessionCookie(setCookie: string[] | undefined) {
+  const cookie = setCookie?.find((value) => value.startsWith("practice_session="));
+  expect(cookie).toEqual(expect.stringContaining("HttpOnly"));
+  return decodeURIComponent(cookie!.split(";", 1)[0].slice("practice_session=".length));
+}
+
 describeIntegration("B-08 concurrent release resilience", () => {
   const app = createApp({ readinessCheck: async () => undefined });
   let fixture: AdmissionsFixture;
@@ -30,15 +36,18 @@ describeIntegration("B-08 concurrent release resilience", () => {
       .send({ email, password, full_name: "B-08 Resilience Student" });
     studentId = registration.body.id;
 
-    studentToken = (await request(app)
+    const studentLogin = await request(app)
       .post(`${API}/auth/login`)
-      .send({ email, password })).body.token;
-    adminToken = (await request(app)
+      .send({ email, password });
+    studentToken = tokenFromSessionCookie(studentLogin.headers["set-cookie"]);
+
+    const adminLogin = await request(app)
       .post(`${API}/auth/login`)
       .send({
         email: fixture.adminEmail,
         password: fixture.adminPassword,
-      })).body.token;
+      });
+    adminToken = tokenFromSessionCookie(adminLogin.headers["set-cookie"]);
   });
 
   afterAll(async () => {
