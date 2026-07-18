@@ -117,7 +117,7 @@ describe('ApplyByInvitationPage', () => {
         // required-полей раньше, чем до неё доберётся наш собственный обработчик
         fireEvent.submit(container.querySelector('form')!)
 
-        expect(await screen.findByText('Выбери направление практики')).toBeInTheDocument()
+        expect(await screen.findByText('Выберите направление практики')).toBeInTheDocument()
     })
 
     it('требует заполнить обязательное поле анкеты', async () => {
@@ -128,7 +128,7 @@ describe('ApplyByInvitationPage', () => {
         fireEvent.click(screen.getByText('Backend'))
         fireEvent.submit(container.querySelector('form')!)
 
-        expect(await screen.findByText('Заполни обязательное поле: «ФИО»')).toBeInTheDocument()
+        expect(await screen.findByText('Заполните обязательное поле: «ФИО»')).toBeInTheDocument()
     })
 
     it('отправляет заявку с выбранным треком, ответами на все типы вопросов и показывает подтверждение', async () => {

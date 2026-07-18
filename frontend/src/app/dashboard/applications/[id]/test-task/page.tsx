@@ -17,9 +17,9 @@ import {
 import { downloadProtectedFile } from '@/lib/api/download'
 
 const STATUS_CONFIG: Record<Application['status'], { label: string; className: string; dot: string }> = {
-    pending: { label: 'На рассмотрении', className: 'bg-[#FFF8ED] border-[#F5D9A0] text-[#7A5C1A]', dot: 'bg-[#F59E0B]' },
-    approved: { label: 'Одобрена', className: 'bg-[#EDFBF4] border-[#7EE8B8] text-[#1A7A5A]', dot: 'bg-[#2CB87A]' },
-    rejected: { label: 'Отклонена', className: 'bg-[#FFF5F5] border-[#F0BABA] text-[#C93B3B]', dot: 'bg-[#D94F4F]' },
+    pending: { label: 'На рассмотрении', className: 'bg-warning-bg border-warning-border text-warning', dot: 'bg-warning-dot' },
+    approved: { label: 'Одобрена', className: 'bg-success-bg border-success-border text-success', dot: 'bg-success-dot' },
+    rejected: { label: 'Отклонена', className: 'bg-danger-bg border-danger-border text-danger', dot: 'bg-danger-dot' },
 }
 
 export default function ApplicationTestTaskPage() {
@@ -90,18 +90,18 @@ export default function ApplicationTestTaskPage() {
 
     if (pageLoading) return (
         <div className="flex items-center gap-3">
-            <div className="w-5 h-5 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
-            <p className="text-sm text-[#6B6880]">Загружаем…</p>
+            <div className="w-5 h-5 rounded-full border-2 border-brand border-t-transparent animate-spin" />
+            <p className="text-sm text-muted-ink">Загружаем…</p>
         </div>
     )
 
     if (error || !application) {
         return (
             <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center mx-auto">
-                <div className="w-14 h-14 rounded-full bg-[#FFF5F5] flex items-center justify-center text-2xl mb-5">⚠️</div>
-                <h2 className="font-extrabold text-xl text-[#1C1A3A] mb-2">Не удалось открыть заявку</h2>
-                <p className="text-sm text-[#6B6880] mb-6">{error || 'Заявка не найдена'}</p>
-                <a href="/dashboard/applications" className="text-sm font-semibold text-[#4A42D4] hover:underline">← Вернуться в личный кабинет</a>
+                <div className="w-14 h-14 rounded-full bg-danger-bg flex items-center justify-center text-2xl mb-5">⚠️</div>
+                <h2 className="font-extrabold text-xl text-ink mb-2">Не удалось открыть заявку</h2>
+                <p className="text-sm text-muted-ink mb-6">{error || 'Заявка не найдена'}</p>
+                <a href="/dashboard/applications" className="text-sm font-semibold text-brand-hover hover:underline">← Вернуться в личный кабинет</a>
             </div>
         )
     }
@@ -111,14 +111,14 @@ export default function ApplicationTestTaskPage() {
     return (
         <div className="w-full max-w-2xl mx-auto flex flex-col gap-6">
 
-            <a href="/dashboard/applications" className="text-sm font-medium text-[#4A42D4] hover:underline self-start">← К списку заявок</a>
+            <a href="/dashboard/applications" className="text-sm font-medium text-brand-hover hover:underline self-start">← К списку заявок</a>
 
                     {/* Карточка заявки */}
                     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                        <div className="px-7 py-5 border-b border-[#E4E2F4] flex items-center justify-between">
+                        <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between">
                             <div>
-                                <p className="text-xs font-bold tracking-widest uppercase text-[#6B6880] mb-1">{application.cohort.title}</p>
-                                <h1 className="font-extrabold text-xl text-[#1C1A3A]">{application.track.title}</h1>
+                                <p className="text-xs font-bold tracking-widest uppercase text-muted-ink mb-1">{application.cohort.title}</p>
+                                <h1 className="font-extrabold text-xl text-ink">{application.track.title}</h1>
                             </div>
                             <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border ${status.className}`}>
                                 <div className={`w-2 h-2 rounded-full ${status.dot}`} />
@@ -126,29 +126,29 @@ export default function ApplicationTestTaskPage() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 divide-x divide-[#E4E2F4]">
+                        <div className="grid grid-cols-2 divide-x divide-border-soft">
                             <div className="px-7 py-4 flex flex-col gap-1">
-                                <span className="text-[10px] font-bold tracking-widest uppercase text-[#6B6880]">Период практики</span>
-                                <span className="text-sm font-semibold text-[#1C1A3A]">
+                                <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Период практики</span>
+                                <span className="text-sm font-semibold text-ink">
                                     {new Date(application.cohort.start_date).toLocaleDateString('ru')} — {new Date(application.cohort.end_date).toLocaleDateString('ru')}
                                 </span>
                             </div>
                             <div className="px-7 py-4 flex flex-col gap-1">
-                                <span className="text-[10px] font-bold tracking-widest uppercase text-[#6B6880]">Заявка подана</span>
-                                <span className="text-sm font-semibold text-[#1C1A3A]">
+                                <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Заявка подана</span>
+                                <span className="text-sm font-semibold text-ink">
                                     {new Date(application.submitted_at).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}
                                 </span>
                             </div>
                         </div>
 
                         {application.answers && application.answers.length > 0 && (
-                            <div className="px-7 py-5 border-t border-[#E4E2F4] flex flex-col gap-3">
-                                <span className="text-[10px] font-bold tracking-widest uppercase text-[#6B6880]">Твои ответы в анкете</span>
+                            <div className="px-7 py-5 border-t border-border-soft flex flex-col gap-3">
+                                <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Твои ответы в анкете</span>
                                 <div className="flex flex-col gap-2.5">
                                     {application.answers.map((a, i) => (
                                         <div key={i} className="flex flex-col gap-0.5">
-                                            <span className="text-xs text-[#6B6880]">{a.label}</span>
-                                            <span className="text-sm text-[#1C1A3A]">{a.value}</span>
+                                            <span className="text-xs text-muted-ink">{a.label}</span>
+                                            <span className="text-sm text-ink">{a.value}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -158,53 +158,53 @@ export default function ApplicationTestTaskPage() {
 
                     {/* Тестовое задание */}
                     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                        <div className="px-7 py-5 border-b border-[#E4E2F4]">
-                            <p className="text-[10px] font-bold tracking-widest uppercase text-[#6B6880] mb-1">Тестовое задание</p>
-                            <h2 className="font-bold text-lg text-[#1C1A3A]">{application.track.title}</h2>
+                        <div className="px-7 py-5 border-b border-border-soft">
+                            <p className="text-[10px] font-bold tracking-widest uppercase text-muted-ink mb-1">Тестовое задание</p>
+                            <h2 className="font-bold text-lg text-ink">{application.track.title}</h2>
                         </div>
 
                         <div className="px-7 py-6">
                             {!testTask || !testTask.available ? (
-                                <div className="flex items-start gap-3 p-4 bg-[#EBE9FF] rounded-xl border-l-4 border-[#6C63FF]">
+                                <div className="flex items-start gap-3 p-4 bg-brand-subtle rounded-xl border-l-4 border-brand">
                                     <span className="text-lg">📬</span>
-                                    <p className="text-sm text-[#6B6880] leading-relaxed">
+                                    <p className="text-sm text-muted-ink leading-relaxed">
                                         {testTask?.message ?? 'Пока задание не опубликовано, оно будет вам направлено на e-mail позже. Ожидайте...'}
                                     </p>
                                 </div>
                             ) : (
                                 <div className="flex flex-col gap-5">
                                     <div>
-                                        <h3 className="font-semibold text-[#1C1A3A] mb-2">{testTask.title || 'Тестовое задание'}</h3>
+                                        <h3 className="font-semibold text-ink mb-2">{testTask.title || 'Тестовое задание'}</h3>
                                         {testTask.description && (
-                                            <p className="text-sm text-[#6B6880] leading-relaxed whitespace-pre-wrap">{testTask.description}</p>
+                                            <p className="text-sm text-muted-ink leading-relaxed whitespace-pre-wrap">{testTask.description}</p>
                                         )}
                                     </div>
 
                                     {testTask.hasFile && testTask.downloadPath && (
                                         <button onClick={() => handleDownload(testTask.downloadPath!, testTask.title || 'Тестовое задание')}
-                                            className="self-start text-sm font-semibold px-5 py-2.5 rounded-lg border border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF]">
+                                            className="self-start text-sm font-semibold px-5 py-2.5 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle">
                                             📎 Скачать файл задания
                                         </button>
                                     )}
 
                                     {/* ── Решение: загрузка / замена ── */}
-                                    <div className="border-t border-[#E4E2F4] pt-5 flex flex-col gap-3">
-                                        <span className="text-[10px] font-bold tracking-widest uppercase text-[#6B6880]">Твоё решение</span>
+                                    <div className="border-t border-border-soft pt-5 flex flex-col gap-3">
+                                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Твоё решение</span>
 
                                         {testTask.submission ? (
-                                            <div className="flex items-center gap-3 bg-[#EDFBF4] border border-[#7EE8B8] rounded-xl px-4 py-3">
+                                            <div className="flex items-center gap-3 bg-success-bg border border-success-border rounded-xl px-4 py-3">
                                                 <span className="text-lg">✅</span>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-semibold text-[#1C1A3A] truncate">{testTask.submission.fileName}</p>
-                                                    <p className="text-xs text-[#6B6880]">
+                                                    <p className="text-sm font-semibold text-ink truncate">{testTask.submission.fileName}</p>
+                                                    <p className="text-xs text-muted-ink">
                                                         Загружено {new Date(testTask.submission.submittedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                     </p>
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="flex items-center gap-3 bg-[#FFF8ED] border border-[#F5D9A0] rounded-xl px-4 py-3">
+                                            <div className="flex items-center gap-3 bg-warning-bg border border-warning-border rounded-xl px-4 py-3">
                                                 <span className="text-lg">⏳</span>
-                                                <p className="text-sm text-[#7A5C1A]">Решение ещё не загружено</p>
+                                                <p className="text-sm text-warning">Решение ещё не загружено</p>
                                             </div>
                                         )}
 
@@ -213,18 +213,17 @@ export default function ApplicationTestTaskPage() {
                                             onChange={handleFileSelected} />
 
                                         <button onClick={openFilePicker} disabled={uploading}
-                                            className="self-start text-sm font-semibold px-5 py-2.5 rounded-lg text-white shadow-sm disabled:opacity-60"
-                                            style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                                            className="self-start text-sm font-semibold px-5 py-2.5 rounded-lg text-white shadow-sm disabled:opacity-60 bg-gradient-to-br from-brand to-brand-light">
                                             {uploading ? 'Загружаем…' : testTask.submission ? '🔄 Заменить решение' : '📤 Загрузить решение'}
                                         </button>
 
                                         {uploadError && (
-                                            <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
-                                                <p className="text-sm text-[#C93B3B]">⚠️ {uploadError}</p>
+                                            <div className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3">
+                                                <p className="text-sm text-danger">⚠️ {uploadError}</p>
                                             </div>
                                         )}
 
-                                        <p className="text-xs text-[#6B6880]">
+                                        <p className="text-xs text-muted-ink">
                                             Форматы: {ALLOWED_SUBMISSION_EXTENSIONS.join(', ')} · до {MAX_SUBMISSION_SIZE_BYTES / (1024 * 1024)} МБ.
                                             Повторная загрузка заменяет предыдущее решение.
                                         </p>

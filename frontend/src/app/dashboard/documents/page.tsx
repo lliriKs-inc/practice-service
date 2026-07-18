@@ -25,9 +25,9 @@ import { downloadProtectedFile } from '@/lib/api/download'
 import { getActiveApplicationId } from '@/lib/active-application'
 
 const REPORT_STATUS_CONFIG: Record<ReportInfo['status'], { label: string; className: string }> = {
-    PENDING: { label: 'На проверке', className: 'bg-[#FFF8ED] border-[#F5D9A0] text-[#7A5C1A]' },
-    APPROVED: { label: 'Одобрен', className: 'bg-[#EDFBF4] border-[#7EE8B8] text-[#1A7A5A]' },
-    REJECTED: { label: 'Отклонён', className: 'bg-[#FFF5F5] border-[#F0BABA] text-[#C93B3B]' },
+    PENDING: { label: 'На проверке', className: 'bg-warning-bg border-warning-border text-warning' },
+    APPROVED: { label: 'Одобрен', className: 'bg-success-bg border-success-border text-success' },
+    REJECTED: { label: 'Отклонён', className: 'bg-danger-bg border-danger-border text-danger' },
 }
 
 export default function DashboardDocumentsPage() {
@@ -185,8 +185,8 @@ export default function DashboardDocumentsPage() {
     }
 
     if (applicationsLoading) return (
-        <div className="flex items-center gap-2 text-sm text-[#6B6880]">
-            <div className="w-4 h-4 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
+        <div className="flex items-center gap-2 text-sm text-muted-ink">
+            <div className="w-4 h-4 rounded-full border-2 border-brand border-t-transparent animate-spin" />
             Загружаем…
         </div>
     )
@@ -195,12 +195,12 @@ export default function DashboardDocumentsPage() {
         return (
             <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
                 <div className="text-4xl mb-4">🔒</div>
-                <p className="font-semibold text-[#1C1A3A] mb-1">Документы пока недоступны</p>
-                <p className="text-sm text-[#6B6880] max-w-sm mb-4">
-                    Они откроются, как только одна из твоих заявок будет одобрена.
+                <p className="font-semibold text-ink mb-1">Документы пока недоступны</p>
+                <p className="text-sm text-muted-ink max-w-sm mb-4">
+                    Они откроются, как только одна из ваших заявок будет одобрена.
                 </p>
                 <a href="/dashboard/applications"
-                    className="text-xs font-semibold px-4 py-2 rounded-lg border border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF]">
+                    className="text-xs font-semibold px-4 py-2 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle">
                     Посмотреть мои заявки
                 </a>
             </div>
@@ -208,8 +208,8 @@ export default function DashboardDocumentsPage() {
     }
 
     if (loading && !readiness) return (
-        <div className="flex items-center gap-2 text-sm text-[#6B6880]">
-            <div className="w-4 h-4 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
+        <div className="flex items-center gap-2 text-sm text-muted-ink">
+            <div className="w-4 h-4 rounded-full border-2 border-brand border-t-transparent animate-spin" />
             Загружаем документы…
         </div>
     )
@@ -221,14 +221,14 @@ export default function DashboardDocumentsPage() {
     return (
         <div className="flex flex-col gap-6">
             <div>
-                <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1">Документы</h1>
-                <p className="text-sm text-[#6B6880]">Заполни поля — документы сформируются автоматически.</p>
-                <p className="text-sm text-[#6B6880]">Текущий трек: {approvedApplication.track.title}</p>
+                <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1">Документы</h1>
+                <p className="text-sm text-muted-ink">Заполните поля — документы сформируются автоматически.</p>
+                <p className="text-sm text-muted-ink">Текущий трек: {approvedApplication.track.title}</p>
             </div>
 
             {error && (
-                <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
-                    <p className="text-sm text-[#C93B3B]">⚠️ {error}</p>
+                <div className="bg-danger-bg border border-danger-border rounded-xl px-5 py-4">
+                    <p className="text-sm text-danger">⚠️ {error}</p>
                 </div>
             )}
 
@@ -236,8 +236,8 @@ export default function DashboardDocumentsPage() {
             <div className="bg-white rounded-2xl shadow-sm p-7 flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-[10px] font-bold tracking-widest uppercase text-[#4A42D4] mb-1">Отчёт о практике</p>
-                        <p className="text-xs text-[#6B6880]">PDF, DOC или DOCX, до {MAX_REPORT_SIZE_BYTES / (1024 * 1024)} МБ</p>
+                        <p className="text-[10px] font-bold tracking-widest uppercase text-brand-hover mb-1">Отчёт о практике</p>
+                        <p className="text-xs text-muted-ink">PDF, DOC или DOCX, до {MAX_REPORT_SIZE_BYTES / (1024 * 1024)} МБ</p>
                     </div>
                     {report && (
                         <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border ${REPORT_STATUS_CONFIG[report.status].className}`}>
@@ -247,21 +247,20 @@ export default function DashboardDocumentsPage() {
                 </div>
 
                 {report ? (
-                    <p className="text-sm text-[#1C1A3A]">
+                    <p className="text-sm text-ink">
                         Загружен {new Date(report.uploadedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
                 ) : (
-                    <p className="text-sm text-[#7A5C1A]">Отчёт ещё не загружен</p>
+                    <p className="text-sm text-warning">Отчёт ещё не загружен</p>
                 )}
 
                 {reportError && (
-                    <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
-                        <p className="text-sm text-[#C93B3B]">⚠️ {reportError}</p>
+                    <div className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3">
+                        <p className="text-sm text-danger">⚠️ {reportError}</p>
                     </div>
                 )}
 
-                <label className="self-start text-sm font-semibold px-5 py-2.5 rounded-lg text-white shadow-sm cursor-pointer disabled:opacity-60"
-                    style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                <label className="self-start text-sm font-semibold px-5 py-2.5 rounded-lg text-white shadow-sm cursor-pointer disabled:opacity-60 bg-gradient-to-br from-brand to-brand-light">
                     {reportUploading ? 'Загружаем…' : report ? '🔄 Заменить отчёт' : '📤 Загрузить отчёт'}
                     <input type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={handleReportUpload} disabled={reportUploading} />
                 </label>
@@ -276,15 +275,15 @@ export default function DashboardDocumentsPage() {
 
                     return (
                         <div key={type} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                            <div className="px-7 py-5 border-b border-[#E4E2F4] flex items-center justify-between gap-4">
+                            <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between gap-4">
                                 <div>
-                                    <h2 className="font-bold text-lg text-[#1C1A3A]">{DOCUMENT_TYPE_LABELS[type]}</h2>
+                                    <h2 className="font-bold text-lg text-ink">{DOCUMENT_TYPE_LABELS[type]}</h2>
                                     {itemReadiness && (
                                         <p className="text-xs mt-1">
                                             {itemReadiness.ready ? (
-                                                <span className="text-[#1A7A5A]">✅ Готов к формированию</span>
+                                                <span className="text-success">✅ Готов к формированию</span>
                                             ) : (
-                                                <span className="text-[#6B6880]">
+                                                <span className="text-muted-ink">
                                                     Не хватает: {itemReadiness.missingFields.map(m => describeMissingField(type, m)).join(', ')}
                                                 </span>
                                             )}
@@ -294,7 +293,7 @@ export default function DashboardDocumentsPage() {
                                 <div className="flex flex-col items-end gap-2 flex-shrink-0">
                                     {itemReadiness?.generated && itemReadiness.downloadPath && (
                                         <button onClick={() => handleDownload(itemReadiness.downloadPath!, DOCUMENT_TYPE_LABELS[type])}
-                                            className="text-xs font-semibold text-[#4A42D4] hover:underline">
+                                            className="text-xs font-semibold text-brand-hover hover:underline">
                                             ⬇ Скачать
                                         </button>
                                     )}
@@ -303,16 +302,16 @@ export default function DashboardDocumentsPage() {
                                         onClick={() => handleGenerate(type)}
                                         className={`text-sm font-semibold px-5 py-2 rounded-lg flex-shrink-0 transition-all
                                             ${itemReadiness?.ready
-                                                ? 'bg-[#6C63FF] text-white shadow-md hover:bg-[#4A42D4] disabled:opacity-60'
-                                                : 'bg-[#F5F4FD] text-[#6B6880] border border-[#E4E2F4] cursor-not-allowed'}`}>
+                                                ? 'bg-brand text-white shadow-md hover:bg-brand-hover disabled:opacity-60'
+                                                : 'bg-surface text-muted-ink border border-border-soft cursor-not-allowed'}`}>
                                         {generatingType === type ? 'Формируем…' : itemReadiness?.generated ? '🔄 Сформировать заново' : 'Сформировать'}
                                     </button>
                                 </div>
                             </div>
 
                             {generateError?.type === type && (
-                                <div className="mx-7 mt-4 bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3">
-                                    <p className="text-sm text-[#C93B3B]">⚠️ {generateError.message}</p>
+                                <div className="mx-7 mt-4 bg-danger-bg border border-danger-border rounded-xl px-4 py-3">
+                                    <p className="text-sm text-danger">⚠️ {generateError.message}</p>
                                 </div>
                             )}
 
@@ -322,9 +321,9 @@ export default function DashboardDocumentsPage() {
                                         const key = draftKey(type, field.key)
                                         return (
                                             <div key={field.key} className={`flex flex-col gap-1.5 ${field.multiline ? 'col-span-2' : ''}`}>
-                                                <label htmlFor={key} className="text-xs font-medium text-[#6B6880] flex items-center gap-2">
+                                                <label htmlFor={key} className="text-xs font-medium text-muted-ink flex items-center gap-2">
                                                     {field.label}
-                                                    {savingKey === key && <span className="text-[10px] text-[#6B6880]">сохраняем…</span>}
+                                                    {savingKey === key && <span className="text-[10px] text-muted-ink">сохраняем…</span>}
                                                 </label>
                                                 {field.multiline ? (
                                                     <textarea
@@ -347,7 +346,7 @@ export default function DashboardDocumentsPage() {
                                                     />
                                                 )}
                                                 {fieldError?.key === key && (
-                                                    <span className="text-xs text-[#C93B3B]">⚠️ {fieldError.message}</span>
+                                                    <span className="text-xs text-danger">⚠️ {fieldError.message}</span>
                                                 )}
                                             </div>
                                         )
@@ -355,7 +354,7 @@ export default function DashboardDocumentsPage() {
                                 </div>
                             ) : (
                                 <div className="px-7 py-5">
-                                    <p className="text-sm text-[#6B6880]">Заполняется куратором практики — доступно только для просмотра.</p>
+                                    <p className="text-sm text-muted-ink">Заполняется куратором практики — доступно только для просмотра.</p>
                                 </div>
                             )}
                         </div>

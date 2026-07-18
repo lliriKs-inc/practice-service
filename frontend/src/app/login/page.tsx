@@ -3,9 +3,12 @@
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { GraduationCap, MoveRight, ClipboardList, FileText, ListChecks } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Card } from '@/components/ui/card'
 import { login, getUser } from '@/services/api/auth'
 
 export default function LoginPage() {
@@ -51,10 +54,7 @@ function LoginForm() {
     const registerHref = redirect ? `/register?redirect=${encodeURIComponent(redirect)}` : '/register'
 
     return (
-        <div
-            className="min-h-screen flex items-center justify-center relative overflow-hidden"
-            style={{ background: 'linear-gradient(145deg, #EEEAFF 0%, #F5F4FD 50%, #E8F4FF 100%)' }}
-        >
+        <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#EEEAFF] via-surface to-[#E8F4FF]">
             <div className="absolute pointer-events-none" style={{ width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,99,255,0.13) 0%, transparent 70%)', top: -140, left: -140 }} />
             <div className="absolute pointer-events-none" style={{ width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,99,255,0.10) 0%, transparent 70%)', bottom: -100, right: -80 }} />
             <div className="absolute pointer-events-none" style={{ width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(184,240,224,0.35) 0%, transparent 70%)', top: '40%', right: '10%' }} />
@@ -62,43 +62,39 @@ function LoginForm() {
             <div className="relative z-10 w-full max-w-md px-6 flex flex-col items-center">
 
                 <Link href="/" className="group flex items-center gap-3 mb-10" title="На главную">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm transition-transform group-hover:scale-105"
-                        style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>🎓</div>
-                    <span className="font-extrabold text-lg tracking-tight text-[#1C1A3A] group-hover:text-[#4A42D4] transition-colors">Практика УрФУ</span>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-105 bg-gradient-to-br from-brand to-brand-light"><GraduationCap className="size-5" /></div>
+                    <span className="font-extrabold text-lg tracking-tight text-ink group-hover:text-brand-hover transition-colors">Практика УрФУ</span>
                 </Link>
 
                 {sessionExpired && (
-                    <div className="w-full flex items-center gap-2.5 bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3 mb-5">
-                        <span className="text-base">⚠️</span>
-                        <p className="text-xs text-[#C93B3B] leading-relaxed">
-                            Сессия истекла или недействительна. Войдите снова.
-                        </p>
-                    </div>
+                    <Alert className="w-full bg-danger-bg border-danger-border mb-5">
+                        <AlertDescription className="flex items-center gap-2.5 text-xs text-danger leading-relaxed">
+                            <span className="text-base">⚠️</span> Сессия истекла или недействительна. Войдите снова.
+                        </AlertDescription>
+                    </Alert>
                 )}
 
                 {forbidden && (
-                    <div className="w-full flex items-center gap-2.5 bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-4 py-3 mb-5">
-                        <span className="text-base">🚫</span>
-                        <p className="text-xs text-[#C93B3B] leading-relaxed">
-                            У этого аккаунта нет доступа к запрошенному разделу. Войдите под подходящим аккаунтом.
-                        </p>
-                    </div>
+                    <Alert className="w-full bg-danger-bg border-danger-border mb-5">
+                        <AlertDescription className="flex items-center gap-2.5 text-xs text-danger leading-relaxed">
+                            <span className="text-base">🚫</span> У этого аккаунта нет доступа к запрошенному разделу. Войдите под подходящим аккаунтом.
+                        </AlertDescription>
+                    </Alert>
                 )}
 
                 {/* Если пришли по инвайту — показываем контекст */}
                 {redirect && !sessionExpired && !forbidden && (
-                    <div className="w-full flex items-center gap-2.5 bg-[#EBE9FF] border border-[#C4BEFF] rounded-xl px-4 py-3 mb-5">
-                        <span className="text-base">📨</span>
-                        <p className="text-xs text-[#4A42D4] leading-relaxed">
-                            Войдите, чтобы продолжить заполнение анкеты по приглашению.
-                        </p>
-                    </div>
+                    <Alert className="w-full bg-brand-subtle border-brand-subtle-border mb-5">
+                        <AlertDescription className="flex items-center gap-2.5 text-xs text-brand-hover leading-relaxed">
+                            <span className="text-base">📨</span> Войдите, чтобы продолжить заполнение анкеты по приглашению.
+                        </AlertDescription>
+                    </Alert>
                 )}
 
-                <div className="w-full bg-white rounded-2xl shadow-lg p-8" style={{ boxShadow: '0 8px 40px rgba(108,99,255,0.12)' }}>
+                <Card className="w-full p-8 rounded-2xl shadow-lg" style={{ boxShadow: '0 8px 40px rgba(108,99,255,0.12)' }}>
                     <div className="mb-7">
-                        <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1.5">Добро пожаловать</h1>
-                        <p className="text-sm text-[#6B6880]">Войди в личный кабинет практиканта</p>
+                        <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1.5">Добро пожаловать</h1>
+                        <p className="text-sm text-muted-ink">Войдите в личный кабинет практиканта</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -111,38 +107,42 @@ function LoginForm() {
                         <div className="flex flex-col gap-1.5">
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="password">Пароль</Label>
-                                <a href="#" className="text-xs text-[#4A42D4] hover:underline font-medium">Забыл пароль?</a>
+                                <a href="#" className="self-start text-xs text-brand-hover font-medium bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300">Забыли пароль?</a>
                             </div>
                             <Input id="password" type="password" placeholder="••••••••"
                                 value={password} onChange={(e) => setPassword(e.target.value)} required />
                         </div>
 
                         {error && (
-                            <div className="flex items-center gap-2 bg-[#FFF5F5] border-[1.5px] border-[#F0BABA] rounded-xl px-4 py-3">
-                                <span className="text-sm">⚠️</span>
-                                <p className="text-sm text-[#C93B3B]">{error}</p>
-                            </div>
+                            <Alert className="bg-danger-bg border-danger-border">
+                                <AlertDescription className="flex items-center gap-2 text-sm text-danger">
+                                    <span className="text-sm">⚠️</span> {error}
+                                </AlertDescription>
+                            </Alert>
                         )}
 
-                        <Button type="submit" disabled={loading}
-                            className="w-full text-white font-semibold py-5 rounded-lg shadow-md mt-1"
-                            style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
-                            {loading ? 'Входим…' : 'Войти →'}
+                        <Button type="submit" variant="brand" disabled={loading}
+                            className="w-full py-5 rounded-lg mt-1">
+                            {loading ? 'Входим…' : <>Войти<MoveRight className="size-4" /></>}
                         </Button>
                     </form>
-                </div>
+                </Card>
 
-                <div className="flex items-center gap-2 mt-6 text-sm text-[#6B6880]">
+                <div className="flex items-center gap-2 mt-6 text-sm text-muted-ink">
                     <span>Ещё нет аккаунта?</span>
-                    <a href={registerHref} className="text-[#4A42D4] font-semibold hover:underline">
-                        Зарегистрироваться →
+                    <a href={registerHref} className="inline-flex items-center gap-1 text-brand-hover font-semibold bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300">
+                        Зарегистрироваться<MoveRight className="size-4" />
                     </a>
                 </div>
 
-                <div className="flex flex-wrap justify-center gap-2 mt-8">
-                    {['📋 Статус заявки', '📄 Документы', '✅ Дневник задач'].map(item => (
-                        <span key={item} className="text-xs font-medium px-3 py-1.5 rounded-full border-[1.5px] border-[#E4E2F4] bg-white text-[#6B6880]">
-                            {item}
+                <div className="flex flex-wrap justify-center gap-2 mt-6">
+                    {[
+                        { icon: ClipboardList, label: 'Статус заявки' },
+                        { icon: FileText, label: 'Документы' },
+                        { icon: ListChecks, label: 'Дневник задач' },
+                    ].map(item => (
+                        <span key={item.label} className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-[1.5px] border-border-soft bg-white text-muted-ink">
+                            <item.icon className="size-3.5 text-brand-hover" />{item.label}
                         </span>
                     ))}
                 </div>

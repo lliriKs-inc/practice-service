@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none disabled:pointer-events-none disabled:opacity-50 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -18,6 +18,18 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
+        // Основной фирменный CTA-стиль сайта (градиент brand→brand-light) —
+        // раньше писался инлайн-стилем на каждой кнопке отдельно.
+        brand:
+          "border-0 bg-gradient-to-br from-brand to-brand-light text-white font-semibold shadow-md hover:brightness-110 active:brightness-90",
+        "brand-outline":
+          "border-brand text-brand-hover bg-transparent hover:bg-brand-subtle active:bg-brand-subtle-border font-semibold",
+        // Белая кнопка на фиолетовом фоне (например, CTA-блок на главной).
+        "brand-inverse":
+          "border-0 bg-white text-brand-hover font-semibold shadow-md hover:bg-brand-subtle active:bg-brand-subtle-border",
+        // Опасное/отменяющее действие в фирменном стиле (заливка, как у brand).
+        danger:
+          "border-0 bg-gradient-to-br from-danger to-danger-light text-white font-semibold shadow-md hover:brightness-110 active:brightness-90",
       },
       size: {
         default:

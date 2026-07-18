@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { FolderKanban, ClipboardList, FileText, ListChecks, type LucideIcon } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { getCohorts, type Cohort } from '@/services/api/cohorts'
 import { AppShell, type ShellNavItem } from '@/components/shell/AppShell'
@@ -9,11 +10,11 @@ import { CohortSwitcher } from '@/components/shell/CohortSwitcher'
 import { LoadingScreen } from '@/components/shell/LoadingScreen'
 import { CohortWorkspaceContext } from './cohort-context'
 
-const NAV_BASE: { matchPath: string; icon: string; label: string }[] = [
-    { matchPath: '/admin/cohorts', icon: '🗂️', label: 'Когорты' },
-    { matchPath: '/admin/applications', icon: '📋', label: 'Заявки' },
-    { matchPath: '/admin/documents', icon: '📄', label: 'Документы' },
-    { matchPath: '/admin/tasks', icon: '✅', label: 'Задачи' },
+const NAV_BASE: { matchPath: string; icon: LucideIcon; label: string }[] = [
+    { matchPath: '/admin/cohorts', icon: FolderKanban, label: 'Когорты' },
+    { matchPath: '/admin/applications', icon: ClipboardList, label: 'Заявки' },
+    { matchPath: '/admin/documents', icon: FileText, label: 'Документы' },
+    { matchPath: '/admin/tasks', icon: ListChecks, label: 'Задачи' },
 ]
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
@@ -84,6 +85,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
             <AppShell
                 navItems={navItems}
                 roleBadge="Админ"
+                userName={user?.full_name}
                 userEmail={user?.email}
                 headerRight={
                     <CohortSwitcher

@@ -8,3 +8,7 @@ export function getActiveApplicationId(): string | null {
 export function setActiveApplicationId(applicationId: string): void {
     localStorage.setItem(ACTIVE_APPLICATION_STORAGE_KEY, applicationId)
 }
+
+export function clearActiveApplicationId(): void {
+    localStorage.removeItem(ACTIVE_APPLICATION_STORAGE_KEY)
+}
