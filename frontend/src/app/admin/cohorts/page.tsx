@@ -3,9 +3,12 @@
 import { useEffect, useRef, useState } from 'react'
 import {
     createCohort,
+    createInvitation,
     copySurvey,
     deleteCohort,
+    deleteInvitation,
     getCohort,
+    regenerateInvitation,
     saveCohortDraft,
     updateTrackTestTask,
     uploadTestTaskFile,
@@ -123,6 +126,7 @@ export default function AdminCohortsPage() {
     const [editDraft, setEditDraft] = useState<Cohort | null>(null)
     const [editTab, setEditTab] = useState<EditTab>('general')
     const [editSaving, setEditSaving] = useState(false)
+    const [invitationSaving, setInvitationSaving] = useState(false)
     const [editErrors, setEditErrors] = useState<string[]>([])
     const [newTrackTitle, setNewTrackTitle] = useState('')
     const [newTrackError, setNewTrackError] = useState('')
@@ -455,7 +459,7 @@ export default function AdminCohortsPage() {
         })
     }
 
-    // ── Приглашение (локально) ─────────────────────────────────────
+    // ── Приглашение ────────────────────────────────────────────────
     function getInvitationUrl(token: string) {
         if (typeof window === 'undefined') return ''
         return `${window.location.origin}/apply/${token}`
@@ -465,18 +469,51 @@ export default function AdminCohortsPage() {
         navigator.clipboard.writeText(getInvitationUrl(token))
     }
 
-    function createDraftInvitation() {
-        patchDraft({ invitation: { token: uid().slice(0, 8), expiresAt: null } })
+    async function createDraftInvitation() {
+        if (!editDraft) return
+        setInvitationSaving(true)
+        setEditErrors([])
+        try {
+            const invitation = await createInvitation(editDraft.id)
+            patchDraft({ invitation })
+            await refetchCohorts()
+        } catch (err: unknown) {
+            setEditErrors(describeApiErrors(err, 'Не удалось создать ссылку-приглашение'))
+        } finally {
+            setInvitationSaving(false)
+        }
     }
 
-    function regenerateDraftInvitation() {
-        patchDraft({ invitation: { token: uid().slice(0, 8), expiresAt: null } })
+    async function regenerateDraftInvitation() {
+        if (!editDraft) return
+        setInvitationSaving(true)
+        setEditErrors([])
+        try {
+            const invitation = await regenerateInvitation(editDraft.id)
+            patchDraft({ invitation })
+            await refetchCohorts()
+        } catch (err: unknown) {
+            setEditErrors(describeApiErrors(err, 'Не удалось перегенерировать ссылку-приглашение'))
+        } finally {
+            setInvitationSaving(false)
+        }
     }
 
     // [FIX] Раньше ссылку нельзя было убрать после создания — только
     // перегенерировать. Добавлена возможность удалить её полностью.
-    function deleteDraftInvitation() {
-        patchDraft({ invitation: null })
+    async function deleteDraftInvitation() {
+        if (!editDraft) return
+        setInvitationSaving(true)
+        setEditErrors([])
+        try {
+            await deleteInvitation(editDraft.id)
+            patchDraft({ invitation: null })
+            await refetchCohorts()
+        } catch (err: unknown) {
+            setEditErrors(describeApiErrors(err, 'Не удалось удалить ссылку-приглашение'))
+        } finally {
+            setInvitationSaving(false)
+        }
     }
 
     return (
@@ -978,20 +1015,20 @@ export default function AdminCohortsPage() {
                                                     <input type="text" readOnly
                                                         value={getInvitationUrl(editDraft.invitation.token)}
                                                         className="flex-1 text-sm font-mono bg-[#F5F4FD]" />
-                                                    <button onClick={() => copyInvitation(editDraft.invitation!.token)}
+                                                    <button onClick={() => copyInvitation(editDraft.invitation!.token)} disabled={invitationSaving}
                                                         className="px-4 py-2 text-sm font-semibold border border-[#6C63FF] text-[#4A42D4] rounded-lg hover:bg-[#EBE9FF] shrink-0">
                                                         Копировать
                                                     </button>
                                                 </div>
-                                                <span className="text-xs text-[#6B6880]">Появится по этому адресу только после сохранения.</span>
+                                                <span className="text-xs text-[#6B6880]">Ссылка уже создана и готова к использованию.</span>
                                             </div>
                                             <div className="flex gap-3">
-                                                <button onClick={regenerateDraftInvitation}
-                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#E4E2F4] text-[#6B6880] hover:bg-[#F5F4FD] transition-all">
-                                                    🔄 Перегенерировать токен
+                                                <button onClick={regenerateDraftInvitation} disabled={invitationSaving}
+                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#E4E2F4] text-[#6B6880] hover:bg-[#F5F4FD] transition-all disabled:opacity-50">
+                                                    {invitationSaving ? 'Сохранение…' : '🔄 Перегенерировать токен'}
                                                 </button>
-                                                <button onClick={deleteDraftInvitation}
-                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#F0BABA] text-[#C93B3B] hover:bg-[#FFF5F5] transition-all">
+                                                <button onClick={deleteDraftInvitation} disabled={invitationSaving}
+                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#F0BABA] text-[#C93B3B] hover:bg-[#FFF5F5] transition-all disabled:opacity-50">
                                                     🗑 Удалить ссылку
                                                 </button>
                                             </div>
@@ -1006,10 +1043,10 @@ export default function AdminCohortsPage() {
                                             <div className="rounded-xl border border-dashed border-[#E4E2F4] px-4 py-8 text-center">
                                                 <p className="text-sm text-[#6B6880]">Ссылка ещё не создана.</p>
                                             </div>
-                                            <button onClick={createDraftInvitation}
-                                                className="self-start text-sm font-semibold text-white px-5 py-2.5 rounded-xl shadow-md"
+                                            <button onClick={createDraftInvitation} disabled={invitationSaving}
+                                                className="self-start text-sm font-semibold text-white px-5 py-2.5 rounded-xl shadow-md disabled:opacity-50"
                                                 style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
-                                                Создать ссылку-приглашение
+                                                {invitationSaving ? 'Создание…' : 'Создать ссылку-приглашение'}
                                             </button>
                                         </div>
                                     )}
