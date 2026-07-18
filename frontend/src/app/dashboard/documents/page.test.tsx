@@ -19,6 +19,8 @@ const APPLICATION_ID = 'app-1'
 
 const { getMyApplications } = vi.hoisted(() => ({ getMyApplications: vi.fn() }))
 vi.mock('@/services/api/invitation', () => ({ getMyApplications }))
+const { getMe } = vi.hoisted(() => ({ getMe: vi.fn() }))
+vi.mock('@/services/api/auth', () => ({ getMe }))
 
 const {
     getReadiness,
@@ -133,6 +135,13 @@ describe('DashboardDocumentsPage', () => {
     beforeEach(() => {
         localStorage.clear()
         loginAsStudent()
+        getMe.mockResolvedValue({
+            id: 'student-1',
+            email: 'student@urfu.ru',
+            role: 'STUDENT',
+            created_at: '2026-01-01',
+            active_application_id: APPLICATION_ID,
+        })
         vi.clearAllMocks()
         resetStore()
         setupDocumentsMocks()

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import DashboardApplicationsPage from './page'
 import { saveToken, saveUser } from '@/lib/api/session'
 import type { Application } from '@/services/api/invitation'
@@ -8,6 +8,11 @@ const STUDENT = { id: 'student-1', email: 'student@urfu.ru', role: 'STUDENT' as 
 
 const { getMyApplications } = vi.hoisted(() => ({ getMyApplications: vi.fn() }))
 vi.mock('@/services/api/invitation', () => ({ getMyApplications }))
+const { getMe, selectActiveApplication } = vi.hoisted(() => ({
+    getMe: vi.fn(),
+    selectActiveApplication: vi.fn(),
+}))
+vi.mock('@/services/api/auth', () => ({ getMe, selectActiveApplication }))
 
 function loginAsStudent() {
     saveToken('mock-jwt-student-1')
@@ -33,6 +38,8 @@ describe('DashboardApplicationsPage (архив заявок студента)',
         loginAsStudent()
         vi.clearAllMocks()
         getMyApplications.mockResolvedValue([])
+        getMe.mockResolvedValue({ ...STUDENT, active_application_id: null })
+        selectActiveApplication.mockResolvedValue({ ...STUDENT, active_application_id: 'app-1' })
     })
 
     it('показывает пустое состояние, если заявок ещё нет', async () => {
@@ -68,7 +75,8 @@ describe('DashboardApplicationsPage (архив заявок студента)',
         expect(screen.getByRole('heading', { name: 'Выбрать этот трек?' })).toBeInTheDocument()
 
         fireEvent.click(screen.getByRole('button', { name: 'Выбрать трек' }))
-        expect(screen.getByRole('button', { name: 'Отменить выбор' })).toBeInTheDocument()
+        await waitFor(() => expect(selectActiveApplication).toHaveBeenCalledWith('app-1'))
+        expect(await screen.findByRole('button', { name: '✓ Выбранный трек' })).toBeInTheDocument()
     })
 
     it('не показывает ссылку на тестовое задание для отклонённой заявки', async () => {

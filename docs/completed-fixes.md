@@ -1,5 +1,15 @@
 # Выполненные исправления
 
+## 2026-07-18 — Серверное хранение выбранной заявки студента
+
+- **Кто?** Backend и Frontend.
+- **Что исправлено?** Выбор рабочего трека среди нескольких одобренных заявок перенесён из localStorage в базу данных. Теперь он сохраняется для учётной записи, а не для конкретного браузера.
+- **В каких файлах?** backend/prisma/schema.prisma, backend/prisma/migrations/20260718180000_add_active_application_to_user/migration.sql, backend/src/modules/auth/auth.service.ts, backend/src/modules/auth/auth.controller.ts, backend/src/modules/auth/auth.routes.ts, backend/src/modules/auth/dto/active-application.dto.ts, frontend/src/services/api/auth.ts, frontend/src/lib/api/session.ts, frontend/src/app/dashboard/applications/page.tsx, frontend/src/app/dashboard/tasks/page.tsx, frontend/src/app/dashboard/documents/page.tsx и их тесты. Удалён frontend/src/lib/active-application.ts.
+- **Что именно изменено?** У User добавлено nullable-поле active_application_id с внешним ключом на Application и ON DELETE SET NULL. API PATCH /auth/me/active-application сохраняет выбор. Сервер проверяет, что заявка принадлежит текущему студенту, имеет статус APPROVED и что практика ещё не началась. GET /auth/me возвращает active_application_id. Все три страницы кабинета читают этот серверный выбор.
+- **На что влияет?** «Задачи» и «Документы» открываются для одинакового трека в любом браузере и на любом устройстве того же студента. Выбор не является источником авторизации: каждый рабочий запрос по-прежнему проверяет владельца заявки на сервере. Если выбранная заявка отсутствует, интерфейс сохраняет безопасный fallback на первую одобренную заявку.
+- **Что получилось?** Раньше выбор пропадал после очистки localStorage или при входе с другого устройства. Теперь он хранится в PostgreSQL, переживает смену браузера и обновление страницы. После начала практики и интерфейс, и API запрещают изменить выбранный трек.
+- **Как протестировано?** Ручная проверка: студент выбрал трек в обычном браузере, затем вошёл в режиме инкогнито — «Задачи» и «Документы» показали тот же выбранный трек. Автоматически прошли Prisma validate/generate, backend typecheck и 3 теста AuthService; frontend typecheck и 15 тестов страниц заявок, задач и документов.
+
 ## 2026-07-18 — Замечание №8: скачивание решения тестового задания в Admin
 
 - **Кто?** Backend и Frontend.

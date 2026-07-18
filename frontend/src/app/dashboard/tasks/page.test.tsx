@@ -9,6 +9,8 @@ const APPLICATION_ID = 'app-1'
 
 const { getMyApplications } = vi.hoisted(() => ({ getMyApplications: vi.fn() }))
 vi.mock('@/services/api/invitation', () => ({ getMyApplications }))
+const { getMe } = vi.hoisted(() => ({ getMe: vi.fn() }))
+vi.mock('@/services/api/auth', () => ({ getMe }))
 
 const { getMyWeekTasks, updateDailyTask } = vi.hoisted(() => ({
     getMyWeekTasks: vi.fn(),
@@ -113,6 +115,13 @@ describe('DashboardTasksPage (дневник задач)', () => {
     beforeEach(() => {
         localStorage.clear()
         loginAsStudent()
+        getMe.mockResolvedValue({
+            id: 'student-1',
+            email: 'student@urfu.ru',
+            role: 'STUDENT',
+            created_at: '2026-01-01',
+            active_application_id: APPLICATION_ID,
+        })
         vi.clearAllMocks()
         resetTaskStore('2027-07-19T00:00:00.000Z', '2027-07-30T00:00:00.000Z')
         setupTasksMocks()

@@ -9,7 +9,7 @@ import {
     type DailyTask,
 } from '@/services/api/tasks'
 import { getMyApplications, type Application } from '@/services/api/invitation'
-import { getActiveApplicationId } from '@/lib/active-application'
+import { getMe } from '@/services/api/auth'
 
 // ── Утилиты дат (UTC — согласовано с бэком: даты обрабатываются как UTC date-only) ─
 function getMondayOfWeek(date: Date): Date {
@@ -71,13 +71,15 @@ const DAYS_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт']
 
 export default function DashboardTasksPage() {
     const [applications, setApplications] = useState<Application[]>([])
+    const [activeApplicationId, setActiveApplicationId] = useState<string | null>(null)
     const [applicationsLoading, setApplicationsLoading] = useState(true)
 
     useEffect(() => {
         (async () => {
             try {
-                const data = await getMyApplications()
+                const [data, user] = await Promise.all([getMyApplications(), getMe()])
                 setApplications(data)
+                setActiveApplicationId(user.active_application_id ?? null)
             } finally {
                 setApplicationsLoading(false)
             }
@@ -87,8 +89,7 @@ export default function DashboardTasksPage() {
     // Дневник задач имеет смысл только после того, как заявку одобрили —
     // до этого момента нет ни роли, ни согласованных дат практики.
     const approvedApplications = applications.filter(a => a.status === 'approved')
-    const preferredApplicationId = getActiveApplicationId()
-    const approvedApplication = approvedApplications.find(a => a.id === preferredApplicationId)
+    const approvedApplication = approvedApplications.find(a => a.id === activeApplicationId)
         ?? approvedApplications[0]
         ?? null
 

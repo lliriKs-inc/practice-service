@@ -13,6 +13,7 @@ export interface SessionUser {
     // моковые фикстуры в тестах (там они не нужны, везде показываем email)
     full_name?: string
     active_cohort_id?: string | null
+    active_application_id?: string | null
 }
 
 export function saveToken(token: string) {

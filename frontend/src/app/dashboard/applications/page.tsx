@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, Route, MoveRight, X } from 'lucide-react'
 import { getMyApplications, type Application } from '@/services/api/invitation'
-import { getActiveApplicationId, setActiveApplicationId, clearActiveApplicationId } from '@/lib/active-application'
-import { Button } from '@/components/ui/button'
+import { getMe, selectActiveApplication } from '@/services/api/auth'
 
 const STATUS_CONFIG: Record<Application['status'], { label: string; className: string; dot: string }> = {
     pending: { label: 'На рассмотрении', className: 'bg-warning-bg border-warning-border text-warning', dot: 'bg-warning-dot' },
@@ -17,24 +16,16 @@ export default function DashboardApplicationsPage() {
     const [applicationsLoading, setApplicationsLoading] = useState(true)
     const [applicationsError, setApplicationsError] = useState('')
     const [pageOpenedAt] = useState(() => Date.now())
-    const [activeApplicationId, setActiveApplicationIdState] = useState(() => getActiveApplicationId())
+    const [activeApplicationId, setActiveApplicationId] = useState<string | null>(null)
     const [applicationToSelect, setApplicationToSelect] = useState<Application | null>(null)
-    const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set())
-
-    function toggleAnswers(applicationId: string) {
-        setExpandedAnswers(prev => {
-            const next = new Set(prev)
-            if (next.has(applicationId)) next.delete(applicationId)
-            else next.add(applicationId)
-            return next
-        })
-    }
+    const [selectionSaving, setSelectionSaving] = useState(false)
 
     useEffect(() => {
         (async () => {
             try {
-                const data = await getMyApplications()
+                const [data, user] = await Promise.all([getMyApplications(), getMe()])
                 setApplications(data)
+                setActiveApplicationId(user.active_application_id ?? null)
             } catch (err: unknown) {
                 setApplicationsError(err instanceof Error ? err.message : 'Не удалось загрузить заявки')
             } finally {
@@ -47,16 +38,18 @@ export default function DashboardApplicationsPage() {
         return pageOpenedAt >= new Date(application.cohort.start_date).getTime()
     }
 
-    function confirmApplicationSelection() {
+    async function confirmApplicationSelection() {
         if (!applicationToSelect || isPracticeStarted(applicationToSelect)) return
-        setActiveApplicationId(applicationToSelect.id)
-        setActiveApplicationIdState(applicationToSelect.id)
-        setApplicationToSelect(null)
-    }
-
-    function cancelApplicationSelection() {
-        clearActiveApplicationId()
-        setActiveApplicationIdState(null)
+        setSelectionSaving(true)
+        try {
+            const user = await selectActiveApplication(applicationToSelect.id)
+            setActiveApplicationId(user.active_application_id ?? null)
+            setApplicationToSelect(null)
+        } catch (err: unknown) {
+            setApplicationsError(err instanceof Error ? err.message : 'Не удалось сохранить выбранный трек')
+        } finally {
+            setSelectionSaving(false)
+        }
     }
 
     return (
@@ -210,15 +203,16 @@ export default function DashboardApplicationsPage() {
                         <p className="mt-3 text-sm text-muted-ink leading-relaxed text-left">
                             До начала практики выбор можно изменить. После начала практики смена трека будет недоступна.
                         </p>
-                        <div className="mt-7 flex justify-end items-center gap-5">
-                            <button type="button" onClick={() => setApplicationToSelect(null)}
-                                className="text-sm font-semibold text-muted-ink hover:text-ink transition-colors">
+                        <div className="mt-7 flex justify-end gap-3">
+                            <button type="button" onClick={() => setApplicationToSelect(null)} disabled={selectionSaving}
+                                className="px-5 py-2.5 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-xl disabled:opacity-50">
                                 Отмена
                             </button>
-                            <Button type="button" variant="brand" onClick={confirmApplicationSelection}
-                                className="px-4 py-2 rounded-lg h-auto">
-                                Выбрать трек
-                            </Button>
+                            <button type="button" onClick={confirmApplicationSelection} disabled={selectionSaving}
+                                className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-sm disabled:opacity-50"
+                                style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                                {selectionSaving ? 'Сохраняем…' : 'Выбрать трек'}
+                            </button>
                         </div>
                     </div>
                 </div>

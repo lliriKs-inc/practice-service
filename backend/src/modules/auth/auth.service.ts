@@ -1,4 +1,6 @@
 import bcrypt from "bcrypt";
+import { ApplicationStatus } from "@prisma/client";
+import { AppError } from "../../middlewares/error.middleware";
 import { prisma } from "../../shared/prisma";
 import { generateToken } from "../../shared/jwt";
 
@@ -26,6 +28,7 @@ export class AuthService {
         full_name: user.full_name,
         role: user.role,
         active_cohort_id: user.active_cohort_id,
+        active_application_id: user.active_application_id,
         created_at: user.created_at,
     };
   }
@@ -59,6 +62,7 @@ export class AuthService {
         full_name: true,
         role: true,
         active_cohort_id: true,
+        active_application_id: true,
         created_at: true,
       },
     });
@@ -68,5 +72,59 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  static async selectActiveApplication(
+    userId: string,
+    applicationId: string
+  ) {
+    const application = await prisma.application.findFirst({
+      where: {
+        id: applicationId,
+        user_id: userId,
+        status: ApplicationStatus.APPROVED,
+      },
+      select: {
+        track: {
+          select: {
+            cohort: {
+              select: {
+                practice_start: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!application) {
+      throw new AppError(
+        "Approved application not found",
+        404,
+        "ACTIVE_APPLICATION_NOT_FOUND"
+      );
+    }
+
+    if (application.track.cohort.practice_start <= new Date()) {
+      throw new AppError(
+        "The practice has already started",
+        409,
+        "ACTIVE_APPLICATION_SELECTION_LOCKED"
+      );
+    }
+
+    return prisma.user.update({
+      where: { id: userId },
+      data: { active_application_id: applicationId },
+      select: {
+        id: true,
+        email: true,
+        full_name: true,
+        role: true,
+        active_cohort_id: true,
+        active_application_id: true,
+        created_at: true,
+      },
+    });
   }
 }

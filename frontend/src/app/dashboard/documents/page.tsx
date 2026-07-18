@@ -22,7 +22,7 @@ import {
     type ReportInfo,
 } from '@/services/api/documents'
 import { downloadProtectedFile } from '@/lib/api/download'
-import { getActiveApplicationId } from '@/lib/active-application'
+import { getMe } from '@/services/api/auth'
 
 const REPORT_STATUS_CONFIG: Record<ReportInfo['status'], { label: string; className: string }> = {
     PENDING: { label: 'На проверке', className: 'bg-warning-bg border-warning-border text-warning' },
@@ -32,13 +32,15 @@ const REPORT_STATUS_CONFIG: Record<ReportInfo['status'], { label: string; classN
 
 export default function DashboardDocumentsPage() {
     const [applications, setApplications] = useState<Application[]>([])
+    const [activeApplicationId, setActiveApplicationId] = useState<string | null>(null)
     const [applicationsLoading, setApplicationsLoading] = useState(true)
 
     useEffect(() => {
         (async () => {
             try {
-                const data = await getMyApplications()
+                const [data, user] = await Promise.all([getMyApplications(), getMe()])
                 setApplications(data)
+                setActiveApplicationId(user.active_application_id ?? null)
             } finally {
                 setApplicationsLoading(false)
             }
@@ -46,8 +48,7 @@ export default function DashboardDocumentsPage() {
     }, [])
 
     const approvedApplications = applications.filter(a => a.status === 'approved')
-    const preferredApplicationId = getActiveApplicationId()
-    const approvedApplication = approvedApplications.find(a => a.id === preferredApplicationId)
+    const approvedApplication = approvedApplications.find(a => a.id === activeApplicationId)
         ?? approvedApplications[0]
         ?? null
 

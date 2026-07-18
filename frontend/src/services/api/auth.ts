@@ -60,3 +60,13 @@ export async function login(dto: LoginDto): Promise<void> {
 export async function getMe(): Promise<User> {
     return apiFetch<User>('/auth/me')
 }
+
+// PATCH /auth/me/active-application
+export async function selectActiveApplication(applicationId: string): Promise<User> {
+    const user = await apiFetch<User>('/auth/me/active-application', {
+        method: 'PATCH',
+        body: { application_id: applicationId },
+    })
+    saveUser(user)
+    return user
+}
