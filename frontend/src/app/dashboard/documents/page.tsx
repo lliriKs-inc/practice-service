@@ -197,7 +197,7 @@ export default function DashboardDocumentsPage() {
                 <div className="text-4xl mb-4">🔒</div>
                 <p className="font-semibold text-ink mb-1">Документы пока недоступны</p>
                 <p className="text-sm text-muted-ink max-w-sm mb-4">
-                    Они откроются, как только одна из твоих заявок будет одобрена.
+                    Они откроются, как только одна из ваших заявок будет одобрена.
                 </p>
                 <a href="/dashboard/applications"
                     className="text-xs font-semibold px-4 py-2 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle">
@@ -222,7 +222,7 @@ export default function DashboardDocumentsPage() {
         <div className="flex flex-col gap-6">
             <div>
                 <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1">Документы</h1>
-                <p className="text-sm text-muted-ink">Заполни поля — документы сформируются автоматически.</p>
+                <p className="text-sm text-muted-ink">Заполните поля — документы сформируются автоматически.</p>
                 <p className="text-sm text-muted-ink">Текущий трек: {approvedApplication.track.title}</p>
             </div>
 

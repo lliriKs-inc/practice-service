@@ -53,7 +53,8 @@ describe('DashboardApplicationsPage (архив заявок студента)',
         render(<DashboardApplicationsPage />)
 
         expect(await screen.findByText('Одобрена')).toBeInTheDocument()
-        expect(screen.getByRole('link', { name: /Тестовое задание/ })).toHaveAttribute(
+        expect(screen.getByText('Тестовое задание')).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: /Перейти/ })).toHaveAttribute(
             'href',
             '/dashboard/applications/app-1/test-task'
         )
@@ -67,7 +68,7 @@ describe('DashboardApplicationsPage (архив заявок студента)',
         expect(screen.getByRole('heading', { name: 'Выбрать этот трек?' })).toBeInTheDocument()
 
         fireEvent.click(screen.getByRole('button', { name: 'Выбрать трек' }))
-        expect(screen.getByRole('button', { name: '✓ Выбранный трек' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Отменить выбор' })).toBeInTheDocument()
     })
 
     it('не показывает ссылку на тестовое задание для отклонённой заявки', async () => {

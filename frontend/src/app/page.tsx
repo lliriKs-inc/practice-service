@@ -1,7 +1,10 @@
 'use client'
 
 import { useMemo, useSyncExternalStore } from 'react'
+import Link from 'next/link'
+import { MoveRight, Download, CheckCircle2, ClipboardList, ListChecks, FileText, Link2, GraduationCap, FolderKanban } from 'lucide-react'
 import { logout, type User } from '@/services/api/auth'
+import { Button } from '@/components/ui/button'
 
 function subscribeToSession() {
     return () => undefined
@@ -35,10 +38,10 @@ export default function HomePage() {
             {/* ══════════════ NAVBAR ══════════════ */}
             <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-border-soft">
                 <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base bg-gradient-to-br from-brand to-brand-light">🎓</div>
-                        <span className="font-extrabold text-[15px] text-ink tracking-tight">Практика УрФУ</span>
-                    </div>
+                    <Link href="/" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="group flex items-center gap-2.5" title="На главную">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-105 bg-gradient-to-br from-brand to-brand-light"><GraduationCap className="size-4" /></div>
+                        <span className="font-extrabold text-[15px] text-ink tracking-tight group-hover:text-brand-hover transition-colors">Практика УрФУ</span>
+                    </Link>
 
                     <nav className="hidden md:flex items-center gap-8">
                         <a href="#how" className="text-sm font-medium text-muted-ink hover:text-ink transition-colors">Как это работает</a>
@@ -52,20 +55,18 @@ export default function HomePage() {
                                 <a href={dashboardHref} className="text-sm font-semibold text-ink hover:text-brand-hover transition-colors">
                                     В кабинет
                                 </a>
-                                <button type="button" onClick={logout}
-                                    className="text-sm font-semibold text-white px-4 py-2 rounded-lg shadow-sm hover:opacity-90 transition-opacity bg-gradient-to-br from-brand to-brand-light">
+                                <Button variant="brand" onClick={logout} className="px-4 py-2 h-auto rounded-lg">
                                     Выйти
-                                </button>
+                                </Button>
                             </>
                         ) : (
                             <>
                                 <a href="/login" className="text-sm font-semibold text-ink hover:text-brand-hover transition-colors">
                                     Войти
                                 </a>
-                                <a href="/register"
-                                    className="text-sm font-semibold text-white px-4 py-2 rounded-lg shadow-sm hover:opacity-90 transition-opacity bg-gradient-to-br from-brand to-brand-light">
+                                <Button variant="brand" nativeButton={false} render={<a href="/register" />} className="px-4 py-2 h-auto rounded-lg">
                                     Регистрация
-                                </a>
+                                </Button>
                             </>
                         )}
                     </div>
@@ -91,15 +92,16 @@ export default function HomePage() {
                         </h1>
 
                         <p className="text-lg text-muted-ink leading-relaxed max-w-md">
-                            Подай заявку по ссылке от организатора, пройди тестовое задание, отслеживай статус
-                            и веди дневник практики — без бумажной волокиты и почтовой переписки.
+                            Подайте заявку по ссылке от организатора, пройдите тестовое задание, отслеживайте статус
+                            и ведите дневник практики — без бумажной волокиты и почтовой переписки.
                         </p>
 
                         <div className="flex items-center gap-4 mt-2">
-                            <a href={user ? dashboardHref : '/login'}
-                                className="text-sm font-semibold text-white px-6 py-3.5 rounded-xl shadow-md hover:opacity-90 transition-opacity bg-gradient-to-br from-brand to-brand-light">
-                                {user ? 'Перейти в кабинет →' : 'Войти в кабинет →'}
-                            </a>
+                            <Button variant="brand" nativeButton={false} render={<a href={user ? dashboardHref : '/login'} />}
+                                className="px-6 py-3.5 rounded-xl h-auto">
+                                {user ? 'Перейти в кабинет' : 'Войти в кабинет'}
+                                <MoveRight className="size-4" />
+                            </Button>
                             <a href="#how" className="text-sm font-semibold text-ink hover:text-brand-hover transition-colors">
                                 Как это устроено
                             </a>
@@ -166,14 +168,14 @@ export default function HomePage() {
                                 {/* мини документы */}
                                 <div className="rounded-xl border border-border-soft px-4 py-3 flex items-center justify-between">
                                     <span className="text-[11px] font-medium text-ink">Индивидуальное задание</span>
-                                    <span className="text-[10px] font-semibold text-white px-2.5 py-1 rounded-md bg-gradient-to-br from-brand to-brand-light">⬇ Скачать</span>
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-white px-2.5 py-1 rounded-md bg-gradient-to-br from-brand to-brand-light"><Download className="size-3" />Скачать</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* декоративная плашка */}
                         <div className="absolute -bottom-5 -left-5 bg-white rounded-xl shadow-lg border border-border-soft px-4 py-3 hidden sm:flex items-center gap-2.5">
-                            <span className="text-lg">✅</span>
+                            <CheckCircle2 className="size-5 text-success-dot" />
                             <div>
                                 <p className="text-[10px] text-muted-ink leading-none mb-0.5">Задача сохранена</p>
                                 <p className="text-xs font-semibold text-ink leading-none">2 минуты назад</p>
@@ -200,7 +202,7 @@ export default function HomePage() {
                             {
                                 n: '01',
                                 title: 'Заявка по ссылке',
-                                desc: 'Переходишь по приглашению, входишь или регистрируешься и заполняешь анкету когорты — выбираешь трек и отвечаешь на вопросы.',
+                                desc: 'Переходите по приглашению, входите или регистрируетесь и заполняете анкету когорты — выбираете трек и отвечаете на вопросы.',
                             },
                             {
                                 n: '02',
@@ -233,13 +235,13 @@ export default function HomePage() {
 
                     <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
                         {[
-                            { icon: '📋', title: 'Статус заявки', desc: 'Видишь решение организатора и историю всех заявок по всем когортам.' },
-                            { icon: '✅', title: 'Дневник задач', desc: 'Отмечаешь, что сделал за день, прикрепляешь ссылки на артефакты.' },
-                            { icon: '📄', title: 'Документы', desc: 'Индивидуальное задание, отзыв и титульный лист формируются сами.' },
-                            { icon: '🔗', title: 'Вход по ссылке', desc: 'Никаких отдельных форм — регистрация встроена в подачу заявки.' },
+                            { icon: ClipboardList, title: 'Статус заявки', desc: 'Видите решение организатора и историю всех заявок по всем когортам.' },
+                            { icon: ListChecks, title: 'Дневник задач', desc: 'Отмечаете, что сделали за день, прикрепляете ссылки на артефакты.' },
+                            { icon: FileText, title: 'Документы', desc: 'Индивидуальное задание, отзыв и титульный лист формируются сами.' },
+                            { icon: Link2, title: 'Вход по ссылке', desc: 'Никаких отдельных форм — регистрация встроена в подачу заявки.' },
                         ].map(f => (
-                            <div key={f.title} className="rounded-2xl border border-border-soft p-6 flex flex-col gap-3 hover:border-brand-subtle-border hover:shadow-sm transition-all">
-                                <div className="w-10 h-10 rounded-xl bg-brand-subtle flex items-center justify-center text-lg">{f.icon}</div>
+                            <div key={f.title} className="rounded-2xl border border-border-soft p-6 flex flex-col gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-brand-subtle flex items-center justify-center text-brand-hover"><f.icon className="size-5" /></div>
                                 <h3 className="text-sm font-bold text-ink">{f.title}</h3>
                                 <p className="text-xs text-muted-ink leading-relaxed">{f.desc}</p>
                             </div>
@@ -253,23 +255,23 @@ export default function HomePage() {
                 <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-6">
 
                     <div className="bg-white rounded-2xl p-8 border border-border-soft flex flex-col gap-4">
-                        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl bg-gradient-to-br from-brand to-brand-light">🎓</div>
+                        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white bg-gradient-to-br from-brand to-brand-light"><GraduationCap className="size-5" /></div>
                         <h3 className="text-xl font-bold text-ink">Практикантам</h3>
                         <p className="text-sm text-muted-ink leading-relaxed">
-                            Подавай заявку, проходи тестовое задание, следи за статусом и веди дневник практики —
+                            Подавайте заявку, проходите тестовое задание, следите за статусом и ведите дневник практики —
                             всё в одном личном кабинете, доступном с любого устройства.
                         </p>
-                        <a href="/login" className="text-sm font-semibold text-brand-hover hover:underline mt-1">Войти в кабинет →</a>
+                        <a href="/login" className="self-start inline-flex items-center gap-1 text-sm font-semibold text-brand-hover mt-1 bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300">Войти в кабинет<MoveRight className="size-4" /></a>
                     </div>
 
                     <div className="bg-white rounded-2xl p-8 border border-border-soft flex flex-col gap-4">
-                        <div className="w-11 h-11 rounded-xl bg-ink flex items-center justify-center text-xl">🗂️</div>
+                        <div className="w-11 h-11 rounded-xl bg-ink flex items-center justify-center text-white"><FolderKanban className="size-5" /></div>
                         <h3 className="text-xl font-bold text-ink">Организаторам</h3>
                         <p className="text-sm text-muted-ink leading-relaxed">
-                            Создавай когорты и треки, настраивай анкету и тестовые задания, рассылай ссылку-приглашение
-                            и веди все заявки в одном месте.
+                            Создавайте когорты и треки, настраивайте анкету и тестовые задания, рассылайте ссылку-приглашение
+                            и ведите все заявки в одном месте.
                         </p>
-                        <a href="/login" className="text-sm font-semibold text-brand-hover hover:underline mt-1">Панель администратора →</a>
+                        <a href="/login" className="self-start inline-flex items-center gap-1 text-sm font-semibold text-brand-hover mt-1 bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300">Панель администратора<MoveRight className="size-4" /></a>
                     </div>
 
                 </div>
@@ -287,10 +289,11 @@ export default function HomePage() {
                         <p className="relative text-sm text-white/80 max-w-sm">
                             Войди в личный кабинет, чтобы проверить статус заявки или продолжить дневник практики.
                         </p>
-                        <a href="/login"
-                            className="relative text-sm font-semibold text-brand-hover bg-white px-7 py-3.5 rounded-xl shadow-md hover:opacity-90 transition-opacity mt-2">
-                            Войти →
-                        </a>
+                        <Button variant="brand-inverse" nativeButton={false} render={<a href="/login" />}
+                            className="relative px-7 py-3.5 rounded-xl h-auto mt-2">
+                            Войти
+                            <MoveRight className="size-4" />
+                        </Button>
                     </div>
                 </div>
             </section>
@@ -299,7 +302,7 @@ export default function HomePage() {
             <footer className="border-t border-border-soft py-10">
                 <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm bg-gradient-to-br from-brand to-brand-light">🎓</div>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white bg-gradient-to-br from-brand to-brand-light"><GraduationCap className="size-3.5" /></div>
                         <span className="font-bold text-sm text-ink">Практика УрФУ</span>
                     </div>
                     <p className="text-xs text-muted-ink">© 2026 · Сервис организации практики</p>

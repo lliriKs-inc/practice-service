@@ -155,7 +155,7 @@ export default function AdminCohortsPage() {
 
     async function handleCreateCohort() {
         if (!isCreateFormComplete()) {
-            setCreateErrors(['Заполни название и все 4 даты'])
+            setCreateErrors(['Заполните название и все 4 даты'])
             return
         }
         setCreateLoading(true)

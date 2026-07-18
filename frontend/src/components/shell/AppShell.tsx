@@ -3,11 +3,12 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { GraduationCap, LogOut, type LucideIcon } from 'lucide-react'
 import { logout } from '@/services/api/auth'
 
 export interface ShellNavItem {
     href: string
-    icon: string
+    icon: LucideIcon
     label: string
     /** Базовый путь для подсветки активного пункта (без query-параметров) */
     matchPath: string
@@ -16,12 +17,14 @@ export interface ShellNavItem {
 export function AppShell({
     navItems,
     roleBadge,
+    userName,
     userEmail,
     headerRight,
     children,
 }: {
     navItems: ShellNavItem[]
     roleBadge?: string
+    userName?: string
     userEmail?: string
     headerRight?: React.ReactNode
     children: React.ReactNode
@@ -42,8 +45,10 @@ export function AppShell({
                         className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center text-lg flex-shrink-0 text-ink hover:bg-surface">
                         {mobileNavOpen ? '✕' : '☰'}
                     </button>
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0 bg-gradient-to-br from-brand to-brand-light">🎓</div>
-                    <span className="hidden sm:inline font-extrabold text-base text-ink tracking-tight truncate">Практика УрФУ</span>
+                    <Link href="/" className="group flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0 shadow-sm transition-transform group-hover:scale-105 bg-gradient-to-br from-brand to-brand-light"><GraduationCap className="size-4" /></div>
+                        <span className="hidden sm:inline font-extrabold text-base text-ink tracking-tight truncate group-hover:text-brand-hover transition-colors">Практика УрФУ</span>
+                    </Link>
                     {roleBadge && (
                         <div className="flex items-center gap-2 px-3 py-1 bg-ink rounded-full ml-2 flex-shrink-0">
                             <span className="text-xs font-semibold text-white">{roleBadge}</span>
@@ -52,12 +57,12 @@ export function AppShell({
                 </div>
                 <div className="flex items-center gap-2 md:gap-3 min-w-0">
                     {headerRight}
-                    <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-brand-subtle rounded-full min-w-0">
-                        <div className="w-2 h-2 rounded-full bg-brand flex-shrink-0" />
-                        <span className="text-xs font-semibold text-brand-hover truncate">{userEmail ?? '…'}</span>
+                    <div className="hidden sm:flex items-center gap-2 min-w-0 px-3.5 py-1.5 bg-brand-subtle border border-brand-subtle-border rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0" />
+                        <span className="text-sm font-semibold text-brand-hover truncate">{userName ?? userEmail ?? '…'}</span>
                     </div>
                     <div className="w-8 h-8 rounded-full bg-brand text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
-                        {userEmail?.[0]?.toUpperCase() ?? '?'}
+                        {(userName ?? userEmail)?.[0]?.toUpperCase() ?? '?'}
                     </div>
                 </div>
             </header>
@@ -69,16 +74,17 @@ export function AppShell({
                         const active = pathname === item.matchPath || pathname.startsWith(item.matchPath + '/')
                         return (
                             <Link key={item.matchPath} href={item.href} onClick={() => setMobileNavOpen(false)}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left
-                                    ${active ? 'bg-brand-subtle text-brand-hover' : 'text-muted-ink hover:bg-surface'}`}>
-                                <span>{item.icon}</span>{item.label}
+                                className={`relative overflow-hidden flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-300 text-left border-l-[3px]
+                                    ${active ? 'text-white border-brand shadow-sm' : 'text-muted-ink border-transparent hover:bg-surface'}`}>
+                                <span className={`absolute inset-0 -z-10 bg-gradient-to-br from-brand to-brand-light transition-opacity duration-300 ${active ? 'opacity-100' : 'opacity-0'}`} />
+                                <item.icon className="size-4" />{item.label}
                             </Link>
                         )
                     })}
                     <div className="mt-2 pt-2 border-t border-border-soft">
                         <button onClick={logout}
-                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-ink hover:bg-surface w-full text-left">
-                            <span>🚪</span> Выйти
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-ink border-l-[3px] border-transparent hover:bg-surface transition-colors duration-300 w-full text-left">
+                            <LogOut className="size-4" /> Выйти
                         </button>
                     </div>
                 </nav>
@@ -91,16 +97,17 @@ export function AppShell({
                         const active = pathname === item.matchPath || pathname.startsWith(item.matchPath + '/')
                         return (
                             <Link key={item.matchPath} href={item.href}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left
-                                    ${active ? 'bg-brand-subtle text-brand-hover' : 'text-muted-ink hover:bg-surface'}`}>
-                                <span>{item.icon}</span>{item.label}
+                                className={`relative overflow-hidden flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-300 text-left border-l-[3px]
+                                    ${active ? 'text-white border-brand shadow-sm' : 'text-muted-ink border-transparent hover:bg-surface'}`}>
+                                <span className={`absolute inset-0 -z-10 bg-gradient-to-br from-brand to-brand-light transition-opacity duration-300 ${active ? 'opacity-100' : 'opacity-0'}`} />
+                                <item.icon className="size-4" />{item.label}
                             </Link>
                         )
                     })}
                     <div className="mt-auto pt-4 border-t border-border-soft">
                         <button onClick={logout}
-                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-ink hover:bg-surface w-full text-left">
-                            <span>🚪</span> Выйти
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-ink border-l-[3px] border-transparent hover:bg-surface transition-colors duration-300 w-full text-left">
+                            <LogOut className="size-4" /> Выйти
                         </button>
                     </div>
                 </aside>

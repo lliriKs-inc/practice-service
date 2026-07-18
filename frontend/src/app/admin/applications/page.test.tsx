@@ -88,7 +88,7 @@ describe('AdminApplicationsPage', () => {
 
     it('просит выбрать рабочую когорту, если она не выбрана', async () => {
         renderWithCohort({ selectedCohort: null, selectedCohortId: null })
-        expect(await screen.findByText('Выбери рабочую когорту', {}, { timeout: 3000 })).toBeInTheDocument()
+        expect(await screen.findByText('Выберите рабочую когорту', {}, { timeout: 3000 })).toBeInTheDocument()
     })
 
     it('показывает заявку выбранной когорты', async () => {

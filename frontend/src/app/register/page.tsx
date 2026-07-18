@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { GraduationCap, MoveRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -67,7 +68,7 @@ function RegisterForm() {
             <div className="relative z-10 w-full max-w-md px-6 flex flex-col items-center">
 
                 <Link href="/" className="group flex items-center gap-3 mb-10" title="На главную">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm transition-transform group-hover:scale-105 bg-gradient-to-br from-brand to-brand-light">🎓</div>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-105 bg-gradient-to-br from-brand to-brand-light"><GraduationCap className="size-5" /></div>
                     <span className="font-extrabold text-lg tracking-tight text-ink group-hover:text-brand-hover transition-colors">Практика УрФУ</span>
                 </Link>
 
@@ -83,7 +84,7 @@ function RegisterForm() {
                     <div className="mb-7">
                         <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1.5">Создать аккаунт</h1>
                         <p className="text-sm text-muted-ink">
-                            {redirect ? 'После регистрации сразу вернёшься к заполнению анкеты' : 'После регистрации заполни анкету для подачи заявки'}
+                            {redirect ? 'После регистрации вы сразу вернётесь к заполнению анкеты' : 'После регистрации заполните анкету для подачи заявки'}
                         </p>
                     </div>
 
@@ -124,14 +125,16 @@ function RegisterForm() {
 
                         <Button type="submit" variant="brand" disabled={loading}
                             className="w-full py-5 rounded-lg mt-1">
-                            {loading ? 'Создаём аккаунт…' : 'Зарегистрироваться →'}
+                            {loading ? 'Создаём аккаунт…' : <>Зарегистрироваться<MoveRight className="size-4" /></>}
                         </Button>
                     </form>
                 </Card>
 
                 <div className="flex items-center gap-2 mt-6 text-sm text-muted-ink">
                     <span>Уже есть аккаунт?</span>
-                    <a href={loginHref} className="text-brand-hover font-semibold hover:underline">Войти →</a>
+                    <a href={loginHref} className="inline-flex items-center gap-1 text-brand-hover font-semibold bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300">
+                        Войти<MoveRight className="size-4" />
+                    </a>
                 </div>
             </div>
         </div>

@@ -72,7 +72,7 @@ export default function ApplyByInvitationPage() {
         if (!form) return
 
         if (!trackId) {
-            setSubmitError('Выбери направление практики')
+            setSubmitError('Выберите направление практики')
             return
         }
 
@@ -80,7 +80,7 @@ export default function ApplyByInvitationPage() {
             q => q.required && !answers[q.id]?.trim()
         )
         if (missingRequired) {
-            setSubmitError(`Заполни обязательное поле: «${missingRequired.label}»`)
+            setSubmitError(`Заполните обязательное поле: «${missingRequired.label}»`)
             return
         }
 
@@ -167,8 +167,8 @@ export default function ApplyByInvitationPage() {
                     <div className="w-14 h-14 rounded-full bg-danger-bg flex items-center justify-center text-2xl mb-5">🚫</div>
                     <h2 className="font-extrabold text-xl text-ink mb-2">Ссылка не для организаторов</h2>
                     <p className="text-sm text-muted-ink mb-6">
-                        Ты вошёл(-ла) под аккаунтом администратора — заявки на практику подают кандидаты.
-                        Выйди и открой ссылку под аккаунтом практиканта, если нужно проверить анкету.
+                        Вы вошли под аккаунтом администратора — заявки на практику подают кандидаты.
+                        Выйдите и откройте ссылку под аккаунтом практиканта, если нужно проверить анкету.
                     </p>
                     <a href="/admin/cohorts" className="text-sm font-semibold text-brand-hover hover:underline">
                         Перейти в панель администратора →
@@ -219,7 +219,7 @@ export default function ApplyByInvitationPage() {
                         Начни путь<br />в профессию
                     </h2>
                     <p className="text-sm leading-relaxed opacity-80 mb-12 max-w-xs">
-                        Заполни анкету — после отправки ты увидишь статус и тестовое задание в личном кабинете.
+                        Заполните анкету — после отправки вы увидите статус и тестовое задание в личном кабинете.
                     </p>
 
                     <div className="flex flex-col gap-4">
@@ -304,7 +304,7 @@ export default function ApplyByInvitationPage() {
                                 <div className="flex items-start gap-3 p-4 bg-brand-subtle rounded-xl border-l-4 border-brand">
                                     <span className="text-lg">ℹ️</span>
                                     <p className="text-sm text-muted-ink leading-relaxed">
-                                        Дополнительных вопросов в анкете нет — просто выбери направление и отправь заявку.
+                                        Дополнительных вопросов в анкете нет — просто выберите направление и отправьте заявку.
                                     </p>
                                 </div>
                             )}
@@ -372,7 +372,7 @@ function QuestionInput({
                 {label}
                 <select value={value} onChange={e => onChange(e.target.value)} required={question.required}
                     className="w-full text-sm rounded-lg border-[1.5px] border-border-soft bg-surface px-3 py-2 text-ink focus:outline-none focus:border-brand">
-                    <option value="" disabled>Выбери вариант</option>
+                    <option value="" disabled>Выберите вариант</option>
                     {question.options.map(opt => (
                         <option key={opt} value={opt}>{opt}</option>
                     ))}

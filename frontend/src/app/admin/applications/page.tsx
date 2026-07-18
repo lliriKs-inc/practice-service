@@ -121,14 +121,14 @@ export default function AdminApplicationsPage() {
             <div>
                 <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1">Заявки</h1>
                 <p className="text-sm text-muted-ink">
-                    {selectedCohort ? `Заявки кандидатов когорты «${selectedCohort.title}»` : 'Выбери рабочую когорту в шапке, чтобы увидеть заявки.'}
+                    {selectedCohort ? `Заявки кандидатов когорты «${selectedCohort.title}»` : 'Выберите рабочую когорту в шапке, чтобы увидеть заявки.'}
                 </p>
             </div>
 
             {!selectedCohort && (
                 <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
                     <div className="text-4xl mb-4">🗂️</div>
-                    <p className="font-semibold text-ink mb-1">Выбери рабочую когорту</p>
+                    <p className="font-semibold text-ink mb-1">Выберите рабочую когорту</p>
                     <p className="text-sm text-muted-ink">Заявки, фильтры и статусы отчётов показываются в разрезе одной когорты.</p>
                 </div>
             )}

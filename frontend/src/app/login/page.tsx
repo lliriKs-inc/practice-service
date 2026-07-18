@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { GraduationCap, MoveRight, ClipboardList, FileText, ListChecks } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -61,7 +62,7 @@ function LoginForm() {
             <div className="relative z-10 w-full max-w-md px-6 flex flex-col items-center">
 
                 <Link href="/" className="group flex items-center gap-3 mb-10" title="На главную">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm transition-transform group-hover:scale-105 bg-gradient-to-br from-brand to-brand-light">🎓</div>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-105 bg-gradient-to-br from-brand to-brand-light"><GraduationCap className="size-5" /></div>
                     <span className="font-extrabold text-lg tracking-tight text-ink group-hover:text-brand-hover transition-colors">Практика УрФУ</span>
                 </Link>
 
@@ -93,7 +94,7 @@ function LoginForm() {
                 <Card className="w-full p-8 rounded-2xl shadow-lg" style={{ boxShadow: '0 8px 40px rgba(108,99,255,0.12)' }}>
                     <div className="mb-7">
                         <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1.5">Добро пожаловать</h1>
-                        <p className="text-sm text-muted-ink">Войди в личный кабинет практиканта</p>
+                        <p className="text-sm text-muted-ink">Войдите в личный кабинет практиканта</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -106,7 +107,7 @@ function LoginForm() {
                         <div className="flex flex-col gap-1.5">
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="password">Пароль</Label>
-                                <a href="#" className="text-xs text-brand-hover hover:underline font-medium">Забыл пароль?</a>
+                                <a href="#" className="self-start text-xs text-brand-hover font-medium bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300">Забыли пароль?</a>
                             </div>
                             <Input id="password" type="password" placeholder="••••••••"
                                 value={password} onChange={(e) => setPassword(e.target.value)} required />
@@ -122,22 +123,26 @@ function LoginForm() {
 
                         <Button type="submit" variant="brand" disabled={loading}
                             className="w-full py-5 rounded-lg mt-1">
-                            {loading ? 'Входим…' : 'Войти →'}
+                            {loading ? 'Входим…' : <>Войти<MoveRight className="size-4" /></>}
                         </Button>
                     </form>
                 </Card>
 
                 <div className="flex items-center gap-2 mt-6 text-sm text-muted-ink">
                     <span>Ещё нет аккаунта?</span>
-                    <a href={registerHref} className="text-brand-hover font-semibold hover:underline">
-                        Зарегистрироваться →
+                    <a href={registerHref} className="inline-flex items-center gap-1 text-brand-hover font-semibold bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300">
+                        Зарегистрироваться<MoveRight className="size-4" />
                     </a>
                 </div>
 
-                <div className="flex flex-wrap justify-center gap-2 mt-8">
-                    {['📋 Статус заявки', '📄 Документы', '✅ Дневник задач'].map(item => (
-                        <span key={item} className="text-xs font-medium px-3 py-1.5 rounded-full border-[1.5px] border-border-soft bg-white text-muted-ink">
-                            {item}
+                <div className="flex flex-wrap justify-center gap-2 mt-6">
+                    {[
+                        { icon: ClipboardList, label: 'Статус заявки' },
+                        { icon: FileText, label: 'Документы' },
+                        { icon: ListChecks, label: 'Дневник задач' },
+                    ].map(item => (
+                        <span key={item.label} className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-[1.5px] border-border-soft bg-white text-muted-ink">
+                            <item.icon className="size-3.5 text-brand-hover" />{item.label}
                         </span>
                     ))}
                 </div>

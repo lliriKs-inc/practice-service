@@ -128,7 +128,7 @@ describe('AdminTasksPage (прогресс когорты)', () => {
                 <AdminTasksPage />
             </CohortWorkspaceContext.Provider>
         )
-        expect(await screen.findByText('Выбери рабочую когорту', {}, { timeout: 3000 })).toBeInTheDocument()
+        expect(await screen.findByText('Выберите рабочую когорту', {}, { timeout: 3000 })).toBeInTheDocument()
     })
 
     it('показывает студента когорты в недельной таблице', async () => {

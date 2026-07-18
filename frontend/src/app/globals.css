@@ -78,6 +78,7 @@
   --color-danger-border: var(--danger-border);
   --color-danger-dot: var(--danger-dot);
   --color-danger-hover: var(--danger-hover);
+  --color-danger-light: var(--danger-light);
 }
 
 :root {
@@ -116,6 +117,7 @@
   --danger-border: #F0BABA;
   --danger-dot: #D94F4F;
   --danger-hover: #B72F2F;
+  --danger-light: #E36B6B;
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -194,6 +196,7 @@
   }
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
   }
 }
 

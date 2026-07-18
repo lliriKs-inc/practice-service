@@ -241,7 +241,7 @@ export default function DashboardTasksPage() {
                 <div className="text-4xl mb-4">🔒</div>
                 <p className="font-semibold text-ink mb-1">Дневник задач пока недоступен</p>
                 <p className="text-sm text-muted-ink max-w-sm mb-4">
-                    Он откроется, как только одна из твоих заявок будет одобрена —
+                    Он откроется, как только одна из ваших заявок будет одобрена —
                     тогда даты практики подставятся автоматически.
                 </p>
                 <a href="/dashboard/applications"
@@ -334,7 +334,7 @@ export default function DashboardTasksPage() {
             {weekData && (
                 <p className="text-xs text-muted-ink">
                     Период практики: {new Date(weekData.cohort.practice_start).toLocaleDateString('ru')} — {new Date(weekData.cohort.practice_end).toLocaleDateString('ru')}
-                    {' '}· Нажми на день, чтобы описать выполненную работу и прикрепить ссылки
+                    {' '}· Нажмите на день, чтобы описать выполненную работу и прикрепить ссылки
                 </p>
             )}
 
