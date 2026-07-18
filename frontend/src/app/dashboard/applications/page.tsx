@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ChevronDown, Route, MoveRight, X } from 'lucide-react'
+import { ChevronDown, Route, MoveRight } from 'lucide-react'
 import { getMyApplications, type Application } from '@/services/api/invitation'
 import { getMe, selectActiveApplication } from '@/services/api/auth'
+import { Button } from '@/components/ui/button'
 
 const STATUS_CONFIG: Record<Application['status'], { label: string; className: string; dot: string }> = {
     pending: { label: 'На рассмотрении', className: 'bg-warning-bg border-warning-border text-warning', dot: 'bg-warning-dot' },
@@ -19,9 +20,19 @@ export default function DashboardApplicationsPage() {
     const [activeApplicationId, setActiveApplicationId] = useState<string | null>(null)
     const [applicationToSelect, setApplicationToSelect] = useState<Application | null>(null)
     const [selectionSaving, setSelectionSaving] = useState(false)
+    const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set())
     const approvedApplications = applications.filter(app => app.status === 'approved')
     const needsApplicationSelection = approvedApplications.length > 1 &&
         !approvedApplications.some(app => app.id === activeApplicationId)
+
+    function toggleAnswers(applicationId: string) {
+        setExpandedAnswers(prev => {
+            const next = new Set(prev)
+            if (next.has(applicationId)) next.delete(applicationId)
+            else next.add(applicationId)
+            return next
+        })
+    }
 
     useEffect(() => {
         (async () => {
@@ -180,16 +191,16 @@ export default function DashboardApplicationsPage() {
                                     {app.status === 'approved' && (
                                         <div className="flex items-center gap-4">
                                             {activeApplicationId === app.id ? (
-                                                    <Button variant={isPracticeStarted(app) ? 'outline' : 'danger'}
-                                                        onClick={cancelApplicationSelection}
-                                                        disabled={isPracticeStarted(app)}
+                                                    <Button variant="outline"
+                                                        disabled
                                                         className="px-4 py-2 rounded-lg h-auto">
                                                         {isPracticeStarted(app)
                                                             ? 'Выбор закреплён'
-                                                            : <><X className="size-3.5" strokeWidth={2.5} />Отменить выбор</>}
+                                                            : '✓ Выбранный трек'}
                                                     </Button>
                                                 ) : (
                                                     <Button variant="brand" onClick={() => setApplicationToSelect(app)}
+                                                        disabled={isPracticeStarted(app)}
                                                         className="px-4 py-2 rounded-lg h-auto">
                                                         Выбрать этот трек
                                                     </Button>
