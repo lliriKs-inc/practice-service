@@ -45,6 +45,7 @@ JWT middleware использует `AUTH_TOKEN_MISSING`, `AUTH_TOKEN_INVALID_FO
 |---|---|---|---:|---|
 | POST | `/api/v1/auth/login` | Public | 200 | Получить JWT |
 | GET | `/api/v1/auth/me` | Authenticated | 200 | Профиль текущего пользователя |
+| PATCH | `/api/v1/auth/me/active-application` | STUDENT | 200 | Сохранить выбранную рабочую заявку |
 | POST | `/api/v1/auth/register` | Public | 201 | Зарегистрировать student account |
 | POST | `/api/v1/cohorts` | ADMIN | 201 | Создать cohort |
 | GET | `/api/v1/cohorts` | ADMIN | 200 | Список cohort с tracks/survey/invitation |

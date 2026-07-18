@@ -19,6 +19,9 @@ export default function DashboardApplicationsPage() {
     const [activeApplicationId, setActiveApplicationId] = useState<string | null>(null)
     const [applicationToSelect, setApplicationToSelect] = useState<Application | null>(null)
     const [selectionSaving, setSelectionSaving] = useState(false)
+    const approvedApplications = applications.filter(app => app.status === 'approved')
+    const needsApplicationSelection = approvedApplications.length > 1 &&
+        !approvedApplications.some(app => app.id === activeApplicationId)
 
     useEffect(() => {
         (async () => {
@@ -58,6 +61,18 @@ export default function DashboardApplicationsPage() {
                 <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1">Мои заявки</h1>
                 <p className="text-sm text-muted-ink">Архив всех заявок на практику по всем когортам.</p>
             </div>
+
+            {!applicationsLoading && !applicationsError && needsApplicationSelection && (
+                <div className="bg-[#FFF8ED] border border-[#F5D9A0] rounded-xl px-5 py-4 flex items-start gap-3">
+                    <span className="text-lg" aria-hidden="true">⚠️</span>
+                    <div>
+                        <p className="text-sm font-semibold text-[#7A5C1A]">Выберите рабочий трек</p>
+                        <p className="text-sm text-[#6B6880] mt-1">
+                            У вас несколько одобренных заявок. До начала практики выберите трек, по которому будете выполнять задачи и оформлять документы.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {applicationsLoading && (
                 <div className="flex items-center gap-2 text-sm text-muted-ink">

@@ -58,3 +58,60 @@ describe("AuthService.selectActiveApplication", () => {
     });
   });
 });
+
+describe("AuthService.getMe", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("automatically persists the first approved application after practice starts", async () => {
+    vi.spyOn(prisma.user, "findUnique").mockResolvedValue({
+      id: "student-1",
+      email: "student@example.com",
+      full_name: "Student",
+      role: "STUDENT",
+      active_cohort_id: null,
+      active_application_id: null,
+      created_at: new Date(),
+      activeApplication: null,
+    } as any);
+    vi.spyOn(prisma.application, "findFirst").mockResolvedValue({
+      id: "application-1",
+    } as any);
+    const update = vi.spyOn(prisma.user, "update").mockResolvedValue({
+      id: "student-1",
+      active_application_id: "application-1",
+    } as any);
+
+    await expect(AuthService.getMe("student-1")).resolves.toMatchObject({
+      active_application_id: "application-1",
+    });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { active_application_id: "application-1" },
+      })
+    );
+  });
+
+  it("keeps a valid saved selection without choosing another application", async () => {
+    vi.spyOn(prisma.user, "findUnique").mockResolvedValue({
+      id: "student-1",
+      email: "student@example.com",
+      full_name: "Student",
+      role: "STUDENT",
+      active_cohort_id: null,
+      active_application_id: "application-1",
+      created_at: new Date(),
+      activeApplication: {
+        id: "application-1",
+        status: ApplicationStatus.APPROVED,
+      },
+    } as any);
+    const findFirst = vi.spyOn(prisma.application, "findFirst");
+
+    await expect(AuthService.getMe("student-1")).resolves.toMatchObject({
+      active_application_id: "application-1",
+    });
+    expect(findFirst).not.toHaveBeenCalled();
+  });
+});

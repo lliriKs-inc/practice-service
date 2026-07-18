@@ -64,6 +64,12 @@ export class AuthService {
         active_cohort_id: true,
         active_application_id: true,
         created_at: true,
+        activeApplication: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
       },
     });
 
@@ -71,7 +77,48 @@ export class AuthService {
       throw new Error("User not found");
     }
 
-    return user;
+    if (
+      user.activeApplication?.status === ApplicationStatus.APPROVED
+    ) {
+      const { activeApplication: _activeApplication, ...profile } = user;
+      return profile;
+    }
+
+    const automaticApplication = await prisma.application.findFirst({
+      where: {
+        user_id: userId,
+        status: ApplicationStatus.APPROVED,
+        track: {
+          cohort: {
+            practice_start: { lte: new Date() },
+          },
+        },
+      },
+      orderBy: { submitted_at: "asc" },
+      select: { id: true },
+    });
+
+    if (!automaticApplication) {
+      const { activeApplication: _activeApplication, ...profile } = user;
+      return {
+        ...profile,
+        active_application_id: null,
+      };
+    }
+
+    return prisma.user.update({
+      where: { id: userId },
+      data: { active_application_id: automaticApplication.id },
+      select: {
+        id: true,
+        email: true,
+        full_name: true,
+        role: true,
+        active_cohort_id: true,
+        active_application_id: true,
+        created_at: true,
+      },
+    });
   }
 
   static async selectActiveApplication(

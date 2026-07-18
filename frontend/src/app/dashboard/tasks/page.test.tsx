@@ -134,6 +134,24 @@ describe('DashboardTasksPage (дневник задач)', () => {
         expect(await screen.findByText('Дневник задач пока недоступен', {}, { timeout: 3000 })).toBeInTheDocument()
     })
 
+    it('просит выбрать рабочий трек вместо подстановки первой из нескольких заявок', async () => {
+        getMe.mockResolvedValue({
+            id: 'student-1',
+            email: 'student@urfu.ru',
+            role: 'STUDENT',
+            created_at: '2026-01-01',
+            active_application_id: null,
+        })
+        getMyApplications.mockResolvedValue([
+            makeApplication('approved'),
+            { ...makeApplication('approved'), id: 'app-2', track: { id: 'track-2', title: 'Frontend' } },
+        ])
+        render(<DashboardTasksPage />)
+
+        expect(await screen.findByText('Выберите рабочий трек')).toBeInTheDocument()
+        expect(getMyWeekTasks).not.toHaveBeenCalled()
+    })
+
     it('[FIX] если практика начинается в выходной, сразу открывает первую РАБОЧУЮ неделю, а не пустую неделю до начала', async () => {
         // Практика начинается в субботу — Monday-of-week(суббота) попадает на предыдущую
         // неделю целиком до начала практики (нашёл пользователь при ручной проверке).

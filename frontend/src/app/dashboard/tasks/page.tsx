@@ -89,9 +89,9 @@ export default function DashboardTasksPage() {
     // Дневник задач имеет смысл только после того, как заявку одобрили —
     // до этого момента нет ни роли, ни согласованных дат практики.
     const approvedApplications = applications.filter(a => a.status === 'approved')
-    const approvedApplication = approvedApplications.find(a => a.id === activeApplicationId)
-        ?? approvedApplications[0]
-        ?? null
+    const selectedApplication = approvedApplications.find(a => a.id === activeApplicationId) ?? null
+    const needsApplicationSelection = approvedApplications.length > 1 && !selectedApplication
+    const approvedApplication = selectedApplication ?? (approvedApplications.length === 1 ? approvedApplications[0] : null)
 
     const [weekStart, setWeekStart] = useState<string>(() => toISODate(getMondayOfWeek(new Date())))
     const [weekData, setWeekData] = useState<StudentWeekResponse | null>(null)
@@ -240,10 +240,13 @@ export default function DashboardTasksPage() {
         return (
             <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
                 <div className="text-4xl mb-4">🔒</div>
-                <p className="font-semibold text-ink mb-1">Дневник задач пока недоступен</p>
+                <p className="font-semibold text-ink mb-1">
+                    {needsApplicationSelection ? 'Выберите рабочий трек' : 'Дневник задач пока недоступен'}
+                </p>
                 <p className="text-sm text-muted-ink max-w-sm mb-4">
-                    Он откроется, как только одна из ваших заявок будет одобрена —
-                    тогда даты практики подставятся автоматически.
+                    {needsApplicationSelection
+                        ? 'Выберите рабочий трек в разделе «Мои заявки», чтобы открыть его задачи.'
+                        : 'Он откроется, как только одна из ваших заявок будет одобрена — тогда даты практики подставятся автоматически.'}
                 </p>
                 <a href="/dashboard/applications"
                     className="text-xs font-semibold px-4 py-2 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle">

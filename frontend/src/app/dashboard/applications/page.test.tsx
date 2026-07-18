@@ -67,6 +67,17 @@ describe('DashboardApplicationsPage (архив заявок студента)',
         )
     })
 
+    it('подсказывает выбрать трек при нескольких одобренных заявках без выбора', async () => {
+        getMe.mockResolvedValue({ ...STUDENT, active_application_id: null })
+        getMyApplications.mockResolvedValue([
+            makeApplication({ id: 'app-1', status: 'approved' }),
+            makeApplication({ id: 'app-2', status: 'approved', track: { id: 'track-2', title: 'Frontend' } }),
+        ])
+        render(<DashboardApplicationsPage />)
+
+        expect(await screen.findByText('Выберите рабочий трек')).toBeInTheDocument()
+    })
+
     it('запрашивает подтверждение перед выбором одобренного трека', async () => {
         getMyApplications.mockResolvedValue([makeApplication({ status: 'approved' })])
         render(<DashboardApplicationsPage />)

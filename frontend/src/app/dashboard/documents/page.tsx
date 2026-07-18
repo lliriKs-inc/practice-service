@@ -48,9 +48,9 @@ export default function DashboardDocumentsPage() {
     }, [])
 
     const approvedApplications = applications.filter(a => a.status === 'approved')
-    const approvedApplication = approvedApplications.find(a => a.id === activeApplicationId)
-        ?? approvedApplications[0]
-        ?? null
+    const selectedApplication = approvedApplications.find(a => a.id === activeApplicationId) ?? null
+    const needsApplicationSelection = approvedApplications.length > 1 && !selectedApplication
+    const approvedApplication = selectedApplication ?? (approvedApplications.length === 1 ? approvedApplications[0] : null)
 
     const [readiness, setReadiness] = useState<ReadinessResponse | null>(null)
     const [documents, setDocuments] = useState<DocumentData[]>([])
@@ -196,9 +196,13 @@ export default function DashboardDocumentsPage() {
         return (
             <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
                 <div className="text-4xl mb-4">🔒</div>
-                <p className="font-semibold text-ink mb-1">Документы пока недоступны</p>
-                <p className="text-sm text-muted-ink max-w-sm mb-4">
-                    Они откроются, как только одна из ваших заявок будет одобрена.
+                <p className="font-semibold text-[#1C1A3A] mb-1">
+                    {needsApplicationSelection ? 'Выберите рабочий трек' : 'Документы пока недоступны'}
+                </p>
+                <p className="text-sm text-[#6B6880] max-w-sm mb-4">
+                    {needsApplicationSelection
+                        ? 'Выберите рабочий трек в разделе «Мои заявки», чтобы открыть его документы.'
+                        : 'Они откроются, как только одна из твоих заявок будет одобрена.'}
                 </p>
                 <a href="/dashboard/applications"
                     className="text-xs font-semibold px-4 py-2 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle">
