@@ -15,10 +15,10 @@ import { useCohortWorkspace } from '../cohort-context'
 import { downloadProtectedFile } from '@/lib/api/download'
 
 const REPORT_STATUS_LABELS: Record<string, { label: string; className: string }> = {
-    PENDING: { label: 'На проверке', className: 'bg-[#FFF8ED] text-[#7A5C1A]' },
-    APPROVED: { label: 'Одобрен', className: 'bg-[#EDFBF4] text-[#1A7A5A]' },
-    REJECTED: { label: 'Отклонён', className: 'bg-[#FFF5F5] text-[#C93B3B]' },
-    MISSING: { label: 'Не загружен', className: 'bg-[#F5F4FD] text-[#6B6880]' },
+    PENDING: { label: 'На проверке', className: 'bg-warning-bg text-warning' },
+    APPROVED: { label: 'Одобрен', className: 'bg-success-bg text-success' },
+    REJECTED: { label: 'Отклонён', className: 'bg-danger-bg text-danger' },
+    MISSING: { label: 'Не загружен', className: 'bg-surface text-muted-ink' },
 }
 
 export default function AdminDocumentsPage() {
@@ -137,8 +137,8 @@ export default function AdminDocumentsPage() {
     return (
         <div className="flex flex-col gap-6">
             <div>
-                <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1">Документы</h1>
-                <p className="text-sm text-[#6B6880]">
+                <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1">Документы</h1>
+                <p className="text-sm text-muted-ink">
                     {selectedCohort ? `Готовность документов когорты «${selectedCohort.title}»` : 'Выбери рабочую когорту в шапке.'}
                 </p>
             </div>
@@ -146,18 +146,18 @@ export default function AdminDocumentsPage() {
             {!selectedCohort && (
                 <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
                     <div className="text-4xl mb-4">🗂️</div>
-                    <p className="font-semibold text-[#1C1A3A] mb-1">Выбери рабочую когорту</p>
+                    <p className="font-semibold text-ink mb-1">Выбери рабочую когорту</p>
                 </div>
             )}
 
             {selectedCohort && (
                 <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-wrap items-center gap-3">
-                    <select aria-label="Фильтр по треку" value={trackFilter} onChange={e => setTrackFilter(e.target.value)} className="text-sm px-3 py-2 rounded-lg border border-[#E4E2F4]">
+                    <select aria-label="Фильтр по треку" value={trackFilter} onChange={e => setTrackFilter(e.target.value)} className="text-sm px-3 py-2 rounded-lg border border-border-soft">
                         <option value="">Все треки</option>
                         {sourceCohort?.tracks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
                     </select>
                     <select aria-label="Фильтр по статусу отчёта" value={reportStatusFilter} onChange={e => setReportStatusFilter(e.target.value as AdminDocumentsFilter['reportStatus'] | '')}
-                        className="text-sm px-3 py-2 rounded-lg border border-[#E4E2F4]">
+                        className="text-sm px-3 py-2 rounded-lg border border-border-soft">
                         <option value="">Любой статус отчёта</option>
                         <option value="MISSING">Не загружен</option>
                         <option value="PENDING">На проверке</option>
@@ -165,13 +165,13 @@ export default function AdminDocumentsPage() {
                         <option value="REJECTED">Отклонён</option>
                     </select>
                     <select aria-label="Фильтр по готовности документов" value={readinessFilter} onChange={e => setReadinessFilter(e.target.value as AdminDocumentsFilter['readiness'] | '')}
-                        className="text-sm px-3 py-2 rounded-lg border border-[#E4E2F4]">
+                        className="text-sm px-3 py-2 rounded-lg border border-border-soft">
                         <option value="">Любая готовность</option>
                         <option value="READY">Все документы готовы</option>
                         <option value="INCOMPLETE">Есть незаполненные</option>
                     </select>
                     <input type="text" aria-label="Поиск по email" value={search} onChange={e => setSearch(e.target.value)}
-                        placeholder="Поиск по email…" className="text-sm px-3 py-2 rounded-lg border border-[#E4E2F4] flex-1 min-w-[180px]" />
+                        placeholder="Поиск по email…" className="text-sm px-3 py-2 rounded-lg border border-border-soft flex-1 min-w-[180px]" />
                 </div>
             )}
 
@@ -179,23 +179,23 @@ export default function AdminDocumentsPage() {
                 (после автосейва поля) список остаётся на месте, не мигает и
                 не сбрасывает скролл наверх. */}
             {loading && documents.length === 0 && (
-                <div className="flex items-center gap-2 text-sm text-[#6B6880]">
-                    <div className="w-4 h-4 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
+                <div className="flex items-center gap-2 text-sm text-muted-ink">
+                    <div className="w-4 h-4 rounded-full border-2 border-brand border-t-transparent animate-spin" />
                     Загружаем…
                 </div>
             )}
 
             {error && (
-                <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
-                    <p className="text-sm text-[#C93B3B]">⚠️ {error}</p>
+                <div className="bg-danger-bg border border-danger-border rounded-xl px-5 py-4">
+                    <p className="text-sm text-danger">⚠️ {error}</p>
                 </div>
             )}
 
             {selectedCohort && !loading && !error && documents.length === 0 && (
                 <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
                     <div className="text-4xl mb-4">📄</div>
-                    <p className="font-semibold text-[#1C1A3A] mb-1">Ничего не найдено</p>
-                    <p className="text-sm text-[#6B6880]">Документы появляются только у одобренных заявок.</p>
+                    <p className="font-semibold text-ink mb-1">Ничего не найдено</p>
+                    <p className="text-sm text-muted-ink">Документы появляются только у одобренных заявок.</p>
                 </div>
             )}
 
@@ -207,10 +207,10 @@ export default function AdminDocumentsPage() {
 
                         return (
                             <div key={doc.applicationId} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                                <div className="px-7 py-5 border-b border-[#E4E2F4] flex items-center justify-between flex-wrap gap-3">
+                                <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between flex-wrap gap-3">
                                     <div>
-                                        <p className="text-xs font-bold tracking-widest uppercase text-[#6B6880] mb-1">{doc.track.title}</p>
-                                        <h2 className="font-bold text-lg text-[#1C1A3A]">{doc.student?.email ?? 'Неизвестный кандидат'}</h2>
+                                        <p className="text-xs font-bold tracking-widest uppercase text-muted-ink mb-1">{doc.track.title}</p>
+                                        <h2 className="font-bold text-lg text-ink">{doc.student?.email ?? 'Неизвестный кандидат'}</h2>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${REPORT_STATUS_LABELS[reportStatus].className}`}>
@@ -221,14 +221,13 @@ export default function AdminDocumentsPage() {
                                                 <button
                                                     disabled={reportActionId === doc.applicationId}
                                                     onClick={() => handleReportDecision(doc.applicationId, 'REJECTED')}
-                                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#F0BABA] text-[#C93B3B] hover:bg-[#FFF5F5] disabled:opacity-50">
+                                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-danger-border text-danger hover:bg-danger-bg disabled:opacity-50">
                                                     Отклонить
                                                 </button>
                                                 <button
                                                     disabled={reportActionId === doc.applicationId}
                                                     onClick={() => handleReportDecision(doc.applicationId, 'APPROVED')}
-                                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white disabled:opacity-50"
-                                                    style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white disabled:opacity-50 bg-gradient-to-br from-brand to-brand-light">
                                                     Одобрить
                                                 </button>
                                             </>
@@ -236,31 +235,31 @@ export default function AdminDocumentsPage() {
                                     </div>
                                 </div>
 
-                                <div className="px-7 py-4 grid grid-cols-2 md:grid-cols-4 gap-3 border-b border-[#E4E2F4]">
+                                <div className="px-7 py-4 grid grid-cols-2 md:grid-cols-4 gap-3 border-b border-border-soft">
                                     {doc.documents.map(d => (
                                         <div key={d.type} className="flex flex-col gap-1">
-                                            <span className="text-[10px] font-bold tracking-widest uppercase text-[#6B6880]">{DOCUMENT_TYPE_LABELS[d.type]}</span>
+                                            <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">{DOCUMENT_TYPE_LABELS[d.type]}</span>
                                             {d.ready ? (
-                                                <span className="text-xs text-[#1A7A5A]">✅ Готов</span>
+                                                <span className="text-xs text-success">✅ Готов</span>
                                             ) : (
-                                                <span className="text-xs text-[#6B6880]">Не готов</span>
+                                                <span className="text-xs text-muted-ink">Не готов</span>
                                             )}
                                             {d.generated && d.downloadPath && (
-                                                <button onClick={() => handleDownload(d.downloadPath!, DOCUMENT_TYPE_LABELS[d.type])} className="text-xs text-[#4A42D4] hover:underline text-left">⬇ Скачать</button>
+                                                <button onClick={() => handleDownload(d.downloadPath!, DOCUMENT_TYPE_LABELS[d.type])} className="text-xs text-brand-hover hover:underline text-left">⬇ Скачать</button>
                                             )}
                                         </div>
                                     ))}
                                 </div>
 
                                 <div className="px-7 py-3">
-                                    <button onClick={() => toggleExpand(doc.applicationId)} className="text-xs font-semibold text-[#4A42D4] hover:underline">
+                                    <button onClick={() => toggleExpand(doc.applicationId)} className="text-xs font-semibold text-brand-hover hover:underline">
                                         {expandedId === doc.applicationId ? '▲ Скрыть детали' : '▼ Показать детали и отзыв'}
                                     </button>
 
                                     {expandedId === doc.applicationId && (
                                         <div className="mt-4 flex flex-col gap-5">
                                             {detailLoading === doc.applicationId ? (
-                                                <p className="text-xs text-[#6B6880]">Загружаем…</p>
+                                                <p className="text-xs text-muted-ink">Загружаем…</p>
                                             ) : (
                                                 DOCUMENT_TYPES.map(type => {
                                                     const values = detail?.find(d => d.type === type)?.values ?? []
@@ -269,11 +268,11 @@ export default function AdminDocumentsPage() {
                                                     const isReview = type === 'REVIEW'
 
                                                     return (
-                                                        <div key={type} className="border border-[#E4E2F4] rounded-xl p-4 flex flex-col gap-3">
+                                                        <div key={type} className="border border-border-soft rounded-xl p-4 flex flex-col gap-3">
                                                             <div className="flex items-center justify-between">
-                                                                <span className="text-xs font-bold text-[#1C1A3A]">{DOCUMENT_TYPE_LABELS[type]}</span>
+                                                                <span className="text-xs font-bold text-ink">{DOCUMENT_TYPE_LABELS[type]}</span>
                                                                 {readiness && !readiness.ready && (
-                                                                    <span className="text-[11px] text-[#6B6880]">
+                                                                    <span className="text-[11px] text-muted-ink">
                                                                         Не хватает: {readiness.missingFields.map(m => describeMissingField(type, m)).join(', ')}
                                                                     </span>
                                                                 )}
@@ -285,9 +284,9 @@ export default function AdminDocumentsPage() {
                                                                     if (isReview) {
                                                                         return (
                                                                             <div key={field.key} className={`flex flex-col gap-1 ${field.multiline ? 'col-span-2' : ''}`}>
-                                                                                <label htmlFor={key} className="text-[11px] text-[#6B6880] flex items-center gap-2">
+                                                                                <label htmlFor={key} className="text-[11px] text-muted-ink flex items-center gap-2">
                                                                                     {field.label}
-                                                                                    {savingKey === key && <span className="text-[10px] text-[#6B6880]">сохраняем…</span>}
+                                                                                    {savingKey === key && <span className="text-[10px] text-muted-ink">сохраняем…</span>}
                                                                                 </label>
                                                                                 {field.multiline ? (
                                                                                     <textarea id={key} rows={2} className="w-full text-sm"
@@ -305,8 +304,8 @@ export default function AdminDocumentsPage() {
                                                                     }
                                                                     return (
                                                                         <div key={field.key} className="flex flex-col gap-0.5">
-                                                                            <span className="text-[11px] text-[#6B6880]">{field.label}</span>
-                                                                            <span className="text-sm text-[#1C1A3A]">{value || '—'}</span>
+                                                                            <span className="text-[11px] text-muted-ink">{field.label}</span>
+                                                                            <span className="text-sm text-ink">{value || '—'}</span>
                                                                         </div>
                                                                     )
                                                                 })}

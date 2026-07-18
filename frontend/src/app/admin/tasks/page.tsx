@@ -93,15 +93,15 @@ export default function AdminTasksPage() {
         <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1">Прогресс</h1>
-                    <p className="text-sm text-[#6B6880]">
+                    <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1">Прогресс</h1>
+                    <p className="text-sm text-muted-ink">
                         {selectedCohort ? `Дневник задач когорты «${selectedCohort.title}»` : 'Выбери рабочую когорту в шапке.'}
                     </p>
                 </div>
                 {selectedCohort && (
                     <div className="flex gap-2">
-                        <button onClick={goPrevWeek} className="px-4 py-2 text-sm font-medium border border-[#E4E2F4] rounded-lg bg-white text-[#6B6880] hover:bg-[#F5F4FD]">← Пред.</button>
-                        <button onClick={goNextWeek} className="px-4 py-2 text-sm font-medium border border-[#E4E2F4] rounded-lg bg-white text-[#6B6880] hover:bg-[#F5F4FD]">След. →</button>
+                        <button onClick={goPrevWeek} className="px-4 py-2 text-sm font-medium border border-border-soft rounded-lg bg-white text-muted-ink hover:bg-surface">← Пред.</button>
+                        <button onClick={goNextWeek} className="px-4 py-2 text-sm font-medium border border-border-soft rounded-lg bg-white text-muted-ink hover:bg-surface">След. →</button>
                     </div>
                 )}
             </div>
@@ -109,20 +109,20 @@ export default function AdminTasksPage() {
             {!selectedCohort && (
                 <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
                     <div className="text-4xl mb-4">🗂️</div>
-                    <p className="font-semibold text-[#1C1A3A] mb-1">Выбери рабочую когорту</p>
+                    <p className="font-semibold text-ink mb-1">Выбери рабочую когорту</p>
                 </div>
             )}
 
             {loading && (
-                <div className="flex items-center gap-2 text-sm text-[#6B6880]">
-                    <div className="w-4 h-4 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
+                <div className="flex items-center gap-2 text-sm text-muted-ink">
+                    <div className="w-4 h-4 rounded-full border-2 border-brand border-t-transparent animate-spin" />
                     Загружаем…
                 </div>
             )}
 
             {error && (
-                <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
-                    <p className="text-sm text-[#C93B3B]">⚠️ {error}</p>
+                <div className="bg-danger-bg border border-danger-border rounded-xl px-5 py-4">
+                    <p className="text-sm text-danger">⚠️ {error}</p>
                 </div>
             )}
 
@@ -130,19 +130,19 @@ export default function AdminTasksPage() {
                 progress.students.length === 0 ? (
                     <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
                         <div className="text-4xl mb-4">✅</div>
-                        <p className="font-semibold text-[#1C1A3A] mb-1">Одобренных заявок пока нет</p>
-                        <p className="text-sm text-[#6B6880]">Дневник задач появится после одобрения заявок кандидатов.</p>
+                        <p className="font-semibold text-ink mb-1">Одобренных заявок пока нет</p>
+                        <p className="text-sm text-muted-ink">Дневник задач появится после одобрения заявок кандидатов.</p>
                     </div>
                 ) : (
                     <div className="bg-white rounded-2xl shadow-sm overflow-hidden overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="border-b border-[#E4E2F4]">
-                                    <th className="text-left px-5 py-3 text-xs font-bold text-[#6B6880] uppercase whitespace-nowrap">Студент</th>
+                                <tr className="border-b border-border-soft">
+                                    <th className="text-left px-5 py-3 text-xs font-bold text-muted-ink uppercase whitespace-nowrap">Студент</th>
                                     {progress.days.map((date, i) => {
                                         const d = new Date(date)
                                         return (
-                                            <th key={date} className="text-center px-3 py-3 text-xs font-bold text-[#6B6880] uppercase whitespace-nowrap">
+                                            <th key={date} className="text-center px-3 py-3 text-xs font-bold text-muted-ink uppercase whitespace-nowrap">
                                                 {DAYS_RU[i]} {d.getUTCDate()}.{String(d.getUTCMonth() + 1).padStart(2, '0')}
                                             </th>
                                         )
@@ -151,19 +151,19 @@ export default function AdminTasksPage() {
                             </thead>
                             <tbody>
                                 {progress.students.map(student => (
-                                    <tr key={student.applicationId} className="border-b border-[#E4E2F4] last:border-b-0">
+                                    <tr key={student.applicationId} className="border-b border-border-soft last:border-b-0">
                                         <td className="px-5 py-3 whitespace-nowrap">
-                                            <p className="font-semibold text-[#1C1A3A]">{student.student.email}</p>
-                                            <p className="text-xs text-[#6B6880]">{student.track.title}</p>
+                                            <p className="font-semibold text-ink">{student.student.email}</p>
+                                            <p className="text-xs text-muted-ink">{student.track.title}</p>
                                         </td>
                                         {student.tasks.map(day => (
                                             <td key={day.date} className="text-center px-3 py-3">
                                                 {!day.task ? (
-                                                    <span className="text-[#D9D7E8]">—</span>
+                                                    <span className="text-faint-ink">—</span>
                                                 ) : day.task.description ? (
-                                                    <span title={day.task.description} className="inline-flex w-2.5 h-2.5 rounded-full bg-[#2CB87A]" />
+                                                    <span title={day.task.description} className="inline-flex w-2.5 h-2.5 rounded-full bg-success-dot" />
                                                 ) : (
-                                                    <span className="inline-flex w-2.5 h-2.5 rounded-full bg-[#E4E2F4]" />
+                                                    <span className="inline-flex w-2.5 h-2.5 rounded-full bg-border-soft" />
                                                 )}
                                             </td>
                                         ))}
@@ -177,17 +177,17 @@ export default function AdminTasksPage() {
 
             {selectedCohort && !loading && !error && missed && missed.missed.length > 0 && (
                 <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                    <div className="px-7 py-5 border-b border-[#E4E2F4]">
-                        <h2 className="font-bold text-lg text-[#1C1A3A]">⚠️ Пропущенные дни на этой неделе</h2>
+                    <div className="px-7 py-5 border-b border-border-soft">
+                        <h2 className="font-bold text-lg text-ink">⚠️ Пропущенные дни на этой неделе</h2>
                     </div>
-                    <div className="flex flex-col divide-y divide-[#E4E2F4]">
+                    <div className="flex flex-col divide-y divide-border-soft">
                         {missed.missed.map(m => (
                             <div key={m.taskId} className="px-7 py-3 flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-semibold text-[#1C1A3A]">{m.student.email}</p>
-                                    <p className="text-xs text-[#6B6880]">{m.track.title}</p>
+                                    <p className="text-sm font-semibold text-ink">{m.student.email}</p>
+                                    <p className="text-xs text-muted-ink">{m.track.title}</p>
                                 </div>
-                                <span className="text-xs text-[#C93B3B]">{new Date(m.taskDate).toLocaleDateString('ru', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</span>
+                                <span className="text-xs text-danger">{new Date(m.taskDate).toLocaleDateString('ru', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</span>
                             </div>
                         ))}
                     </div>

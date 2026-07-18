@@ -6,6 +6,8 @@ import { useSearchParams } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Card } from '@/components/ui/card'
 import { register, login } from '@/services/api/auth'
 
 export default function RegisterPage() {
@@ -57,10 +59,7 @@ function RegisterForm() {
     const loginHref = redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
 
     return (
-        <div
-            className="min-h-screen flex items-center justify-center relative overflow-hidden"
-            style={{ background: 'linear-gradient(145deg, #EEEAFF 0%, #F5F4FD 50%, #E8F4FF 100%)' }}
-        >
+        <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#EEEAFF] via-surface to-[#E8F4FF]">
             <div style={{ position: 'absolute', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,99,255,0.13) 0%, transparent 70%)', top: -140, left: -140, pointerEvents: 'none' }} />
             <div style={{ position: 'absolute', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,99,255,0.10) 0%, transparent 70%)', bottom: -100, right: -80, pointerEvents: 'none' }} />
             <div style={{ position: 'absolute', width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(184,240,224,0.35) 0%, transparent 70%)', top: '40%', right: '10%', pointerEvents: 'none' }} />
@@ -68,24 +67,22 @@ function RegisterForm() {
             <div className="relative z-10 w-full max-w-md px-6 flex flex-col items-center">
 
                 <Link href="/" className="group flex items-center gap-3 mb-10" title="На главную">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm transition-transform group-hover:scale-105"
-                        style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>🎓</div>
-                    <span className="font-extrabold text-lg tracking-tight text-[#1C1A3A] group-hover:text-[#4A42D4] transition-colors">Практика УрФУ</span>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm transition-transform group-hover:scale-105 bg-gradient-to-br from-brand to-brand-light">🎓</div>
+                    <span className="font-extrabold text-lg tracking-tight text-ink group-hover:text-brand-hover transition-colors">Практика УрФУ</span>
                 </Link>
 
                 {redirect && (
-                    <div className="w-full flex items-center gap-2.5 bg-[#EBE9FF] border border-[#C4BEFF] rounded-xl px-4 py-3 mb-5">
-                        <span className="text-base">📨</span>
-                        <p className="text-xs text-[#4A42D4] leading-relaxed">
-                            Создайте аккаунт, чтобы продолжить заполнение анкеты по приглашению.
-                        </p>
-                    </div>
+                    <Alert className="w-full bg-brand-subtle border-brand-subtle-border mb-5">
+                        <AlertDescription className="flex items-center gap-2.5 text-xs text-brand-hover leading-relaxed">
+                            <span className="text-base">📨</span> Создайте аккаунт, чтобы продолжить заполнение анкеты по приглашению.
+                        </AlertDescription>
+                    </Alert>
                 )}
 
-                <div className="w-full bg-white rounded-2xl p-8" style={{ boxShadow: '0 8px 40px rgba(108,99,255,0.12)' }}>
+                <Card className="w-full p-8 rounded-2xl" style={{ boxShadow: '0 8px 40px rgba(108,99,255,0.12)' }}>
                     <div className="mb-7">
-                        <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1.5">Создать аккаунт</h1>
-                        <p className="text-sm text-[#6B6880]">
+                        <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1.5">Создать аккаунт</h1>
+                        <p className="text-sm text-muted-ink">
                             {redirect ? 'После регистрации сразу вернёшься к заполнению анкеты' : 'После регистрации заполни анкету для подачи заявки'}
                         </p>
                     </div>
@@ -101,14 +98,14 @@ function RegisterForm() {
                             <Label htmlFor="email">E-mail</Label>
                             <Input id="email" type="email" placeholder="ivan@urfu.ru"
                                 value={email} onChange={(e) => setEmail(e.target.value)} required />
-                            <span className="text-xs text-[#6B6880]">Используется для входа в систему</span>
+                            <span className="text-xs text-muted-ink">Используется для входа в систему</span>
                         </div>
 
                         <div className="flex flex-col gap-1.5">
                             <Label htmlFor="password">Пароль</Label>
                             <Input id="password" type="password" placeholder="••••••••"
                                 value={password} onChange={(e) => setPassword(e.target.value)} required />
-                            <span className="text-xs text-[#6B6880]">Минимум 8 символов</span>
+                            <span className="text-xs text-muted-ink">Минимум 8 символов</span>
                         </div>
 
                         <div className="flex flex-col gap-1.5">
@@ -118,23 +115,23 @@ function RegisterForm() {
                         </div>
 
                         {error && (
-                            <div className="flex items-center gap-2 bg-[#FFF5F5] border-[1.5px] border-[#F0BABA] rounded-xl px-4 py-3">
-                                <span className="text-sm">⚠️</span>
-                                <p className="text-sm text-[#C93B3B]">{error}</p>
-                            </div>
+                            <Alert className="bg-danger-bg border-danger-border">
+                                <AlertDescription className="flex items-center gap-2 text-sm text-danger">
+                                    <span className="text-sm">⚠️</span> {error}
+                                </AlertDescription>
+                            </Alert>
                         )}
 
-                        <Button type="submit" disabled={loading}
-                            className="w-full text-white font-semibold py-5 rounded-lg shadow-md mt-1"
-                            style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                        <Button type="submit" variant="brand" disabled={loading}
+                            className="w-full py-5 rounded-lg mt-1">
                             {loading ? 'Создаём аккаунт…' : 'Зарегистрироваться →'}
                         </Button>
                     </form>
-                </div>
+                </Card>
 
-                <div className="flex items-center gap-2 mt-6 text-sm text-[#6B6880]">
+                <div className="flex items-center gap-2 mt-6 text-sm text-muted-ink">
                     <span>Уже есть аккаунт?</span>
-                    <a href={loginHref} className="text-[#4A42D4] font-semibold hover:underline">Войти →</a>
+                    <a href={loginHref} className="text-brand-hover font-semibold hover:underline">Войти →</a>
                 </div>
             </div>
         </div>

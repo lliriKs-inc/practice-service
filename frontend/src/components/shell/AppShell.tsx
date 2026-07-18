@@ -34,30 +34,29 @@ export function AppShell({
     const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
     return (
-        <div className="min-h-screen bg-[#F5F4FD] flex flex-col">
+        <div className="min-h-screen bg-surface flex flex-col">
             {/* NAVBAR */}
-            <header className="bg-white border-b border-[#E4E2F4] px-4 md:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-20">
+            <header className="bg-white border-b border-border-soft px-4 md:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-20">
                 <div className="flex items-center gap-3 min-w-0">
                     <button onClick={() => setMobileNavOpen(v => !v)} aria-label="Открыть меню навигации"
-                        className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center text-lg flex-shrink-0 text-[#1C1A3A] hover:bg-[#F5F4FD]">
+                        className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center text-lg flex-shrink-0 text-ink hover:bg-surface">
                         {mobileNavOpen ? '✕' : '☰'}
                     </button>
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
-                        style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>🎓</div>
-                    <span className="hidden sm:inline font-extrabold text-base text-[#1C1A3A] tracking-tight truncate">Практика УрФУ</span>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0 bg-gradient-to-br from-brand to-brand-light">🎓</div>
+                    <span className="hidden sm:inline font-extrabold text-base text-ink tracking-tight truncate">Практика УрФУ</span>
                     {roleBadge && (
-                        <div className="flex items-center gap-2 px-3 py-1 bg-[#1C1A3A] rounded-full ml-2 flex-shrink-0">
+                        <div className="flex items-center gap-2 px-3 py-1 bg-ink rounded-full ml-2 flex-shrink-0">
                             <span className="text-xs font-semibold text-white">{roleBadge}</span>
                         </div>
                     )}
                 </div>
                 <div className="flex items-center gap-2 md:gap-3 min-w-0">
                     {headerRight}
-                    <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[#EBE9FF] rounded-full min-w-0">
-                        <div className="w-2 h-2 rounded-full bg-[#6C63FF] flex-shrink-0" />
-                        <span className="text-xs font-semibold text-[#4A42D4] truncate">{userEmail ?? '…'}</span>
+                    <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-brand-subtle rounded-full min-w-0">
+                        <div className="w-2 h-2 rounded-full bg-brand flex-shrink-0" />
+                        <span className="text-xs font-semibold text-brand-hover truncate">{userEmail ?? '…'}</span>
                     </div>
-                    <div className="w-8 h-8 rounded-full bg-[#6C63FF] text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-brand text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
                         {userEmail?.[0]?.toUpperCase() ?? '?'}
                     </div>
                 </div>
@@ -65,20 +64,20 @@ export function AppShell({
 
             {/* MOBILE NAV (гамбургер-меню) */}
             {mobileNavOpen && (
-                <nav className="md:hidden bg-white border-b border-[#E4E2F4] flex flex-col p-4 gap-1 sticky top-[65px] z-10">
+                <nav className="md:hidden bg-white border-b border-border-soft flex flex-col p-4 gap-1 sticky top-[65px] z-10">
                     {navItems.map(item => {
                         const active = pathname === item.matchPath || pathname.startsWith(item.matchPath + '/')
                         return (
                             <Link key={item.matchPath} href={item.href} onClick={() => setMobileNavOpen(false)}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left
-                                    ${active ? 'bg-[#EBE9FF] text-[#4A42D4]' : 'text-[#6B6880] hover:bg-[#F5F4FD]'}`}>
+                                    ${active ? 'bg-brand-subtle text-brand-hover' : 'text-muted-ink hover:bg-surface'}`}>
                                 <span>{item.icon}</span>{item.label}
                             </Link>
                         )
                     })}
-                    <div className="mt-2 pt-2 border-t border-[#E4E2F4]">
+                    <div className="mt-2 pt-2 border-t border-border-soft">
                         <button onClick={logout}
-                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] w-full text-left">
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-ink hover:bg-surface w-full text-left">
                             <span>🚪</span> Выйти
                         </button>
                     </div>
@@ -87,20 +86,20 @@ export function AppShell({
 
             <div className="flex flex-1 min-w-0">
                 {/* SIDEBAR — только от md и выше, на мобильных заменён гамбургер-меню сверху */}
-                <aside className="hidden md:flex w-56 bg-white border-r border-[#E4E2F4] flex-col p-4 gap-1 sticky top-[65px] h-[calc(100vh-65px)] flex-shrink-0">
+                <aside className="hidden md:flex w-56 bg-white border-r border-border-soft flex-col p-4 gap-1 sticky top-[65px] h-[calc(100vh-65px)] flex-shrink-0">
                     {navItems.map(item => {
                         const active = pathname === item.matchPath || pathname.startsWith(item.matchPath + '/')
                         return (
                             <Link key={item.matchPath} href={item.href}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left
-                                    ${active ? 'bg-[#EBE9FF] text-[#4A42D4]' : 'text-[#6B6880] hover:bg-[#F5F4FD]'}`}>
+                                    ${active ? 'bg-brand-subtle text-brand-hover' : 'text-muted-ink hover:bg-surface'}`}>
                                 <span>{item.icon}</span>{item.label}
                             </Link>
                         )
                     })}
-                    <div className="mt-auto pt-4 border-t border-[#E4E2F4]">
+                    <div className="mt-auto pt-4 border-t border-border-soft">
                         <button onClick={logout}
-                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] w-full text-left">
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-ink hover:bg-surface w-full text-left">
                             <span>🚪</span> Выйти
                         </button>
                     </div>

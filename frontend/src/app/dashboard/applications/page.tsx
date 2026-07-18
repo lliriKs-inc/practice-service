@@ -5,9 +5,9 @@ import { getMyApplications, type Application } from '@/services/api/invitation'
 import { getActiveApplicationId, setActiveApplicationId } from '@/lib/active-application'
 
 const STATUS_CONFIG: Record<Application['status'], { label: string; className: string; dot: string }> = {
-    pending: { label: 'На рассмотрении', className: 'bg-[#FFF8ED] border-[#F5D9A0] text-[#7A5C1A]', dot: 'bg-[#F59E0B]' },
-    approved: { label: 'Одобрена', className: 'bg-[#EDFBF4] border-[#7EE8B8] text-[#1A7A5A]', dot: 'bg-[#2CB87A]' },
-    rejected: { label: 'Отклонена', className: 'bg-[#FFF5F5] border-[#F0BABA] text-[#C93B3B]', dot: 'bg-[#D94F4F]' },
+    pending: { label: 'На рассмотрении', className: 'bg-warning-bg border-warning-border text-warning', dot: 'bg-warning-dot' },
+    approved: { label: 'Одобрена', className: 'bg-success-bg border-success-border text-success', dot: 'bg-success-dot' },
+    rejected: { label: 'Отклонена', className: 'bg-danger-bg border-danger-border text-danger', dot: 'bg-danger-dot' },
 }
 
 export default function DashboardApplicationsPage() {
@@ -45,28 +45,28 @@ export default function DashboardApplicationsPage() {
     return (
         <div className="flex flex-col gap-6">
             <div>
-                <h1 className="font-extrabold text-2xl tracking-tight text-[#1C1A3A] mb-1">Мои заявки</h1>
-                <p className="text-sm text-[#6B6880]">Архив всех заявок на практику по всем когортам.</p>
+                <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1">Мои заявки</h1>
+                <p className="text-sm text-muted-ink">Архив всех заявок на практику по всем когортам.</p>
             </div>
 
             {applicationsLoading && (
-                <div className="flex items-center gap-2 text-sm text-[#6B6880]">
-                    <div className="w-4 h-4 rounded-full border-2 border-[#6C63FF] border-t-transparent animate-spin" />
+                <div className="flex items-center gap-2 text-sm text-muted-ink">
+                    <div className="w-4 h-4 rounded-full border-2 border-brand border-t-transparent animate-spin" />
                     Загружаем заявки…
                 </div>
             )}
 
             {applicationsError && (
-                <div className="bg-[#FFF5F5] border border-[#F0BABA] rounded-xl px-5 py-4">
-                    <p className="text-sm text-[#C93B3B]">⚠️ {applicationsError}</p>
+                <div className="bg-danger-bg border border-danger-border rounded-xl px-5 py-4">
+                    <p className="text-sm text-danger">⚠️ {applicationsError}</p>
                 </div>
             )}
 
             {!applicationsLoading && !applicationsError && applications.length === 0 && (
                 <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
                     <div className="text-4xl mb-4">📋</div>
-                    <p className="font-semibold text-[#1C1A3A] mb-1">Заявок пока нет</p>
-                    <p className="text-sm text-[#6B6880] max-w-sm">
+                    <p className="font-semibold text-ink mb-1">Заявок пока нет</p>
+                    <p className="text-sm text-muted-ink max-w-sm">
                         Чтобы подать заявку на практику, перейди по ссылке-приглашению,
                         которую пришлёт организатор когорты.
                     </p>
@@ -79,12 +79,12 @@ export default function DashboardApplicationsPage() {
                         const status = STATUS_CONFIG[app.status]
                         return (
                             <div key={app.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                                <div className="px-7 py-5 border-b border-[#E4E2F4] flex items-center justify-between">
+                                <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between">
                                     <div>
-                                        <p className="text-xs font-bold tracking-widest uppercase text-[#6B6880] mb-1">
+                                        <p className="text-xs font-bold tracking-widest uppercase text-muted-ink mb-1">
                                             {app.cohort.title}
                                         </p>
-                                        <h2 className="font-bold text-lg text-[#1C1A3A]">{app.track.title}</h2>
+                                        <h2 className="font-bold text-lg text-ink">{app.track.title}</h2>
                                     </div>
                                     <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border ${status.className}`}>
                                         <div className={`w-2 h-2 rounded-full ${status.dot}`} />
@@ -93,38 +93,38 @@ export default function DashboardApplicationsPage() {
                                 </div>
 
                                 {/* Инфо о практике — раньше её нигде не было видно */}
-                                <div className="px-7 py-4 border-b border-[#E4E2F4] grid grid-cols-2 gap-3">
+                                <div className="px-7 py-4 border-b border-border-soft grid grid-cols-2 gap-3">
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-[10px] font-bold tracking-widest uppercase text-[#6B6880]">Период практики</span>
-                                        <span className="text-sm text-[#1C1A3A]">
+                                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Период практики</span>
+                                        <span className="text-sm text-ink">
                                             {new Date(app.cohort.start_date).toLocaleDateString('ru')} — {new Date(app.cohort.end_date).toLocaleDateString('ru')}
                                         </span>
                                     </div>
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-[10px] font-bold tracking-widest uppercase text-[#6B6880]">Трек</span>
-                                        <span className="text-sm text-[#1C1A3A]">{app.track.title}</span>
+                                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Трек</span>
+                                        <span className="text-sm text-ink">{app.track.title}</span>
                                     </div>
                                 </div>
 
                                 {app.status === 'rejected' && (
-                                    <div className="px-7 py-4 border-b border-[#F0BABA] bg-[#FFF5F5]">
-                                        <p className="text-[10px] font-bold tracking-widest uppercase text-[#C93B3B] mb-1">
+                                    <div className="px-7 py-4 border-b border-danger-border bg-danger-bg">
+                                        <p className="text-[10px] font-bold tracking-widest uppercase text-danger mb-1">
                                             Причина отклонения
                                         </p>
-                                        <p className="text-sm text-[#1C1A3A]">
+                                        <p className="text-sm text-ink">
                                             {app.rejection_reason?.trim() || 'Причина не указана'}
                                         </p>
                                     </div>
                                 )}
 
                                 <div className="px-7 py-4 flex items-center justify-between">
-                                    <span className="text-xs text-[#6B6880]">
+                                    <span className="text-xs text-muted-ink">
                                         Подана {new Date(app.submitted_at).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}
                                     </span>
                                     {app.status !== 'rejected' && (
                                         <div className="flex items-center gap-4">
                                             <a href={`/dashboard/applications/${app.id}/test-task`}
-                                                className="text-xs font-semibold text-[#4A42D4] hover:underline">
+                                                className="text-xs font-semibold text-brand-hover hover:underline">
                                                 Тестовое задание →
                                             </a>
                                             {app.status === 'approved' && (
@@ -132,10 +132,10 @@ export default function DashboardApplicationsPage() {
                                                     disabled={isPracticeStarted(app)}
                                                     className={'text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all ' +
                                                         (isPracticeStarted(app)
-                                                            ? 'border-[#E4E2F4] text-[#9A98AA] cursor-not-allowed'
+                                                            ? 'border-border-soft text-faint-ink cursor-not-allowed'
                                                             : activeApplicationId === app.id
-                                                                ? 'border-[#6C63FF] bg-[#EBE9FF] text-[#4A42D4]'
-                                                                : 'border-[#6C63FF] text-[#4A42D4] hover:bg-[#EBE9FF]')}>
+                                                                ? 'border-brand bg-brand-subtle text-brand-hover'
+                                                                : 'border-brand text-brand-hover hover:bg-brand-subtle')}>
                                                     {isPracticeStarted(app)
                                                         ? 'Выбор закреплён'
                                                         : activeApplicationId === app.id
@@ -157,22 +157,21 @@ export default function DashboardApplicationsPage() {
                         if (event.target === event.currentTarget) setApplicationToSelect(null)
                     }}>
                     <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-                        <div className="w-12 h-12 rounded-full bg-[#EBE9FF] flex items-center justify-center text-2xl mb-5">🛤️</div>
-                        <h2 className="font-bold text-xl text-[#1C1A3A] mb-2">Выбрать этот трек?</h2>
-                        <p className="text-sm text-[#6B6880] leading-relaxed">
+                        <div className="w-12 h-12 rounded-full bg-brand-subtle flex items-center justify-center text-2xl mb-5">🛤️</div>
+                        <h2 className="font-bold text-xl text-ink mb-2">Выбрать этот трек?</h2>
+                        <p className="text-sm text-muted-ink leading-relaxed">
                             Вы выбираете трек «{applicationToSelect.track.title}» для прохождения практики.
                         </p>
-                        <p className="mt-3 text-sm text-[#6B6880] leading-relaxed">
+                        <p className="mt-3 text-sm text-muted-ink leading-relaxed">
                             До начала практики выбор можно изменить. После начала практики смена трека будет недоступна.
                         </p>
                         <div className="mt-7 flex justify-end gap-3">
                             <button type="button" onClick={() => setApplicationToSelect(null)}
-                                className="px-5 py-2.5 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-xl">
+                                className="px-5 py-2.5 text-sm font-medium text-muted-ink hover:bg-surface rounded-xl">
                                 Отмена
                             </button>
                             <button type="button" onClick={confirmApplicationSelection}
-                                className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-sm"
-                                style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                                className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-sm bg-gradient-to-br from-brand to-brand-light">
                                 Выбрать трек
                             </button>
                         </div>

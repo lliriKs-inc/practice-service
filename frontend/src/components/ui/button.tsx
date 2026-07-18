@@ -18,6 +18,12 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
+        // Основной фирменный CTA-стиль сайта (градиент brand→brand-light) —
+        // раньше писался инлайн-стилем на каждой кнопке отдельно.
+        brand:
+          "border-0 bg-gradient-to-br from-brand to-brand-light text-white font-semibold shadow-md hover:brightness-105",
+        "brand-outline":
+          "border-brand text-brand-hover bg-transparent hover:bg-brand-subtle font-semibold",
       },
       size: {
         default:
