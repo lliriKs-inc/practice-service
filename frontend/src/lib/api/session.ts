@@ -13,15 +13,15 @@ export interface SessionUser {
     // моковые фикстуры в тестах (там они не нужны, везде показываем email)
     full_name?: string
     active_cohort_id?: string | null
+    active_application_id?: string | null
 }
 
 export function saveToken(token: string) {
-    localStorage.setItem('jwt', token)
+    void token
 }
 
 export function getToken(): string | null {
-    if (typeof window === 'undefined') return null
-    return localStorage.getItem('jwt')
+    return null
 }
 
 export function saveUser(user: SessionUser) {
@@ -36,10 +36,9 @@ export function getUser(): SessionUser | null {
 }
 
 export function isAuthenticated(): boolean {
-    return !!getToken()
+    return !!getUser()
 }
 
 export function clearSession() {
-    localStorage.removeItem('jwt')
     localStorage.removeItem('user')
 }

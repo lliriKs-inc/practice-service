@@ -5,7 +5,7 @@
 // Существующие services/api/*.ts мигрируют на него постепенно, вместе с
 // фиче-задачами, а не одним махом здесь.
 
-import { clearSession, getToken } from './session'
+import { clearSession } from './session'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
 
@@ -57,13 +57,11 @@ function redirectToLogin(reason: 'session-expired') {
 
 export async function apiFetch<T = unknown>(path: string, options: ApiFetchOptions = {}): Promise<T> {
     const { body, skipAuthRedirect, headers, ...rest } = options
-    const token = getToken()
-
     const res = await fetch(`${API_URL}${path}`, {
         ...rest,
+        credentials: 'include',
         headers: {
             'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
             ...headers,
         },
         body: body !== undefined ? JSON.stringify(body) : undefined,

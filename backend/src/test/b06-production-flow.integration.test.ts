@@ -12,6 +12,12 @@ const integrationEnabled = process.env.RUN_DB_INTEGRATION === "true";
 const describeIntegration = integrationEnabled ? describe : describe.skip;
 const API = "/api/v1";
 
+function tokenFromSessionCookie(setCookie: string[] | undefined) {
+  const cookie = setCookie?.find((value) => value.startsWith("practice_session="));
+  expect(cookie).toEqual(expect.stringContaining("HttpOnly"));
+  return decodeURIComponent(cookie!.split(";", 1)[0].slice("practice_session=".length));
+}
+
 function mondayOf(date: Date) {
   const result = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const day = result.getUTCDay();
@@ -78,14 +84,14 @@ describeIntegration("B-06 production API candidate and practice flow", () => {
 
     const studentLogin = await request(app).post(`${API}/auth/login`).send({ email, password });
     expect(studentLogin.status).toBe(200);
-    studentToken = studentLogin.body.token;
+    studentToken = tokenFromSessionCookie(studentLogin.headers["set-cookie"]);
 
     const adminLogin = await request(app).post(`${API}/auth/login`).send({
       email: fixture.adminEmail,
       password: fixture.adminPassword,
     });
     expect(adminLogin.status).toBe(200);
-    adminToken = adminLogin.body.token;
+    adminToken = tokenFromSessionCookie(adminLogin.headers["set-cookie"]);
 
     const submitted = await request(app)
       .post(`${API}/public/invitations/${fixture.invitationToken}/applications`)

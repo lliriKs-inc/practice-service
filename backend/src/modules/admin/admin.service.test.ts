@@ -36,6 +36,8 @@ describe("AdminService", () => {
           track,
           testTaskSubmission: {
             id: "submission-1",
+            file_name: "solution.zip",
+            file_url: "test-task-submissions/solution.zip",
             submitted_at: new Date("2026-07-13T11:00:00.000Z"),
           },
           report: {
@@ -70,7 +72,11 @@ describe("AdminService", () => {
       student,
       track,
       missedDays: 1,
-      testTaskSubmission: { id: "submission-1" },
+      testTaskSubmission: {
+        id: "submission-1",
+        fileName: "solution.zip",
+        downloadPath: "/files/test-task-submissions/solution.zip",
+      },
       report: { status: ReportStatus.PENDING },
     });
   });

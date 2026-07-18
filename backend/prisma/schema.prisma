@@ -71,6 +71,8 @@ model User {
   // за разные годы).
   active_cohort_id String?
   activeCohort     Cohort? @relation("UserActiveCohort", fields: [active_cohort_id], references: [id])
+  active_application_id String?
+  activeApplication    Application? @relation("UserActiveApplication", fields: [active_application_id], references: [id], onDelete: SetNull)
 
   createdCohorts Cohort[]      @relation("CohortCreatedBy")
   applications   Application[]
@@ -183,6 +185,7 @@ model Application {
   
   user  User  @relation(fields: [user_id], references: [id])
   track Track @relation(fields: [track_id], references: [id])
+  activeForUsers User[] @relation("UserActiveApplication")
 
   answers            ApplicationAnswer[]
   testTaskSubmission TestTaskSubmission?

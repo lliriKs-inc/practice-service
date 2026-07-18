@@ -9,6 +9,8 @@ const APPLICATION_ID = 'app-1'
 
 const { getMyApplications } = vi.hoisted(() => ({ getMyApplications: vi.fn() }))
 vi.mock('@/services/api/invitation', () => ({ getMyApplications }))
+const { getMe } = vi.hoisted(() => ({ getMe: vi.fn() }))
+vi.mock('@/services/api/auth', () => ({ getMe }))
 
 const { getMyWeekTasks, updateDailyTask } = vi.hoisted(() => ({
     getMyWeekTasks: vi.fn(),
@@ -113,6 +115,13 @@ describe('DashboardTasksPage (дневник задач)', () => {
     beforeEach(() => {
         localStorage.clear()
         loginAsStudent()
+        getMe.mockResolvedValue({
+            id: 'student-1',
+            email: 'student@urfu.ru',
+            role: 'STUDENT',
+            created_at: '2026-01-01',
+            active_application_id: APPLICATION_ID,
+        })
         vi.clearAllMocks()
         resetTaskStore('2027-07-19T00:00:00.000Z', '2027-07-30T00:00:00.000Z')
         setupTasksMocks()
@@ -123,6 +132,24 @@ describe('DashboardTasksPage (дневник задач)', () => {
         render(<DashboardTasksPage />)
 
         expect(await screen.findByText('Дневник задач пока недоступен', {}, { timeout: 3000 })).toBeInTheDocument()
+    })
+
+    it('просит выбрать рабочий трек вместо подстановки первой из нескольких заявок', async () => {
+        getMe.mockResolvedValue({
+            id: 'student-1',
+            email: 'student@urfu.ru',
+            role: 'STUDENT',
+            created_at: '2026-01-01',
+            active_application_id: null,
+        })
+        getMyApplications.mockResolvedValue([
+            makeApplication('approved'),
+            { ...makeApplication('approved'), id: 'app-2', track: { id: 'track-2', title: 'Frontend' } },
+        ])
+        render(<DashboardTasksPage />)
+
+        expect(await screen.findByText('Выберите рабочий трек')).toBeInTheDocument()
+        expect(getMyWeekTasks).not.toHaveBeenCalled()
     })
 
     it('[FIX] если практика начинается в выходной, сразу открывает первую РАБОЧУЮ неделю, а не пустую неделю до начала', async () => {

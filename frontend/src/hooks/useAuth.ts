@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getToken, getMe, type User } from '@/services/api/auth'
+import { getMe, type User } from '@/services/api/auth'
 import { ApiError } from '@/lib/api/http'
 
 export function useAuth(requiredRole?: 'ADMIN' | 'STUDENT') {
@@ -14,12 +14,6 @@ export function useAuth(requiredRole?: 'ADMIN' | 'STUDENT') {
         let cancelled = false
 
         async function verify() {
-            const token = getToken()
-            if (!token) {
-                router.replace('/login')
-                return
-            }
-
             try {
                 // Подтверждаем сессию у backend, а не доверяем только тому,
                 // что лежит в localStorage — сервер может считать токен

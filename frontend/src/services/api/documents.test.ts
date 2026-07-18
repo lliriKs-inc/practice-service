@@ -60,7 +60,7 @@ describe('generateDocument', () => {
             'http://localhost:3001/api/v1/me/applications/application-1/documents/INDIVIDUAL_TASK/generate',
             {
                 method: 'POST',
-                headers: { Authorization: 'Bearer student-token' },
+                credentials: 'include',
             }
         )
     })

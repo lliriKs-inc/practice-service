@@ -19,6 +19,8 @@ const APPLICATION_ID = 'app-1'
 
 const { getMyApplications } = vi.hoisted(() => ({ getMyApplications: vi.fn() }))
 vi.mock('@/services/api/invitation', () => ({ getMyApplications }))
+const { getMe } = vi.hoisted(() => ({ getMe: vi.fn() }))
+vi.mock('@/services/api/auth', () => ({ getMe }))
 
 const {
     getReadiness,
@@ -133,6 +135,13 @@ describe('DashboardDocumentsPage', () => {
     beforeEach(() => {
         localStorage.clear()
         loginAsStudent()
+        getMe.mockResolvedValue({
+            id: 'student-1',
+            email: 'student@urfu.ru',
+            role: 'STUDENT',
+            created_at: '2026-01-01',
+            active_application_id: APPLICATION_ID,
+        })
         vi.clearAllMocks()
         resetStore()
         setupDocumentsMocks()
@@ -143,6 +152,24 @@ describe('DashboardDocumentsPage', () => {
         render(<DashboardDocumentsPage />)
 
         expect(await screen.findByText('Документы пока недоступны', {}, { timeout: 3000 })).toBeInTheDocument()
+    })
+
+    it('просит выбрать рабочий трек вместо подстановки первой из нескольких заявок', async () => {
+        getMe.mockResolvedValue({
+            id: 'student-1',
+            email: 'student@urfu.ru',
+            role: 'STUDENT',
+            created_at: '2026-01-01',
+            active_application_id: null,
+        })
+        getMyApplications.mockResolvedValue([
+            makeApplication('approved'),
+            { ...makeApplication('approved'), id: 'app-2', track: { id: 'track-2', title: 'Frontend' } },
+        ])
+        render(<DashboardDocumentsPage />)
+
+        expect(await screen.findByText('Выберите рабочий трек')).toBeInTheDocument()
+        expect(getReadiness).not.toHaveBeenCalled()
     })
 
     it('показывает карточки всех 4 типов документов и раздел отчёта для одобренной заявки', async () => {

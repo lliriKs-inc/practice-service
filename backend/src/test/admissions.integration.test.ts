@@ -7,6 +7,12 @@ import { cleanupAdmissionsFixture, createAdmissionsFixture, type AdmissionsFixtu
 const integrationEnabled = process.env.RUN_DB_INTEGRATION === "true";
 const describeIntegration = integrationEnabled ? describe : describe.skip;
 
+function tokenFromSessionCookie(setCookie: string[] | undefined) {
+  const cookie = setCookie?.find((value) => value.startsWith("practice_session="));
+  expect(cookie).toEqual(expect.stringContaining("HttpOnly"));
+  return decodeURIComponent(cookie!.split(";", 1)[0].slice("practice_session=".length));
+}
+
 describeIntegration("A-07 admissions candidate API flow", () => {
   const app = createAdmissionsTestApp();
   let fixture: AdmissionsFixture;
@@ -69,8 +75,7 @@ describeIntegration("A-07 admissions candidate API flow", () => {
 
     const login = await request(app).post("/auth/login").send({ email, password: "Student-password-123!" });
     expect(login.status).toBe(200);
-    studentToken = login.body.token;
-    expect(studentToken).toEqual(expect.any(String));
+    studentToken = tokenFromSessionCookie(login.headers["set-cookie"]);
 
     const me = await request(app).get("/auth/me").set("Authorization", `Bearer ${studentToken}`);
     expect(me.status).toBe(200);
@@ -124,7 +129,7 @@ describeIntegration("A-07 admissions candidate API flow", () => {
 
     const adminLogin = await request(app).post("/auth/login").send({ email: fixture.adminEmail, password: fixture.adminPassword });
     expect(adminLogin.status).toBe(200);
-    adminToken = adminLogin.body.token;
+    adminToken = tokenFromSessionCookie(adminLogin.headers["set-cookie"]);
 
     const adminList = await request(app)
       .get(`/cohorts/${fixture.cohortId}/applications`)

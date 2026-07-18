@@ -3,6 +3,11 @@ import { AppError } from "../../middlewares/error.middleware";
 import { AuthService } from "./auth.service";
 import { registerSchema } from "./dto/register.dto";
 import { loginSchema } from "./dto/login.dto";
+import { activeApplicationSchema } from "./dto/active-application.dto";
+import {
+  clearAuthSessionCookie,
+  setAuthSessionCookie,
+} from "./auth-session.cookie";
 
 export class AuthController {
   static async register(
@@ -63,7 +68,8 @@ export class AuthController {
     try {
       const { email, password } = result.data;
       const resultData = await AuthService.login(email, password);
-      res.json(resultData);
+      setAuthSessionCookie(res, resultData.token);
+      res.status(200).json({});
     } catch {
       return next(
         new AppError(
@@ -102,6 +108,56 @@ export class AuthController {
             )
           : error
       );
+    }
+  }
+
+  static async logout(
+    _req: Request,
+    res: Response,
+    _next: NextFunction
+  ) {
+    clearAuthSessionCookie(res);
+    return res.status(204).send();
+  }
+
+  static async selectActiveApplication(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return next(
+        new AppError(
+          "Authentication required",
+          401,
+          "AUTH_REQUIRED"
+        )
+      );
+    }
+
+    const result = activeApplicationSchema.safeParse(req.body);
+    if (!result.success) {
+      return next(
+        new AppError(
+          "Validation failed",
+          400,
+          "VALIDATION_ERROR",
+          result.error.issues
+        )
+      );
+    }
+
+    try {
+      return res.json(
+        await AuthService.selectActiveApplication(
+          userId,
+          result.data.application_id
+        )
+      );
+    } catch (error) {
+      return next(error);
     }
   }
 }

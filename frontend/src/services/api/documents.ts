@@ -219,7 +219,7 @@ export async function updateDocumentField(
 export async function generateDocument(applicationId: string, type: DocumentType): Promise<DocumentReadinessItem> {
     const res = await fetch(
         `${API_URL}/me/applications/${applicationId}/documents/${type}/generate`,
-        { method: 'POST', headers: { Authorization: `Bearer ${getToken()}` } }
+        { method: 'POST', credentials: 'include' }
     )
     if (!res.ok) {
         const data = await res.json()
@@ -254,7 +254,7 @@ export async function uploadReport(applicationId: string, file: File): Promise<R
     formData.append('report', file)
     const res = await fetch(`${API_URL}/me/applications/${applicationId}/report`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: 'include',
         body: formData,
     })
     const data = await res.json()

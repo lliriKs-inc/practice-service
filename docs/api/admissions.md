@@ -28,7 +28,14 @@
 * **Ответ (200 OK):** `{ "token": "ey..." }`
 
 ### GET /auth/me
-* **Описание:** Получение профиля текущего пользователя на основе JWT. Возвращает системную роль (`ADMIN` / `STUDENT`) и UI preference `active_cohort_id`.
+
+* **Описание:** Получение профиля текущего пользователя на основе JWT. Возвращает системную роль (ADMIN / STUDENT) и UI preferences active_cohort_id и active_application_id.
+
+### PATCH /auth/me/active-application
+
+* **Описание:** Сохраняет выбранную студентом рабочую заявку в базе данных. Тело: { "application_id": "..." }.
+* **Правила:** Можно выбрать только собственную заявку в статусе APPROVED и только до practice_start её когорты. Выбор является UI preference, а не источником авторизации.
+* **Ответ (200 OK):** Обновлённый профиль с active_application_id. Ошибки: ACTIVE_APPLICATION_NOT_FOUND (404), ACTIVE_APPLICATION_SELECTION_LOCKED (409).
 
 ## 2. Когорты и Треки
 Базовые пути: `/cohorts`, `/tracks`, `/invitations`

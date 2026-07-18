@@ -1,12 +1,11 @@
 // services/api/admin.ts
 //
-// Реальный API — агрегирующие ADMIN-эндпоинты backend/src/modules/admin
-// (admin.service.ts/admin.routes.ts), проверены вручную. testTaskSubmission
-// в агрегате не содержит имя файла — досеиваем его отдельным вызовом
-// getSubmissionForApplication (тот же паттерн N+1, что был в мок-версии).
+// Реальный API — агрегирующие ADMIN-эндпоинты backend/src/modules/admin.
+// Metadata решения тестового задания возвращается сразу в агрегате, чтобы
+// список заявок не выполнял отдельный запрос для каждой карточки.
 
 import { apiFetch } from '@/lib/api/http'
-import { getSubmissionForApplication, type SubmissionInfo } from './test-task'
+import { type SubmissionInfo } from './test-task'
 import {
     updateAdminDocumentField,
     updateReportStatus,
@@ -71,6 +70,16 @@ function mapAdminApplicationBase(raw: any): Omit<AdminApplicationSummary, 'testT
     }
 }
 
+function mapSubmission(raw: any): SubmissionInfo | null {
+    if (!raw) return null
+    return {
+        id: raw.id,
+        fileName: raw.fileName ?? 'Файл решения',
+        submittedAt: raw.submittedAt,
+        downloadPath: raw.downloadPath,
+    }
+}
+
 // GET /cohorts/:cohortId/admin/applications?status=&trackId=&search=
 export async function getAdminApplications(
     cohortId: string,
@@ -83,12 +92,10 @@ export async function getAdminApplications(
     const qs = params.toString()
     const data = await apiFetch<any[]>(`/cohorts/${cohortId}/admin/applications${qs ? `?${qs}` : ''}`)
 
-    return Promise.all(
-        data.map(async raw => ({
-            ...mapAdminApplicationBase(raw),
-            testTaskSubmission: await getSubmissionForApplication(cohortId, raw.applicationId),
-        }))
-    )
+    return data.map(raw => ({
+        ...mapAdminApplicationBase(raw),
+        testTaskSubmission: mapSubmission(raw.testTaskSubmission),
+    }))
 }
 
 export interface AdminDocumentsFilter {
@@ -136,11 +143,9 @@ export interface AdminApplicationDetail extends AdminApplicationSummary {
 // GET /cohorts/:cohortId/admin/applications/:applicationId
 export async function getAdminApplicationDetail(cohortId: string, applicationId: string): Promise<AdminApplicationDetail> {
     const raw = await apiFetch<any>(`/cohorts/${cohortId}/admin/applications/${applicationId}`)
-    const testTaskSubmission = await getSubmissionForApplication(cohortId, applicationId)
-
     return {
         ...mapAdminApplicationBase(raw),
-        testTaskSubmission,
+        testTaskSubmission: mapSubmission(raw.testTaskSubmission),
         answers: (raw.answers ?? []).map((a: any) => ({ label: a.question?.label ?? 'Вопрос', value: a.value })),
         documents: mapAdminDocuments(raw.documents),
     }

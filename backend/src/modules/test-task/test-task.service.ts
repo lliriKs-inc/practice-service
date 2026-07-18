@@ -9,6 +9,7 @@ import {
 } from "../../shared/storage";
 import { config } from "../../shared/config";
 import { auditLogger, type AuditLogger } from "../../shared/logger";
+import { normalizeUploadedFilename } from "../../shared/upload/filename";
 import type { CreateTestTaskDto } from "./dto/create-test-task.dto";
 import type { UpdateTestTaskDto } from "./dto/update-test-task.dto";
 
@@ -545,11 +546,15 @@ export class TestTaskService {
     id: string;
     application_id: string;
     file_url: string;
+    file_name: string | null;
     submitted_at: Date;
   }) {
     return {
       id: submission.id,
       application_id: submission.application_id,
+      file_name: submission.file_name
+        ? normalizeUploadedFilename(submission.file_name)
+        : null,
       submitted_at: submission.submitted_at,
       has_file: true,
       download_path: `/files/${submission.file_url}`,

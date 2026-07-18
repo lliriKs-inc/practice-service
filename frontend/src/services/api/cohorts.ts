@@ -482,7 +482,7 @@ export async function uploadTestTaskFile(cohortId: string, trackId: string, file
     formData.append('file', file)
     const res = await fetch(`${API_URL}/cohorts/${cohortId}/tracks/${trackId}/test-task/file`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: 'include',
         body: formData,
     })
     const data = await res.json()

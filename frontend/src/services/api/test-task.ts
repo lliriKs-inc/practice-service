@@ -16,6 +16,7 @@ export interface SubmissionInfo {
     id: string
     fileName: string
     submittedAt: string
+    downloadPath: string
 }
 
 export type MyTestTask =
@@ -67,7 +68,12 @@ export async function getMyTestTask(applicationId: string): Promise<MyTestTask> 
         hasFile: Boolean(data.has_file),
         downloadPath: data.download_path ?? null,
         submission: data.submission
-            ? { id: data.submission.id, fileName: data.submission.file_name ?? 'Файл решения', submittedAt: data.submission.submitted_at }
+            ? {
+                id: data.submission.id,
+                fileName: data.submission.file_name ?? 'Файл решения',
+                submittedAt: data.submission.submitted_at,
+                downloadPath: data.submission.download_path,
+            }
             : null,
     }
 }
@@ -80,19 +86,29 @@ export async function uploadSubmission(applicationId: string, file: File): Promi
     formData.append('file', file)
     const res = await fetch(`${API_URL}/me/applications/${applicationId}/test-task-submission`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: 'include',
         body: formData,
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.message || 'Не удалось загрузить решение')
-    return { id: data.id, fileName: data.file_name ?? file.name, submittedAt: data.submitted_at }
+    return {
+        id: data.id,
+        fileName: data.file_name ?? file.name,
+        submittedAt: data.submitted_at,
+        downloadPath: data.download_path,
+    }
 }
 
 // GET /cohorts/:cohortId/applications/:applicationId/test-task-submission (ADMIN)
 export async function getSubmissionForApplication(cohortId: string, applicationId: string): Promise<SubmissionInfo | null> {
     try {
         const data = await apiFetch<any>(`/cohorts/${cohortId}/applications/${applicationId}/test-task-submission`)
-        return { id: data.id, fileName: data.file_name ?? 'Файл решения', submittedAt: data.submitted_at }
+        return {
+            id: data.id,
+            fileName: data.file_name ?? 'Файл решения',
+            submittedAt: data.submitted_at,
+            downloadPath: data.download_path,
+        }
     } catch (err: unknown) {
         const code = (err as { details?: { code?: string } } | undefined)?.details?.code
         if (code === 'TEST_TASK_SUBMISSION_NOT_FOUND') return null

@@ -38,6 +38,7 @@ export {
 
 export function logout() {
     clearSession()
+    void apiFetch('/auth/logout', { method: 'POST', skipAuthRedirect: true })
     window.location.href = '/'
 }
 
@@ -48,8 +49,7 @@ export async function register(dto: RegisterDto): Promise<User> {
 
 // POST /auth/login
 export async function login(dto: LoginDto): Promise<void> {
-    const data = await apiFetch<{ token: string }>('/auth/login', { method: 'POST', body: dto, skipAuthRedirect: true })
-    saveToken(data.token)
+    await apiFetch('/auth/login', { method: 'POST', body: dto, skipAuthRedirect: true })
 
     // получаем данные юзера отдельным запросом
     const user = await getMe()
@@ -59,4 +59,14 @@ export async function login(dto: LoginDto): Promise<void> {
 // GET /auth/me
 export async function getMe(): Promise<User> {
     return apiFetch<User>('/auth/me')
+}
+
+// PATCH /auth/me/active-application
+export async function selectActiveApplication(applicationId: string): Promise<User> {
+    const user = await apiFetch<User>('/auth/me/active-application', {
+        method: 'PATCH',
+        body: { application_id: applicationId },
+    })
+    saveUser(user)
+    return user
 }
