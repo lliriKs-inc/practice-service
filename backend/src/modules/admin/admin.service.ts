@@ -98,6 +98,8 @@ export class AdminService {
         testTaskSubmission: {
           select: {
             id: true,
+            file_name: true,
+            file_url: true,
             submitted_at: true,
           },
         },
@@ -129,8 +131,13 @@ export class AdminService {
       testTaskSubmission: application.testTaskSubmission
         ? {
             id: application.testTaskSubmission.id,
+            fileName:
+              application.testTaskSubmission.file_name ??
+              "Файл решения",
             submittedAt:
               application.testTaskSubmission.submitted_at,
+            downloadPath:
+              "/files/" + application.testTaskSubmission.file_url,
           }
         : null,
       report: application.report
@@ -186,7 +193,12 @@ export class AdminService {
           orderBy: { question: { order_index: "asc" } },
         },
         testTaskSubmission: {
-          select: { id: true, submitted_at: true },
+          select: {
+            id: true,
+            file_name: true,
+            file_url: true,
+            submitted_at: true,
+          },
         },
         report: {
           select: {
@@ -237,8 +249,13 @@ export class AdminService {
       testTaskSubmission: application.testTaskSubmission
         ? {
             id: application.testTaskSubmission.id,
+            fileName:
+              application.testTaskSubmission.file_name ??
+              "Файл решения",
             submittedAt:
               application.testTaskSubmission.submitted_at,
+            downloadPath:
+              "/files/" + application.testTaskSubmission.file_url,
           }
         : null,
       report: application.report
