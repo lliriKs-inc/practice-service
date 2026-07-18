@@ -44,6 +44,7 @@ JWT middleware использует `AUTH_TOKEN_MISSING`, `AUTH_TOKEN_INVALID_FO
 | Method | Path | Access | Success | Назначение |
 |---|---|---|---:|---|
 | POST | `/api/v1/auth/login` | Public | 200 | Получить JWT |
+| POST | `/api/v1/auth/logout` | Public | 204 | Очистить cookie сессии |
 | GET | `/api/v1/auth/me` | Authenticated | 200 | Профиль текущего пользователя |
 | PATCH | `/api/v1/auth/me/active-application` | STUDENT | 200 | Сохранить выбранную рабочую заявку |
 | POST | `/api/v1/auth/register` | Public | 201 | Зарегистрировать student account |

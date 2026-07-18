@@ -86,7 +86,7 @@ export async function uploadSubmission(applicationId: string, file: File): Promi
     formData.append('file', file)
     const res = await fetch(`${API_URL}/me/applications/${applicationId}/test-task-submission`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: 'include',
         body: formData,
     })
     const data = await res.json()

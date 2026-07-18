@@ -57,6 +57,7 @@ export function createApp(options: CreateAppOptions = {}) {
 
         callback(null, false);
       },
+      credentials: true,
       exposedHeaders: ["Content-Disposition"],
     })
   );

@@ -6,7 +6,6 @@
 // заголовка (токен лежит в localStorage, не в куках), поэтому такая ссылка
 // всегда получала бы 401. Вместо ссылки — авторизованный fetch + Blob URL.
 
-import { getToken } from '@/services/api/auth'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
 
@@ -40,7 +39,7 @@ function guessFilename(contentType: string | null, suggestedFilename?: string): 
 
 export async function downloadProtectedFile(path: string, suggestedFilename?: string): Promise<void> {
     const res = await fetch(`${API_URL}${path}`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: 'include',
     })
     if (!res.ok) {
         throw new Error(res.status === 404 ? 'Файл не найден' : `Не удалось скачать файл (${res.status})`)
