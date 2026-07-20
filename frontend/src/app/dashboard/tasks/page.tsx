@@ -10,6 +10,8 @@ import {
 } from '@/services/api/tasks'
 import { getMyApplications, type Application } from '@/services/api/invitation'
 import { getMe } from '@/services/api/auth'
+import { Lock, CalendarClock, Calendar } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 // ── Утилиты дат (UTC — согласовано с бэком: даты обрабатываются как UTC date-only) ─
 function getMondayOfWeek(date: Date): Date {
@@ -61,10 +63,7 @@ function formatWeekLabel(weekStart: string, weekEnd: string): string {
     const s = new Date(weekStart)
     const e = new Date(weekEnd)
     const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
-    if (s.getUTCMonth() === e.getUTCMonth()) {
-        return `${s.getUTCDate()}–${e.getUTCDate()} ${months[s.getUTCMonth()]} ${s.getUTCFullYear()}`
-    }
-    return `${s.getUTCDate()} ${months[s.getUTCMonth()]} – ${e.getUTCDate()} ${months[e.getUTCMonth()]}`
+    return `${s.getUTCDate()} ${months[s.getUTCMonth()]} – ${e.getUTCDate()} ${months[e.getUTCMonth()]} ${e.getUTCFullYear()}`
 }
 
 const DAYS_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт']
@@ -92,6 +91,12 @@ export default function DashboardTasksPage() {
     const selectedApplication = approvedApplications.find(a => a.id === activeApplicationId) ?? null
     const needsApplicationSelection = approvedApplications.length > 1 && !selectedApplication
     const approvedApplication = selectedApplication ?? (approvedApplications.length === 1 ? approvedApplications[0] : null)
+    // Сервер создаёт DailyTask на весь срок практики сразу при одобрении заявки —
+    // ячейки на будущие недели существуют заранее. Заполнять их до фактического
+    // начала практики смысла не имеет, поэтому блокируем взаимодействие на фронте.
+    const practiceStarted = approvedApplication
+        ? Date.now() >= new Date(approvedApplication.cohort.start_date).getTime()
+        : false
 
     const [weekStart, setWeekStart] = useState<string>(() => toISODate(getMondayOfWeek(new Date())))
     const [weekData, setWeekData] = useState<StudentWeekResponse | null>(null)
@@ -170,6 +175,7 @@ export default function DashboardTasksPage() {
     }
 
     function openCell(date: string, task: DailyTask) {
+        if (!practiceStarted) return
         setPopup({ date, task })
         setPopupDesc(task.description ?? '')
         setPopupLinks(task.links.map(l => l.url))
@@ -238,8 +244,10 @@ export default function DashboardTasksPage() {
 
     if (!approvedApplication) {
         return (
-            <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
-                <div className="text-4xl mb-4">🔒</div>
+            <div className="bg-white rounded-2xl shadow-sm p-12 min-h-[280px] flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 rounded-xl bg-brand-subtle text-brand-hover flex items-center justify-center mb-4">
+                    <Lock className="size-5" />
+                </div>
                 <p className="font-semibold text-ink mb-1">
                     {needsApplicationSelection ? 'Выберите рабочий трек' : 'Дневник задач пока недоступен'}
                 </p>
@@ -248,23 +256,37 @@ export default function DashboardTasksPage() {
                         ? 'Выберите рабочий трек в разделе «Мои заявки», чтобы открыть его задачи.'
                         : 'Он откроется, как только одна из ваших заявок будет одобрена — тогда даты практики подставятся автоматически.'}
                 </p>
-                <a href="/dashboard/applications"
-                    className="text-xs font-semibold px-4 py-2 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle">
+                <Button variant="brand" render={<a href="/dashboard/applications" />} nativeButton={false}
+                    className="px-4 py-2 rounded-lg h-auto">
                     Посмотреть мои заявки
-                </a>
+                </Button>
             </div>
         )
     }
 
+    // Сервер отдаёт только дни, попадающие в период практики — если практика
+    // начинается, например, во вторник, понедельник этой недели в ответе
+    // отсутствует вовсе. Достраиваем полную рабочую неделю (Пн–Пт) на фронте,
+    // чтобы такие дни были видны (просто без возможности заполнения), а не
+    // выпадали из сетки целиком.
+    const displayDays = weekData
+        ? Array.from({ length: 5 }, (_, i) => {
+              const dateStr = toISODate(addDays(new Date(weekStart), i))
+              return weekData.days.find(d => d.date === dateStr) ?? { date: dateStr, task: null }
+          })
+        : []
+
     return (
         <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1">Дневник задач</h1>
+                <div className="flex items-center gap-3 flex-wrap">
+                    <h1 className="font-extrabold text-2xl tracking-tight text-ink">Дневник задач</h1>
                     {weekData && (
-                        <p className="text-sm text-muted-ink">{formatWeekLabel(weekData.weekStart, weekData.weekEnd)}</p>
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
+                            <Calendar className="size-3.5" />
+                            {formatWeekLabel(weekData.weekStart, weekData.weekEnd)}
+                        </span>
                     )}
-                    <p className="text-sm text-muted-ink">Текущий трек: {weekData?.track.title ?? approvedApplication.track.title}</p>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={goPrevWeek} disabled={!canGoPrev() || tasksLoading}
@@ -284,14 +306,27 @@ export default function DashboardTasksPage() {
                 </div>
             )}
 
+            {!practiceStarted && (
+                <div className="bg-warning-bg border border-warning-border rounded-xl px-5 py-4 flex items-start gap-3">
+                    <CalendarClock className="size-5 text-warning flex-shrink-0 mt-0.5" />
+                    <div>
+                        <p className="text-sm font-semibold text-warning">Практика ещё не началась</p>
+                        <p className="text-sm text-muted-ink mt-1">
+                            Дни практики уже видны ниже, но заполнить их можно только начиная
+                            с {new Date(approvedApplication.cohort.start_date).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <div className={`bg-white rounded-2xl shadow-sm overflow-hidden transition-opacity ${tasksLoading ? 'opacity-50' : ''}`}>
                 <div className="grid grid-cols-5 border-b border-border-soft">
-                    {weekData?.days.map(({ date }, i) => {
+                    {displayDays.map(({ date }, i) => {
                         const d = new Date(date)
                         return (
                             <div key={i} className="px-5 py-3 border-r border-border-soft last:border-r-0">
                                 <span className="text-xs font-bold text-muted-ink uppercase tracking-wide">
-                                    {DAYS_RU[i]} {d.getUTCDate()}.{String(d.getUTCMonth() + 1).padStart(2, '0')}
+                                    {DAYS_RU[(d.getUTCDay() + 6) % 7]} {d.getUTCDate()}.{String(d.getUTCMonth() + 1).padStart(2, '0')}
                                 </span>
                             </div>
                         )
@@ -299,10 +334,11 @@ export default function DashboardTasksPage() {
                 </div>
 
                 <div className="grid grid-cols-5 divide-x divide-border-soft min-h-[240px]">
-                    {weekData?.days.map(({ date, task }) => (
+                    {displayDays.map(({ date, task }) => (
                         <div key={date} className="p-4 flex flex-col gap-3 relative group">
                             {task ? (
-                                <button onClick={() => openCell(date, task)} className="flex flex-col gap-2 text-left w-full h-full">
+                                <button onClick={() => openCell(date, task)} disabled={!practiceStarted}
+                                    className={`flex flex-col gap-2 text-left w-full h-full ${!practiceStarted ? 'cursor-default' : ''}`}>
                                     {task.description ? (
                                         <>
                                             <div className="inline-flex self-start items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-brand-subtle text-brand-hover">
@@ -316,8 +352,10 @@ export default function DashboardTasksPage() {
                                                 </span>
                                             )}
                                         </>
-                                    ) : (
+                                    ) : practiceStarted ? (
                                         <span className="text-xs text-muted-ink group-hover:text-brand-hover">+ Заполнить день</span>
+                                    ) : (
+                                        <span className="text-xs text-faint-ink">Пока недоступно</span>
                                     )}
                                 </button>
                             ) : (

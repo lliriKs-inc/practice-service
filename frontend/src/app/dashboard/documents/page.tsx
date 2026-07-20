@@ -23,6 +23,8 @@ import {
 } from '@/services/api/documents'
 import { downloadProtectedFile } from '@/lib/api/download'
 import { getMe } from '@/services/api/auth'
+import { Lock } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 const REPORT_STATUS_CONFIG: Record<ReportInfo['status'], { label: string; className: string }> = {
     PENDING: { label: 'На проверке', className: 'bg-warning-bg border-warning-border text-warning' },
@@ -194,20 +196,22 @@ export default function DashboardDocumentsPage() {
 
     if (!approvedApplication) {
         return (
-            <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
-                <div className="text-4xl mb-4">🔒</div>
-                <p className="font-semibold text-[#1C1A3A] mb-1">
+            <div className="bg-white rounded-2xl shadow-sm p-12 min-h-[280px] flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 rounded-xl bg-brand-subtle text-brand-hover flex items-center justify-center mb-4">
+                    <Lock className="size-5" />
+                </div>
+                <p className="font-semibold text-ink mb-1">
                     {needsApplicationSelection ? 'Выберите рабочий трек' : 'Документы пока недоступны'}
                 </p>
-                <p className="text-sm text-[#6B6880] max-w-sm mb-4">
+                <p className="text-sm text-muted-ink max-w-sm mb-4">
                     {needsApplicationSelection
                         ? 'Выберите рабочий трек в разделе «Мои заявки», чтобы открыть его документы.'
-                        : 'Они откроются, как только одна из твоих заявок будет одобрена.'}
+                        : 'Они откроются, как только одна из ваших заявок будет одобрена.'}
                 </p>
-                <a href="/dashboard/applications"
-                    className="text-xs font-semibold px-4 py-2 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle">
+                <Button variant="brand" render={<a href="/dashboard/applications" />} nativeButton={false}
+                    className="px-4 py-2 rounded-lg h-auto">
                     Посмотреть мои заявки
-                </a>
+                </Button>
             </div>
         )
     }
