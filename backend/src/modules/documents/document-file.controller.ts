@@ -28,6 +28,14 @@ function param(req: Request, name: string): string {
   return value;
 }
 
+function asciiDownloadName(downloadName: string): string {
+  const safe = downloadName
+    .replace(/[\r\n"]/g, "_")
+    .replace(/[^\x20-\x7e]/g, "_")
+    .trim();
+  return safe || "report";
+}
+
 export class DocumentFileController {
   constructor(
     private readonly service: DocumentFileService,
@@ -184,7 +192,11 @@ export class DocumentFileController {
     res.setHeader("Content-Length", String(file.size));
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="${file.downloadName}"`
+      `attachment; filename="${asciiDownloadName(file.downloadName)}"`
+    );
+    res.setHeader(
+      "X-Download-Filename",
+      encodeURIComponent(file.downloadName)
     );
     res.setHeader("Cache-Control", "private, no-store");
     res.setHeader("X-Content-Type-Options", "nosniff");

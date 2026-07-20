@@ -29,6 +29,30 @@ function parseDocumentType(value: string): DocumentType {
   return value as DocumentType;
 }
 
+function reportDownloadName(key: string | null | undefined): string {
+  const name = key?.split(/[\\/]/).pop()?.trim();
+  const encodedName = name?.match(/__name_([A-Za-z0-9_-]+)(\.[a-z0-9]{2,5})$/i)?.[1];
+  if (encodedName) {
+    try {
+      const decoded = Buffer.from(encodedName, "base64url").toString("utf8");
+      const extension = name?.match(/(\.[a-z0-9]{2,5})$/i)?.[1] ?? "";
+      return `${decoded}${extension}`;
+    } catch { /* fallback below */ }
+  }
+  const originalName = name?.split("__").slice(1).join("__");
+  return originalName && /\.[a-z0-9]{2,5}$/i.test(originalName)
+    ? originalName
+    : name && /\.[a-z0-9]{2,5}$/i.test(name) ? name : "report";
+}
+
+function reportContentType(name: string): string {
+  const extension = name.split(".").pop()?.toLowerCase();
+  if (extension === "pdf") return "application/pdf";
+  if (extension === "doc") return "application/msword";
+  if (extension === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  return "application/octet-stream";
+}
+
 export class DocumentFileService {
   constructor(private readonly storage: StorageService) {}
 
@@ -42,11 +66,9 @@ export class DocumentFileService {
       select: { report: { select: { file_url: true } } },
     });
 
-    return this.open(
-      application?.report?.file_url,
-      "report",
-      "application/octet-stream"
-    );
+    const fileKey = application?.report?.file_url;
+    const downloadName = reportDownloadName(fileKey);
+    return this.open(fileKey, downloadName, reportContentType(downloadName));
   }
 
   async openAdminReport(cohortId: string, applicationId: string) {
@@ -59,11 +81,9 @@ export class DocumentFileService {
       select: { report: { select: { file_url: true } } },
     });
 
-    return this.open(
-      application?.report?.file_url,
-      "report",
-      "application/octet-stream"
-    );
+    const fileKey = application?.report?.file_url;
+    const downloadName = reportDownloadName(fileKey);
+    return this.open(fileKey, downloadName, reportContentType(downloadName));
   }
 
   async openStudentDocument(

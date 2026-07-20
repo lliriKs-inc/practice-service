@@ -26,6 +26,10 @@ const EXTENSION_BY_MIME: Record<string, string> = {
 
 function filenameFromContentDisposition(header: string | null): string | null {
     if (!header) return null
+    const encoded = /filename\*=UTF-8''([^;]+)/i.exec(header)?.[1]
+    if (encoded) {
+        try { return decodeURIComponent(encoded) } catch { /* fallback below */ }
+    }
     const match = /filename="?([^"]+)"?/i.exec(header)
     return match ? match[1] : null
 }
@@ -47,9 +51,14 @@ export async function downloadProtectedFile(path: string, suggestedFilename?: st
     // The backend deliberately uses an ASCII-safe fallback in
     // Content-Disposition. When the API has supplied the original filename,
     // prefer it so Cyrillic and other Unicode names are preserved.
+    const encodedFilename = res.headers.get('X-Download-Filename')
+    let serverFilename: string | null = null
+    if (encodedFilename) {
+        try { serverFilename = decodeURIComponent(encodedFilename) } catch { /* fallback below */ }
+    }
     const filename = suggestedFilename?.trim()
         ? guessFilename(res.headers.get('Content-Type'), suggestedFilename)
-        : filenameFromContentDisposition(res.headers.get('Content-Disposition')) ??
+        : serverFilename ?? filenameFromContentDisposition(res.headers.get('Content-Disposition')) ??
           guessFilename(res.headers.get('Content-Type'))
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)

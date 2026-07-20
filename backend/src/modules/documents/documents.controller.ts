@@ -6,6 +6,7 @@ import { DocumentEavService } from "./document-eav.service";
 import { updateDocumentFieldSchema } from "./dto/update-document-field.dto";
 import { ReportService } from "./report.service";
 import { reportStatusSchema } from "./dto/report-status.dto";
+import { normalizeUploadedFilename } from "../../shared/upload/filename";
 import { LocalStorageService } from "../../shared/storage";
 import { config } from "../../shared/config";
 import { documentTemplateByType } from "./documentGenerator.service";
@@ -232,7 +233,7 @@ export class DocumentsController {
           {
             category: "reports",
             content: req.file.buffer,
-            originalName: req.file.originalname,
+            originalName: normalizeUploadedFilename(req.file.originalname),
             contentType: req.file.mimetype,
           }
         );

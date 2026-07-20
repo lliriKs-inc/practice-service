@@ -85,7 +85,7 @@ describe("LocalStorageService", () => {
       .digest("hex");
 
     expect(stored).toEqual({
-      key: `reports/${FIRST_UUID}.pdf`,
+      key: `reports/${FIRST_UUID}__name_cmVwb3J0.pdf`,
       category: "reports",
       originalName: "report.PDF",
       contentType: "application/pdf",
@@ -98,7 +98,7 @@ describe("LocalStorageService", () => {
       path.join(
         rootDirectory,
         "reports",
-        `${FIRST_UUID}.pdf`
+        `${FIRST_UUID}__name_cmVwb3J0.pdf`
       )
     );
 
@@ -162,7 +162,7 @@ describe("LocalStorageService", () => {
     });
 
     expect(stored.key).toBe(
-      `reports/${FIRST_UUID}.pdf`
+      `reports/${FIRST_UUID}__name_b3V0c2lkZQ.pdf`
     );
 
     await expect(
@@ -170,7 +170,7 @@ describe("LocalStorageService", () => {
         path.join(
           rootDirectory,
           "reports",
-          `${FIRST_UUID}.pdf`
+        `${FIRST_UUID}__name_b3V0c2lkZQ.pdf`
         )
       )
     ).resolves.toEqual(Buffer.from("safe"));
@@ -190,7 +190,7 @@ describe("LocalStorageService", () => {
     });
 
     expect(stored.key).toBe(
-      `reports/${FIRST_UUID}`
+      `reports/${FIRST_UUID}__name_cmVwb3J0`
     );
   });
 
@@ -212,7 +212,7 @@ describe("LocalStorageService", () => {
     );
 
     expect(files).toEqual([
-      `${FIRST_UUID}.pdf`,
+      `${FIRST_UUID}__name_cmVwb3J0.pdf`,
     ]);
   });
 

@@ -216,6 +216,14 @@ export default function AdminDocumentsPage() {
                                         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${REPORT_STATUS_LABELS[reportStatus].className}`}>
                                             Отчёт: {REPORT_STATUS_LABELS[reportStatus].label}
                                         </span>
+                                        {doc.report?.downloadPath && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDownload(doc.report!.downloadPath)}
+                                                className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border-soft text-brand-hover hover:bg-surface">
+                                                ⬇ Скачать отчёт
+                                            </button>
+                                        )}
                                         {doc.report?.status === 'PENDING' && (
                                             <>
                                                 <button
