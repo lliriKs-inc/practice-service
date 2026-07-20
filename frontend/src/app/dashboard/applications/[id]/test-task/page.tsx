@@ -15,7 +15,7 @@ import {
     type MyTestTask,
 } from '@/services/api/test-task'
 import { downloadProtectedFile } from '@/lib/api/download'
-import { Route, Clock, CheckCircle2, Upload, RotateCw, Check } from 'lucide-react'
+import { Route, Clock, CheckCircle2, Upload, RotateCw, Check, TriangleAlert, Inbox, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 const STATUS_CONFIG: Record<Application['status'], { label: string; className: string; dot: string }> = {
@@ -100,7 +100,9 @@ export default function ApplicationTestTaskPage() {
     if (error || !application) {
         return (
             <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center mx-auto">
-                <div className="w-14 h-14 rounded-full bg-danger-bg flex items-center justify-center text-2xl mb-5">⚠️</div>
+                <div className="w-14 h-14 rounded-full bg-danger-bg flex items-center justify-center mb-5">
+                    <TriangleAlert className="size-6 text-danger" />
+                </div>
                 <h2 className="font-extrabold text-xl text-ink mb-2">Не удалось открыть заявку</h2>
                 <p className="text-sm text-muted-ink mb-6">{error || 'Заявка не найдена'}</p>
                 <a href="/dashboard/applications" className="text-sm font-semibold text-brand-hover hover:underline">← Вернуться в личный кабинет</a>
@@ -132,7 +134,7 @@ export default function ApplicationTestTaskPage() {
                                 </div>
                             </div>
                             <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border flex-shrink-0 ${status.className}`}>
-                                <div className={`w-2 h-2 rounded-full ${status.dot}`} />
+                                <div className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
                                 <span className="text-xs font-semibold">{status.label}</span>
                             </div>
                         </div>
@@ -174,15 +176,23 @@ export default function ApplicationTestTaskPage() {
 
                     {/* Тестовое задание */}
                     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                        <div className="px-7 py-5 border-b border-border-soft">
-                            <p className="text-[10px] font-bold tracking-widest uppercase text-muted-ink mb-1">Тестовое задание</p>
-                            <h2 className="font-bold text-lg text-ink">{application.track.title}</h2>
+                        <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between gap-4">
+                            <div>
+                                <p className="text-[10px] font-bold tracking-widest uppercase text-muted-ink mb-1">Тестовое задание</p>
+                                <h2 className="font-bold text-lg text-ink">{application.track.title}</h2>
+                            </div>
+                            {testTask?.available && testTask.hasFile && testTask.downloadPath && (
+                                <button onClick={() => handleDownload(testTask.downloadPath!, testTask.title || 'Тестовое задание')}
+                                    className="inline-flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle transition-colors flex-shrink-0">
+                                    <Download className="size-4" />Скачать файл задания
+                                </button>
+                            )}
                         </div>
 
                         <div className="px-7 py-6">
                             {!testTask || !testTask.available ? (
                                 <div className="flex items-start gap-3 p-4 bg-brand-subtle rounded-xl border-l-4 border-brand">
-                                    <span className="text-lg">📬</span>
+                                    <Inbox className="size-5 text-brand-hover flex-shrink-0 mt-0.5" />
                                     <p className="text-sm text-muted-ink leading-relaxed">
                                         {testTask?.message ?? 'Пока задание не опубликовано, оно будет вам направлено на e-mail позже. Ожидайте...'}
                                     </p>
@@ -195,13 +205,6 @@ export default function ApplicationTestTaskPage() {
                                             <p className="text-sm text-muted-ink leading-relaxed whitespace-pre-wrap">{testTask.description}</p>
                                         )}
                                     </div>
-
-                                    {testTask.hasFile && testTask.downloadPath && (
-                                        <button onClick={() => handleDownload(testTask.downloadPath!, testTask.title || 'Тестовое задание')}
-                                            className="self-start text-sm font-semibold px-5 py-2.5 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle">
-                                            📎 Скачать файл задания
-                                        </button>
-                                    )}
 
                                     {/* ── Решение: загрузка / замена ── */}
                                     <div className="border-t border-border-soft pt-5 flex flex-col gap-3">
@@ -240,8 +243,9 @@ export default function ApplicationTestTaskPage() {
                                         </div>
 
                                         {uploadError && (
-                                            <div className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3">
-                                                <p className="text-sm text-danger">⚠️ {uploadError}</p>
+                                            <div className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3 flex items-start gap-3">
+                                                <TriangleAlert className="size-5 text-danger flex-shrink-0 mt-0.5" />
+                                                <p className="text-sm text-danger">{uploadError}</p>
                                             </div>
                                         )}
 

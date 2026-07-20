@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { GraduationCap, LogOut, type LucideIcon } from 'lucide-react'
+import { GraduationCap, LogOut, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { logout } from '@/services/api/auth'
 
 export interface ShellNavItem {
@@ -50,7 +50,8 @@ export function AppShell({
                         <span className="hidden sm:inline font-extrabold text-base text-ink tracking-tight truncate group-hover:text-brand-hover transition-colors">Практика УрФУ</span>
                     </Link>
                     {roleBadge && (
-                        <div className="flex items-center gap-2 px-3 py-1 bg-ink rounded-full ml-2 flex-shrink-0">
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-ink rounded-full ml-2 flex-shrink-0">
+                            <ShieldCheck className="size-3.5 text-white" />
                             <span className="text-xs font-semibold text-white">{roleBadge}</span>
                         </div>
                     )}
@@ -61,7 +62,7 @@ export function AppShell({
                         <span className="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0" />
                         <span className="text-sm font-semibold text-brand-hover truncate">{userName ?? userEmail ?? '…'}</span>
                     </div>
-                    <div className="w-8 h-8 rounded-full bg-brand text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand to-brand-light text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
                         {(userName ?? userEmail)?.[0]?.toUpperCase() ?? '?'}
                     </div>
                 </div>

@@ -18,6 +18,8 @@ import {
     type Question,
     type TestTask,
 } from '@/services/api/cohorts'
+import { Info, Star, Route, Link as LinkIcon, ClipboardCheck, ClipboardX, Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useCohortWorkspace } from '../cohort-context'
 import { describeApiErrors } from '@/lib/api/error-messages'
 import { downloadProtectedFile } from '@/lib/api/download'
@@ -522,12 +524,16 @@ export default function AdminCohortsPage() {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1">Когорты</h1>
-                        <p className="text-sm text-muted-ink">Управление потоками практики. Удалить можно только когорту в статусе «Черновик».</p>
                     </div>
-                    <button onClick={openCreateModal}
-                        className="text-sm font-semibold text-white px-5 py-2.5 rounded-xl shadow-md bg-gradient-to-br from-brand to-brand-light">
-                        + Создать когорту
-                    </button>
+                    <div className="flex items-center gap-2.5">
+                        <span className="inline-flex items-center justify-center size-6 rounded-full border border-border-soft text-muted-ink cursor-help flex-shrink-0"
+                            title="Удалить можно только когорту в статусе «Черновик».">
+                            <Info className="size-3.5" />
+                        </span>
+                        <Button variant="brand" onClick={openCreateModal} className="px-5 py-2.5 rounded-xl h-auto">
+                            <Plus className="size-4" />Создать когорту
+                        </Button>
+                    </div>
                 </div>
 
                 {cohortsLoading && (
@@ -560,23 +566,29 @@ export default function AdminCohortsPage() {
                 )}
 
                 <div className="flex flex-col gap-4">
-                    {cohorts.map(cohort => {
+                    {[...cohorts]
+                        .sort((a, b) => {
+                            const aSelected = a.id === selectedCohortId
+                            const bSelected = b.id === selectedCohortId
+                            return aSelected === bSelected ? 0 : aSelected ? -1 : 1
+                        })
+                        .map(cohort => {
                         const isWorking = cohort.id === selectedCohortId
                         return (
-                        <div key={cohort.id} className={`bg-white rounded-2xl shadow-sm overflow-hidden ${isWorking ? 'ring-2 ring-brand' : ''}`}>
-                            <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <h2 className="font-bold text-lg text-ink">{cohort.title}</h2>
+                        <div key={cohort.id} className={`bg-white rounded-2xl overflow-hidden ${isWorking ? 'border-t-[3px] border-brand-hover shadow-md' : 'shadow-sm'}`}>
+                            <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3 flex-wrap">
+                                    <h2 className="font-extrabold text-xl text-ink tracking-tight uppercase">{cohort.title}</h2>
                                     <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${STATUS_STYLES[cohort.status]}`}>
                                         {STATUS_LABELS[cohort.status]}
                                     </span>
                                     {isWorking && (
-                                        <span className="text-xs font-semibold px-3 py-1 rounded-full border border-brand text-brand-hover bg-brand-subtle">
-                                            ⭐ Рабочая когорта
+                                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-warning bg-warning-bg border border-warning-border rounded-full px-2.5 py-1">
+                                            <Star className="size-3.5 fill-warning-dot text-warning-dot" />Рабочая когорта
                                         </span>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-shrink-0">
                                     {!isWorking && (
                                         <button onClick={() => setSelectedCohortId(cohort.id)}
                                             className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-border-soft text-muted-ink hover:bg-surface transition-all">
@@ -601,8 +613,16 @@ export default function AdminCohortsPage() {
 
                             <div className="grid grid-cols-2 divide-x divide-border-soft">
                                 {[
-                                    { label: 'Начало практики', value: new Date(cohort.start_date).toLocaleDateString('ru') },
-                                    { label: 'Конец практики', value: new Date(cohort.end_date).toLocaleDateString('ru') },
+                                    {
+                                        label: 'Период приёма заявок',
+                                        value: cohort.application_start && cohort.application_end
+                                            ? `${new Date(cohort.application_start).toLocaleDateString('ru')} — ${new Date(cohort.application_end).toLocaleDateString('ru')}`
+                                            : 'Не задан',
+                                    },
+                                    {
+                                        label: 'Период практики',
+                                        value: `${new Date(cohort.start_date).toLocaleDateString('ru')} — ${new Date(cohort.end_date).toLocaleDateString('ru')}`,
+                                    },
                                 ].map((item, i) => (
                                     <div key={i} className="px-6 py-4 flex flex-col gap-1">
                                         <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">{item.label}</span>
@@ -613,24 +633,31 @@ export default function AdminCohortsPage() {
 
                             {cohort.tracks.length > 0 && (
                                 <div className="px-7 py-4 flex items-center gap-2 flex-wrap border-t border-border-soft">
-                                    <span className="text-xs text-muted-ink font-medium mr-1">Треки:</span>
-                                    {cohort.tracks.map(track => (
-                                        <span key={track.id} className="text-xs font-medium px-3 py-1 bg-surface border border-border-soft rounded-full text-muted-ink inline-flex items-center gap-1.5">
+                                    <span className="text-sm font-semibold text-ink mr-1">Треки:</span>
+                                    {cohort.tracks.map((track, i) => (
+                                        <span key={track.id} className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
+                                            <span className="flex items-center justify-center size-4 rounded-full bg-brand text-white text-[10px] font-bold flex-shrink-0">{i + 1}</span>
+                                            <Route className="size-3.5" />
                                             {track.title}
-                                            {track.testTask?.publishedAt && (
-                                                <span className="text-success text-[10px]">· ТЗ ✓</span>
-                                            )}
+                                            <span className={`inline-flex items-center gap-1 border-l border-brand-subtle-border pl-1.5 ml-0.5 ${track.testTask?.publishedAt ? 'text-success' : 'text-muted-ink'}`}
+                                                title={track.testTask?.publishedAt ? 'Тестовое задание опубликовано' : 'Тестовое задание не опубликовано'}>
+                                                {track.testTask?.publishedAt
+                                                    ? <ClipboardCheck className="size-4" strokeWidth={2.75} />
+                                                    : <ClipboardX className="size-4" strokeWidth={1.5} />}
+                                                <span className={track.testTask?.publishedAt ? 'text-[11px] font-extrabold tracking-wide' : 'text-[11px] font-medium tracking-wide'}>ТЗ</span>
+                                            </span>
                                         </span>
                                     ))}
                                 </div>
                             )}
 
                             {cohort.invitation && (
-                                <div className="px-7 py-3 border-t border-border-soft flex items-center gap-3 bg-surface">
-                                    <span className="text-xs text-muted-ink">🔗 Ссылка для кандидатов:</span>
-                                    <code className="text-xs text-brand-hover flex-1 truncate">/apply/{cohort.invitation.token}</code>
+                                <div className="px-7 py-3 border-t border-border-soft flex items-center gap-3 bg-surface min-w-0">
+                                    <LinkIcon className="size-3.5 text-muted-ink flex-shrink-0" />
+                                    <span className="text-xs text-muted-ink flex-shrink-0">Ссылка для кандидатов:</span>
+                                    <code className="text-xs text-brand-hover flex-1 min-w-0 truncate">/apply/{cohort.invitation.token}</code>
                                     <button onClick={() => copyInvitation(cohort.invitation!.token)}
-                                        className="text-xs font-semibold text-brand-hover hover:underline shrink-0">
+                                        className="text-xs font-semibold text-brand-hover bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300 shrink-0">
                                         Копировать
                                     </button>
                                     {cohort.status !== 'active' && (

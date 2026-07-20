@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
     getMyWeekTasks,
     updateDailyTask,
@@ -10,7 +10,7 @@ import {
 } from '@/services/api/tasks'
 import { getMyApplications, type Application } from '@/services/api/invitation'
 import { getMe } from '@/services/api/auth'
-import { Lock, CalendarClock, Calendar } from 'lucide-react'
+import { Lock, CalendarClock, Calendar, ChevronLeft, ChevronRight, X, TriangleAlert, Link as LinkIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 // ── Утилиты дат (UTC — согласовано с бэком: даты обрабатываются как UTC date-only) ─
@@ -105,10 +105,17 @@ export default function DashboardTasksPage() {
     const [tasksError, setTasksError] = useState('')
 
     const [popup, setPopup] = useState<{ date: string; task: DailyTask } | null>(null)
+    // [FIX] Раньше выделение текста мышью внутри окна с выходом за его границы
+    // засчитывалось как клик по фону и закрывало попап. Закрываем только если
+    // и mousedown, и mouseup произошли именно на фоне, а не на содержимом.
+    const backdropMouseDownRef = useRef(false)
     const [popupDesc, setPopupDesc] = useState('')
     const [popupLinks, setPopupLinks] = useState<string[]>([])
     const [popupSaving, setPopupSaving] = useState(false)
     const [popupError, setPopupError] = useState('')
+    // Валидационные ошибки (например, дублирующиеся ссылки) — это подсказка,
+    // а не поломка; настоящие сбои сохранения/очистки остаются danger.
+    const [popupErrorIsWarning, setPopupErrorIsWarning] = useState(false)
 
     const loadWeek = useCallback(async () => {
         if (!approvedApplication) return
@@ -181,12 +188,14 @@ export default function DashboardTasksPage() {
         setPopupDesc(task.description ?? '')
         setPopupLinks(task.links.map(l => l.url))
         setPopupError('')
+        setPopupErrorIsWarning(false)
     }
 
     function closePopup() {
         setPopup(null)
         setPopupSaving(false)
         setPopupError('')
+        setPopupErrorIsWarning(false)
     }
 
     function addLinkField() {
@@ -205,6 +214,7 @@ export default function DashboardTasksPage() {
         if (!popup) return
         setPopupSaving(true)
         setPopupError('')
+        setPopupErrorIsWarning(false)
         try {
             await updateDailyTask(popup.task.id, {
                 description: popupDesc.trim() || null,
@@ -213,10 +223,12 @@ export default function DashboardTasksPage() {
             closePopup()
             await loadWeek()
         } catch (err: unknown) {
-            if (err instanceof DailyTaskValidationError || err instanceof Error) {
+            if (err instanceof DailyTaskValidationError) {
                 setPopupError(err.message)
+                setPopupErrorIsWarning(true)
             } else {
-                setPopupError('Ошибка сохранения')
+                setPopupError(err instanceof Error ? err.message : 'Ошибка сохранения')
+                setPopupErrorIsWarning(false)
             }
             setPopupSaving(false)
         }
@@ -226,6 +238,7 @@ export default function DashboardTasksPage() {
         if (!popup) return
         setPopupSaving(true)
         setPopupError('')
+        setPopupErrorIsWarning(false)
         try {
             await updateDailyTask(popup.task.id, { description: null, links: [] })
             closePopup()
@@ -280,30 +293,29 @@ export default function DashboardTasksPage() {
     return (
         <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 flex-wrap">
-                    <h1 className="font-extrabold text-2xl tracking-tight text-ink">Дневник задач</h1>
+                <h1 className="font-extrabold text-2xl tracking-tight text-ink">Дневник задач</h1>
+                <div className="flex items-center gap-2">
+                    <button onClick={goPrevWeek} disabled={!canGoPrev() || tasksLoading} aria-label="Предыдущая неделя"
+                        className="px-4 py-2 text-sm font-medium border-0 text-white rounded-lg bg-gradient-to-br from-brand to-brand-light hover:brightness-110 active:brightness-90 disabled:opacity-40 disabled:cursor-not-allowed">
+                        <ChevronLeft className="size-4" />
+                    </button>
                     {weekData && (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
-                            <Calendar className="size-3.5" />
+                        <span className="inline-flex items-center justify-center gap-1.5 h-9 min-w-[210px] text-sm font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-4">
+                            <Calendar className="size-4" />
                             {formatWeekLabel(weekData.weekStart, weekData.weekEnd)}
                         </span>
                     )}
-                </div>
-                <div className="flex gap-2">
-                    <button onClick={goPrevWeek} disabled={!canGoPrev() || tasksLoading}
-                        className="px-4 py-2 text-sm font-medium border border-border-soft rounded-lg bg-white text-muted-ink hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed">
-                        ← Пред.
-                    </button>
-                    <button onClick={goNextWeek} disabled={!canGoNext() || tasksLoading}
-                        className="px-4 py-2 text-sm font-medium border border-border-soft rounded-lg bg-white text-muted-ink hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed">
-                        След. →
+                    <button onClick={goNextWeek} disabled={!canGoNext() || tasksLoading} aria-label="Следующая неделя"
+                        className="px-4 py-2 text-sm font-medium border-0 text-white rounded-lg bg-gradient-to-br from-brand to-brand-light hover:brightness-110 active:brightness-90 disabled:opacity-40 disabled:cursor-not-allowed">
+                        <ChevronRight className="size-4" />
                     </button>
                 </div>
             </div>
 
             {tasksError && (
-                <div className="bg-danger-bg border border-danger-border rounded-xl px-5 py-4">
-                    <p className="text-sm text-danger">⚠️ {tasksError}</p>
+                <div className="bg-danger-bg border border-danger-border rounded-xl px-5 py-4 flex items-start gap-3">
+                    <TriangleAlert className="size-5 text-danger flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-danger">{tasksError}</p>
                 </div>
             )}
 
@@ -346,15 +358,19 @@ export default function DashboardTasksPage() {
                                                 <div className="w-1.5 h-1.5 rounded-full bg-brand" />
                                                 Заполнено
                                             </div>
-                                            {task.description && <p className="text-xs text-ink leading-relaxed line-clamp-3">{task.description}</p>}
+                                            {task.description && <p className="text-sm text-ink leading-relaxed line-clamp-3">{task.description}</p>}
                                             {task.links.length > 0 && (
-                                                <span className="text-[10px] text-brand-hover truncate max-w-full">
-                                                    🔗 {task.links.length === 1 ? 'Ссылка' : `Ссылок: ${task.links.length}`}
+                                                <span className="inline-flex items-center gap-1 text-xs text-brand-hover truncate max-w-full">
+                                                    <LinkIcon className="size-3 flex-shrink-0" />
+                                                    {task.links.length === 1 ? 'Ссылка' : `Ссылок: ${task.links.length}`}
                                                 </span>
                                             )}
                                         </>
                                     ) : practiceStarted ? (
-                                        <span className="text-xs text-muted-ink group-hover:text-brand-hover">+ Заполнить день</span>
+                                        <div className="flex flex-col items-center justify-center gap-2 h-full text-xs text-muted-ink group-hover:text-brand-hover">
+                                            <span className="w-7 h-7 rounded-full border border-dashed border-border-soft group-hover:border-brand-subtle-border flex items-center justify-center text-sm transition-colors">+</span>
+                                            Заполнить день
+                                        </div>
                                     ) : (
                                         <span className="text-xs text-faint-ink">Пока недоступно</span>
                                     )}
@@ -377,71 +393,84 @@ export default function DashboardTasksPage() {
             {weekData && (
                 <p className="text-xs text-muted-ink">
                     Период практики: {new Date(weekData.cohort.practice_start).toLocaleDateString('ru')} — {new Date(weekData.cohort.practice_end).toLocaleDateString('ru')}
-                    {' '}· Нажмите на день, чтобы описать выполненную работу и прикрепить ссылки
+                    {' '}· Нажмите на день, чтобы описать выполненную работу и прикрепить решение
                 </p>
             )}
 
             {/* ── ПОПАП ДНЯ ── */}
             {popup && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={closePopup}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+                    onMouseDown={e => { backdropMouseDownRef.current = e.target === e.currentTarget }}
+                    onMouseUp={e => {
+                        if (backdropMouseDownRef.current && e.target === e.currentTarget) closePopup()
+                        backdropMouseDownRef.current = false
+                    }}>
                     <div className="bg-white rounded-2xl shadow-xl p-7 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-5">
-                            <div>
-                                <h3 className="font-bold text-lg text-ink">
+                        <div className="relative mb-5">
+                            <button onClick={closePopup} className="absolute right-0 top-0 text-muted-ink hover:text-ink text-xl leading-none transition-colors">×</button>
+                            <div className="flex flex-col items-center gap-1.5 text-center">
+                                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-3 py-1.5">
+                                    <Calendar className="size-4" />
                                     {new Date(popup.date).toLocaleDateString('ru', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}
-                                </h3>
+                                </span>
                                 {popup.task.saved_at && (
                                     <p className="text-xs text-muted-ink">
                                         Сохранено {new Date(popup.task.saved_at).toLocaleDateString('ru', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
                                     </p>
                                 )}
                             </div>
-                            <button onClick={closePopup} className="text-muted-ink hover:text-ink text-xl leading-none">×</button>
                         </div>
 
                         <div className="flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-sm font-medium text-ink">Что делал сегодня?</label>
+                                <label className="text-sm font-medium text-ink">Что было сделано сегодня?</label>
                                 <textarea value={popupDesc} onChange={e => setPopupDesc(e.target.value)}
                                     placeholder="Опиши выполненную работу…" rows={4}
-                                    className="w-full text-sm" style={{ resize: 'none' }} />
+                                    className="w-full text-sm rounded-lg" style={{ resize: 'none' }} />
                             </div>
 
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-medium text-ink">Ссылки на артефакты</label>
-                                {popupLinks.map((link, i) => (
-                                    <div key={i} className="flex gap-2">
-                                        <input type="text" value={link} onChange={e => updateLinkField(i, e.target.value)}
-                                            placeholder="GitHub, Figma, Google Drive…" className="w-full text-sm" />
-                                        <button onClick={() => removeLinkField(i)}
-                                            className="px-3 text-danger hover:bg-danger-bg rounded-lg text-sm">✕</button>
+                                {popupLinks.length > 0 && (
+                                    <div className="flex flex-col gap-2 max-h-[240px] overflow-y-auto pr-1">
+                                        {popupLinks.map((link, i) => (
+                                            <div key={i} className="flex gap-2">
+                                                <input type="text" value={link} onChange={e => updateLinkField(i, e.target.value)}
+                                                    placeholder="GitHub, Figma, Google Drive…" className="w-full text-sm rounded-lg" />
+                                                <button onClick={() => removeLinkField(i)}
+                                                    className="px-3 flex items-center justify-center text-danger bg-danger-bg border border-danger-border rounded-lg hover:bg-danger-border/40 transition-colors">
+                                                    <X className="size-4" />
+                                                </button>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                )}
                                 <button onClick={addLinkField}
-                                    className="self-start text-xs font-semibold text-brand-hover hover:underline">
+                                    className="self-start inline-flex items-center text-xs font-semibold text-brand-hover bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300">
                                     + Добавить ссылку
                                 </button>
                             </div>
 
                             {popupError && (
-                                <div className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3">
-                                    <p className="text-sm text-danger">⚠️ {popupError}</p>
+                                <div className={`flex items-center gap-2 rounded-xl px-4 py-3 ${popupErrorIsWarning ? 'bg-warning-bg border border-warning-border' : 'bg-danger-bg border border-danger-border'}`}>
+                                    <TriangleAlert className={`size-4 flex-shrink-0 ${popupErrorIsWarning ? 'text-warning' : 'text-danger'}`} />
+                                    <p className={`text-sm ${popupErrorIsWarning ? 'text-warning' : 'text-danger'}`}>{popupError}</p>
                                 </div>
                             )}
 
                             <div className="flex justify-between items-center mt-2">
-                                <button onClick={handleClear} disabled={popupSaving}
-                                    className="px-4 py-2 text-sm font-medium text-danger hover:bg-danger-bg rounded-lg disabled:opacity-50">
+                                <Button variant="danger" onClick={handleClear} disabled={popupSaving}
+                                    className="px-4 py-2 rounded-lg h-auto">
                                     Очистить день
-                                </button>
-                                <div className="flex gap-3">
-                                    <button onClick={closePopup} className="px-5 py-2 text-sm font-medium text-muted-ink hover:bg-surface rounded-lg">
+                                </Button>
+                                <div className="flex items-center gap-4">
+                                    <button onClick={closePopup} className="text-sm font-semibold text-muted-ink hover:text-ink transition-colors">
                                         Отмена
                                     </button>
-                                    <button onClick={handleSave} disabled={popupSaving}
-                                        className="px-5 py-2 text-sm font-semibold text-white rounded-lg shadow-md disabled:opacity-60 bg-gradient-to-br from-brand to-brand-light">
+                                    <Button variant="brand" onClick={handleSave} disabled={popupSaving}
+                                        className="px-5 py-2 rounded-lg h-auto">
                                         {popupSaving ? 'Сохраняем…' : 'Сохранить'}
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         </div>
