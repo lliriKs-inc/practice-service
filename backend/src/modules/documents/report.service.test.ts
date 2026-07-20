@@ -169,6 +169,7 @@ describe("ReportService", () => {
       "cohort-1",
       "application-1",
       ReportStatus.APPROVED,
+      undefined,
       "request-1"
     );
 
@@ -176,6 +177,7 @@ describe("ReportService", () => {
       expect.objectContaining({
         data: {
           status: ReportStatus.APPROVED,
+          rejection_reason: null,
           reviewed_at: expect.any(Date),
         },
       })

@@ -94,7 +94,7 @@ function buildReadiness(): ReadinessResponse {
         }
         return { type, ready: missingFields.length === 0, missingFields, generated: false, generatedAt: null, downloadPath: null }
     })
-    return { applicationId: APPLICATION_ID, report: reportStore ? { status: reportStore.status, reviewedAt: reportStore.reviewedAt } : null, documents }
+    return { applicationId: APPLICATION_ID, report: reportStore ? { status: reportStore.status, reviewedAt: reportStore.reviewedAt, rejectionReason: reportStore.rejectionReason } : null, documents }
 }
 
 function buildDocuments(): DocumentData[] {
@@ -126,7 +126,7 @@ function setupDocumentsMocks() {
         return { ...readiness, generated: true, generatedAt: new Date().toISOString() }
     })
     uploadReport.mockImplementation(async () => {
-        reportStore = { id: 'report-1', applicationId: APPLICATION_ID, status: 'PENDING' as ReportStatus, uploadedAt: new Date().toISOString(), reviewedAt: null, hasFile: true, downloadPath: '/x' }
+        reportStore = { id: 'report-1', applicationId: APPLICATION_ID, status: 'PENDING' as ReportStatus, uploadedAt: new Date().toISOString(), reviewedAt: null, rejectionReason: null, hasFile: true, downloadPath: '/x' }
         return reportStore
     })
 }
@@ -181,7 +181,7 @@ describe('DashboardDocumentsPage', () => {
         expect(screen.getByText('Отзыв руководителя практики')).toBeInTheDocument()
         expect(screen.getByText('Извещение о прохождении практики')).toBeInTheDocument()
         expect(screen.getByText('Отчёт ещё не загружен')).toBeInTheDocument()
-        expect(screen.getByText('Заполняется куратором практики — доступно только для просмотра.')).toBeInTheDocument()
+        expect(screen.getAllByText('(заполняет куратор)').length).toBeGreaterThan(0)
     })
 
     it('сохраняет поле по blur и разблокирует кнопку "Сформировать" после заполнения всех полей NOTICE', async () => {

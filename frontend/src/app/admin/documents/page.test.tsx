@@ -122,7 +122,7 @@ describe('AdminDocumentsPage', () => {
 
     it('одобряет загруженный отчёт', async () => {
         getAdminDocuments.mockResolvedValue([
-            makeDocumentSummary({ report: { status: 'PENDING', uploadedAt: '2027-07-06T00:00:00.000Z', reviewedAt: null, downloadPath: '/x' } }),
+            makeDocumentSummary({ report: { status: 'PENDING', uploadedAt: '2027-07-06T00:00:00.000Z', reviewedAt: null, rejectionReason: null, downloadPath: '/x' } }),
         ])
         renderWithCohort()
 

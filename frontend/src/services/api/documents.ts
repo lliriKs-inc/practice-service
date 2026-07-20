@@ -104,7 +104,7 @@ export type ReportStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export interface ReadinessResponse {
     applicationId: string
-    report: { status: ReportStatus; reviewedAt: string | null } | null
+    report: { status: ReportStatus; reviewedAt: string | null; rejectionReason: string | null } | null
     documents: DocumentReadinessItem[]
 }
 
@@ -114,6 +114,7 @@ export interface ReportInfo {
     status: ReportStatus
     uploadedAt: string
     reviewedAt: string | null
+    rejectionReason: string | null
     hasFile: boolean
     downloadPath: string
 }
@@ -173,6 +174,7 @@ function mapReport(raw: any, applicationId: string): ReportInfo {
         status: raw.status,
         uploadedAt: raw.uploadedAt,
         reviewedAt: raw.reviewedAt ?? null,
+        rejectionReason: raw.rejectionReason ?? null,
         hasFile: true,
         downloadPath: raw.downloadPath,
     }
@@ -183,7 +185,7 @@ export async function getReadiness(applicationId: string): Promise<ReadinessResp
     const data = await apiFetch<any>(`/me/applications/${applicationId}/documents/readiness`)
     return {
         applicationId,
-        report: data.report ? { status: data.report.status, reviewedAt: data.report.reviewedAt ?? null } : null,
+        report: data.report ? { status: data.report.status, reviewedAt: data.report.reviewedAt ?? null, rejectionReason: data.report.rejectionReason ?? null } : null,
         documents: data.documents.map((d: any) => ({
             type: d.type,
             ready: Boolean(d.ready),
@@ -284,11 +286,12 @@ export async function updateAdminDocumentField(
 export async function updateReportStatus(
     cohortId: string,
     applicationId: string,
-    status: Exclude<ReportStatus, 'PENDING'>
+    status: Exclude<ReportStatus, 'PENDING'>,
+    rejectionReason?: string
 ): Promise<ReportInfo> {
     const data = await apiFetch<any>(`/cohorts/${cohortId}/applications/${applicationId}/report/status`, {
         method: 'PATCH',
-        body: { status },
+        body: { status, ...(status === 'REJECTED' ? { rejectionReason } : {}) },
     })
     return mapReport(data, applicationId)
 }

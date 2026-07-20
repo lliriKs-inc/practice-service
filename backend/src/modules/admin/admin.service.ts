@@ -106,6 +106,7 @@ export class AdminService {
         report: {
           select: {
             status: true,
+            rejection_reason: true,
             uploaded_at: true,
             reviewed_at: true,
           },
@@ -204,6 +205,7 @@ export class AdminService {
           select: {
             id: true,
             status: true,
+            rejection_reason: true,
             uploaded_at: true,
             reviewed_at: true,
           },
@@ -339,6 +341,7 @@ export class AdminService {
           select: {
             id: true,
             status: true,
+            rejection_reason: true,
             uploaded_at: true,
             reviewed_at: true,
           },
@@ -378,6 +381,7 @@ export class AdminService {
             ? {
                 id: application.report.id,
                 status: application.report.status,
+                rejectionReason: application.report.rejection_reason,
                 uploadedAt: application.report.uploaded_at,
                 reviewedAt: application.report.reviewed_at,
                 downloadPath: adminReportDownloadPath(

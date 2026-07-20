@@ -123,6 +123,7 @@ export class DocumentReadinessService {
         ? {
             status: application.report.status,
             reviewedAt: application.report.reviewed_at,
+            rejectionReason: application.report.rejection_reason,
           }
         : null,
       documents: readiness,

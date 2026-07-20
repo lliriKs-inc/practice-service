@@ -21,7 +21,7 @@
 - `GET /me/applications/:applicationId/report/file` — скачивание владельцем.
 - `GET /cohorts/:cohortId/admin/applications/:applicationId/report/file` — cohort-scoped скачивание ADMIN.
 
-Статусы отчёта: `PENDING`, `APPROVED`, `REJECTED`. Замена файла сбрасывает статус в `PENDING`. `file_url` наружу не возвращается.
+Статусы отчёта: `PENDING`, `APPROVED`, `REJECTED`. Для `PATCH .../report/status` при `REJECTED` ADMIN обязан передать непустое `rejectionReason` (до 2000 символов); при `APPROVED` причина не передаётся и очищается. Причина возвращается Student в metadata отчёта и очищается при замене файла, когда статус сбрасывается в `PENDING`. `file_url` наружу не возвращается.
 
 ## DOCX generation
 

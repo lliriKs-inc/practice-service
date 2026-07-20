@@ -48,7 +48,8 @@ describe("DocumentFileService", () => {
       select: { report: { select: { file_url: true } } },
     });
     expect(storage.open).toHaveBeenCalledWith("reports/report.pdf");
-    expect(result.downloadName).toBe("report");
+    expect(result.downloadName).toBe("report.pdf");
+    expect(result.contentType).toBe("application/pdf");
   });
 
   it("hides reports from another cohort behind a 404", async () => {

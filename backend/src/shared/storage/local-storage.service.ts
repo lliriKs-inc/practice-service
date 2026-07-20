@@ -38,7 +38,7 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const STORAGE_FILE_NAME_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\.[a-z0-9]{1,10})?$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:__[\p{L}\p{N} ._()\-]{1,120})?(?:\.[a-z0-9]{1,10})?$/iu;
 
 export interface LocalStorageServiceOptions {
   rootDirectory?: string;
@@ -79,7 +79,8 @@ export class LocalStorageService implements StorageService {
   ): Promise<StoredFile> {
     const fileName = this.createFileName(
       this.generateId(),
-      input.originalName
+      input.originalName,
+      input.category
     );
 
     const key = `${input.category}/${fileName}`;
@@ -321,7 +322,8 @@ export class LocalStorageService implements StorageService {
 
   private createFileName(
     id: string,
-    originalName: string
+    originalName: string,
+    category: StorageCategory
   ): string {
     if (!UUID_PATTERN.test(id)) {
       throw new StorageError(
@@ -339,7 +341,15 @@ export class LocalStorageService implements StorageService {
         ? extension
         : "";
 
-    return `${id}${safeExtension}`;
+    if (category !== "reports") return `${id}${safeExtension}`;
+
+    const baseName = path.parse(originalName).name
+      .replace(/[\\/\0\r\n]/g, "_")
+      .trim()
+      .slice(0, 120)
+      .replace(/[. ]+$/g, "") || "report";
+    const encodedName = Buffer.from(baseName, "utf8").toString("base64url");
+    return `${id}__name_${encodedName}${safeExtension}`;
   }
 
   private isStorageCategory(

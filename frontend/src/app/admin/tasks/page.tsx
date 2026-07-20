@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { getCohortWeekProgress, getMissedProgress, type CohortWeekProgress, type MissedProgress } from '@/services/api/tasks'
+import { getCohortWeekProgress, getMissedProgress, type CohortWeekProgress, type MissedProgress, type DailyTask } from '@/services/api/tasks'
 import { useCohortWorkspace } from '../cohort-context'
 
 function getMondayOfWeek(date: Date): Date {
@@ -38,6 +38,13 @@ function firstPracticeWeekMonday(practiceStartIso: string): Date {
     return getMondayOfWeek(d)
 }
 
+function lastPracticeWeekMonday(practiceEndIso: string): Date {
+    let d = new Date(practiceEndIso)
+    d.setUTCHours(0, 0, 0, 0)
+    while (isWeekendUTC(d)) d = addDays(d, -1)
+    return getMondayOfWeek(d)
+}
+
 const DAYS_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт']
 
 export default function AdminTasksPage() {
@@ -58,6 +65,7 @@ export default function AdminTasksPage() {
     const [missed, setMissed] = useState<MissedProgress | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
+    const [selectedTask, setSelectedTask] = useState<{ task: DailyTask; date: string; studentEmail: string } | null>(null)
 
     const load = useCallback(async () => {
         if (!selectedCohort) return
@@ -82,12 +90,29 @@ export default function AdminTasksPage() {
     }, [load])
 
     function goPrevWeek() {
-        setWeekStart(prev => toISODate(addDays(new Date(prev), -7)))
+        if (!selectedCohort) return
+        const firstWeek = firstPracticeWeekMonday(selectedCohort.start_date)
+        setWeekStart(prev => {
+            const candidate = addDays(new Date(prev), -7)
+            return candidate < firstWeek ? toISODate(firstWeek) : toISODate(candidate)
+        })
     }
 
     function goNextWeek() {
-        setWeekStart(prev => toISODate(addDays(new Date(prev), 7)))
+        if (!selectedCohort) return
+        const lastWeek = lastPracticeWeekMonday(selectedCohort.end_date)
+        setWeekStart(prev => {
+            const candidate = addDays(new Date(prev), 7)
+            return candidate > lastWeek ? toISODate(lastWeek) : toISODate(candidate)
+        })
     }
+
+    const firstWeekStart = selectedCohort
+        ? toISODate(firstPracticeWeekMonday(selectedCohort.start_date))
+        : null
+    const lastWeekStart = selectedCohort
+        ? toISODate(lastPracticeWeekMonday(selectedCohort.end_date))
+        : null
 
     return (
         <div className="flex flex-col gap-6">
@@ -100,8 +125,10 @@ export default function AdminTasksPage() {
                 </div>
                 {selectedCohort && (
                     <div className="flex gap-2">
-                        <button onClick={goPrevWeek} className="px-4 py-2 text-sm font-medium border border-border-soft rounded-lg bg-white text-muted-ink hover:bg-surface">← Пред.</button>
-                        <button onClick={goNextWeek} className="px-4 py-2 text-sm font-medium border border-border-soft rounded-lg bg-white text-muted-ink hover:bg-surface">След. →</button>
+                        <button onClick={goPrevWeek} disabled={weekStart === firstWeekStart}
+                            className="px-4 py-2 text-sm font-medium border border-border-soft rounded-lg bg-white text-muted-ink hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed">← Пред.</button>
+                        <button onClick={goNextWeek} disabled={weekStart === lastWeekStart}
+                            className="px-4 py-2 text-sm font-medium border border-border-soft rounded-lg bg-white text-muted-ink hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed">След. →</button>
                     </div>
                 )}
             </div>
@@ -160,10 +187,13 @@ export default function AdminTasksPage() {
                                             <td key={day.date} className="text-center px-3 py-3">
                                                 {!day.task ? (
                                                     <span className="text-faint-ink">—</span>
-                                                ) : day.task.description ? (
-                                                    <span title={day.task.description} className="inline-flex w-2.5 h-2.5 rounded-full bg-success-dot" />
                                                 ) : (
-                                                    <span className="inline-flex w-2.5 h-2.5 rounded-full bg-border-soft" />
+                                                    <button
+                                                        type="button"
+                                                        title="Открыть описание и ссылки"
+                                                        onClick={() => setSelectedTask({ task: day.task!, date: day.date, studentEmail: student.student.email })}
+                                                        className={`inline-flex w-2.5 h-2.5 rounded-full ${day.task.description || day.task.links.length > 0 ? 'bg-success-dot' : 'bg-border-soft'} hover:ring-4 hover:ring-brand/20`}
+                                                    />
                                                 )}
                                             </td>
                                         ))}
@@ -190,6 +220,32 @@ export default function AdminTasksPage() {
                                 <span className="text-xs text-danger">{new Date(m.taskDate).toLocaleDateString('ru', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</span>
                             </div>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {selectedTask && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4" role="dialog" aria-modal="true" aria-label="Детали выполненной задачи">
+                    <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+                        <div className="flex items-start justify-between gap-4 mb-4">
+                            <div>
+                                <h2 className="font-bold text-lg text-ink">Выполненная задача</h2>
+                                <p className="text-xs text-muted-ink">{selectedTask.studentEmail} · {new Date(selectedTask.date).toLocaleDateString('ru', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</p>
+                            </div>
+                            <button type="button" onClick={() => setSelectedTask(null)} className="text-muted-ink hover:text-ink text-xl" aria-label="Закрыть">×</button>
+                        </div>
+                        <p className="text-sm text-ink whitespace-pre-wrap">{selectedTask.task.description || 'Описание не заполнено.'}</p>
+                        {selectedTask.task.links.length > 0 && (
+                            <div className="mt-4">
+                                <p className="text-xs font-semibold text-muted-ink mb-2">Ссылки</p>
+                                <div className="flex flex-col gap-1">
+                                    {selectedTask.task.links.map(link => (
+                                        <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="text-sm text-brand-hover hover:underline break-all">{link.url}</a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        <button type="button" onClick={() => setSelectedTask(null)} className="mt-5 rounded-lg border border-border-soft px-4 py-2 text-sm font-semibold text-muted-ink hover:bg-surface">Закрыть</button>
                     </div>
                 </div>
             )}

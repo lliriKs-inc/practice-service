@@ -128,6 +128,10 @@ export function createFileDownloadHandler(
         `${disposition}; filename="${downloadName}"`
       );
       res.setHeader(
+        "X-Download-Filename",
+        encodeURIComponent(authorization.downloadName)
+      );
+      res.setHeader(
         "Cache-Control",
         "private, no-store"
       );

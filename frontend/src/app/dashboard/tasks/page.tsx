@@ -91,11 +91,12 @@ export default function DashboardTasksPage() {
     const selectedApplication = approvedApplications.find(a => a.id === activeApplicationId) ?? null
     const needsApplicationSelection = approvedApplications.length > 1 && !selectedApplication
     const approvedApplication = selectedApplication ?? (approvedApplications.length === 1 ? approvedApplications[0] : null)
+    const [currentTime] = useState(() => Date.now())
     // Сервер создаёт DailyTask на весь срок практики сразу при одобрении заявки —
     // ячейки на будущие недели существуют заранее. Заполнять их до фактического
     // начала практики смысла не имеет, поэтому блокируем взаимодействие на фронте.
     const practiceStarted = approvedApplication
-        ? Date.now() >= new Date(approvedApplication.cohort.start_date).getTime()
+        ? currentTime >= new Date(approvedApplication.cohort.start_date).getTime()
         : false
 
     const [weekStart, setWeekStart] = useState<string>(() => toISODate(getMondayOfWeek(new Date())))
@@ -339,13 +340,13 @@ export default function DashboardTasksPage() {
                             {task ? (
                                 <button onClick={() => openCell(date, task)} disabled={!practiceStarted}
                                     className={`flex flex-col gap-2 text-left w-full h-full ${!practiceStarted ? 'cursor-default' : ''}`}>
-                                    {task.description ? (
+                                    {task.description || task.links.length > 0 ? (
                                         <>
                                             <div className="inline-flex self-start items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-brand-subtle text-brand-hover">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-brand" />
                                                 Заполнено
                                             </div>
-                                            <p className="text-xs text-ink leading-relaxed line-clamp-3">{task.description}</p>
+                                            {task.description && <p className="text-xs text-ink leading-relaxed line-clamp-3">{task.description}</p>}
                                             {task.links.length > 0 && (
                                                 <span className="text-[10px] text-brand-hover truncate max-w-full">
                                                     🔗 {task.links.length === 1 ? 'Ссылка' : `Ссылок: ${task.links.length}`}
