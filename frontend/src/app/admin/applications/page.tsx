@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { Route } from 'lucide-react'
 import { updateApplicationStatus, type Application } from '@/services/api/invitation'
 import { getAdminApplications, getAdminApplicationDetail, type AdminApplicationSummary } from '@/services/api/admin'
 import { useCohortWorkspace } from '../cohort-context'
@@ -188,8 +189,10 @@ export default function AdminApplicationsPage() {
                         return (
                             <div key={app.applicationId} className="bg-white rounded-2xl shadow-sm overflow-hidden">
                                 <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between">
-                                    <div>
-                                        <p className="text-xs font-bold tracking-widest uppercase text-muted-ink mb-1">{app.track.title}</p>
+                                    <div className="flex flex-col gap-1.5">
+                                        <span className="inline-flex items-center gap-1.5 self-start text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
+                                            <Route className="size-3.5" />{app.track.title}
+                                        </span>
                                         <h2 className="font-bold text-lg text-ink">{app.student?.email ?? 'Неизвестный кандидат'}</h2>
                                     </div>
                                     <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border
