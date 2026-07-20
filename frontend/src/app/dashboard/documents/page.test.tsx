@@ -94,7 +94,7 @@ function buildReadiness(): ReadinessResponse {
         }
         return { type, ready: missingFields.length === 0, missingFields, generated: false, generatedAt: null, downloadPath: null }
     })
-    return { applicationId: APPLICATION_ID, report: reportStore ? { status: reportStore.status, reviewedAt: reportStore.reviewedAt } : null, documents }
+    return { applicationId: APPLICATION_ID, report: reportStore ? { status: reportStore.status, reviewedAt: reportStore.reviewedAt, rejectionReason: reportStore.rejectionReason } : null, documents }
 }
 
 function buildDocuments(): DocumentData[] {
@@ -126,7 +126,7 @@ function setupDocumentsMocks() {
         return { ...readiness, generated: true, generatedAt: new Date().toISOString() }
     })
     uploadReport.mockImplementation(async () => {
-        reportStore = { id: 'report-1', applicationId: APPLICATION_ID, status: 'PENDING' as ReportStatus, uploadedAt: new Date().toISOString(), reviewedAt: null, hasFile: true, downloadPath: '/x' }
+        reportStore = { id: 'report-1', applicationId: APPLICATION_ID, status: 'PENDING' as ReportStatus, uploadedAt: new Date().toISOString(), reviewedAt: null, rejectionReason: null, hasFile: true, downloadPath: '/x' }
         return reportStore
     })
 }

@@ -41,6 +41,9 @@ export default function AdminDocumentsPage() {
     const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({})
     const [savingKey, setSavingKey] = useState<string | null>(null)
     const [reportActionId, setReportActionId] = useState<string | null>(null)
+    const [rejectingReportId, setRejectingReportId] = useState<string | null>(null)
+    const [rejectionReason, setRejectionReason] = useState('')
+    const [rejectionReasonError, setRejectionReasonError] = useState('')
 
     const load = useCallback(async () => {
         if (!selectedCohort) return
@@ -113,17 +116,34 @@ export default function AdminDocumentsPage() {
         }
     }
 
-    async function handleReportDecision(applicationId: string, status: 'APPROVED' | 'REJECTED') {
+    async function handleReportDecision(applicationId: string, status: 'APPROVED' | 'REJECTED', reason?: string) {
         if (!selectedCohort) return
         setReportActionId(applicationId)
         try {
-            await updateReportStatus(selectedCohort.id, applicationId, status)
+            if (reason === undefined) {
+                await updateReportStatus(selectedCohort.id, applicationId, status)
+            } else {
+                await updateReportStatus(selectedCohort.id, applicationId, status, reason)
+            }
             await load()
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Не удалось обновить статус отчёта')
         } finally {
             setReportActionId(null)
         }
+    }
+
+    async function confirmReportRejection() {
+        if (!rejectingReportId) return
+        const reason = rejectionReason.trim()
+        if (!reason) {
+            setRejectionReasonError('Укажите причину отклонения отчёта')
+            return
+        }
+        await handleReportDecision(rejectingReportId, 'REJECTED', reason)
+        setRejectingReportId(null)
+        setRejectionReason('')
+        setRejectionReasonError('')
     }
 
     async function handleDownload(path: string, suggestedFilename?: string) {
@@ -228,7 +248,7 @@ export default function AdminDocumentsPage() {
                                             <>
                                                 <button
                                                     disabled={reportActionId === doc.applicationId}
-                                                    onClick={() => handleReportDecision(doc.applicationId, 'REJECTED')}
+                                                    onClick={() => { setRejectingReportId(doc.applicationId); setRejectionReason(''); setRejectionReasonError('') }}
                                                     className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-danger-border text-danger hover:bg-danger-bg disabled:opacity-50">
                                                     Отклонить
                                                 </button>
@@ -328,6 +348,27 @@ export default function AdminDocumentsPage() {
                             </div>
                         )
                     })}
+                </div>
+            )}
+
+            {rejectingReportId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4" role="dialog" aria-modal="true" aria-label="Отклонение отчёта">
+                    <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+                        <h2 className="font-bold text-lg text-ink">Отклонить отчёт?</h2>
+                        <p className="mt-2 text-sm text-muted-ink">Студент увидит причину и сможет заменить отчёт после доработки.</p>
+                        <label className="mt-4 flex flex-col gap-1.5 text-sm font-medium text-ink">
+                            Причина отклонения
+                            <textarea value={rejectionReason} onChange={e => setRejectionReason(e.target.value)} rows={4} maxLength={2000}
+                                className="w-full text-sm" placeholder="Например: добавьте титульный лист и исправьте оформление ссылок" />
+                        </label>
+                        {rejectionReasonError && <p className="mt-2 text-xs text-danger">⚠️ {rejectionReasonError}</p>}
+                        <div className="mt-5 flex justify-end gap-2">
+                            <button type="button" onClick={() => setRejectingReportId(null)} disabled={reportActionId === rejectingReportId}
+                                className="rounded-lg border border-border-soft px-4 py-2 text-sm font-semibold text-muted-ink hover:bg-surface">Отмена</button>
+                            <button type="button" onClick={confirmReportRejection} disabled={reportActionId === rejectingReportId}
+                                className="rounded-lg bg-danger px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{reportActionId === rejectingReportId ? 'Отклоняем…' : 'Отклонить отчёт'}</button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

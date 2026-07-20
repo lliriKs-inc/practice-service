@@ -265,7 +265,7 @@ export class DocumentsController {
         );
       }
 
-      const { status } =
+      const { status, rejectionReason } =
         reportStatusSchema.parse(req.body);
 
       const result =
@@ -274,6 +274,7 @@ export class DocumentsController {
           cohortId,
           applicationId,
           status,
+          rejectionReason,
           req.requestId ?? null
         );
 

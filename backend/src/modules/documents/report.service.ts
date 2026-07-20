@@ -16,6 +16,7 @@ import type {
 type ReportMetadata = {
   id: string;
   status: ReportStatus;
+  rejection_reason: string | null;
   uploaded_at: Date;
   reviewed_at: Date | null;
 };
@@ -29,6 +30,7 @@ function safeReport(
     id: report.id,
     applicationId,
     status: report.status,
+    rejectionReason: report.rejection_reason,
     uploadedAt: report.uploaded_at,
     reviewedAt: report.reviewed_at,
     hasFile: true,
@@ -120,6 +122,7 @@ export class ReportService {
         update: {
           file_url: stored.key,
           status: ReportStatus.PENDING,
+          rejection_reason: null,
           uploaded_at: new Date(),
           reviewed_at: null,
         },
@@ -127,6 +130,7 @@ export class ReportService {
           application_id: applicationId,
           file_url: stored.key,
           status: ReportStatus.PENDING,
+          rejection_reason: null,
         },
       });
 
@@ -146,6 +150,7 @@ export class ReportService {
     cohortId: string,
     applicationId: string,
     status: ReportStatus,
+    rejectionReason: string | undefined,
     requestId: string | null = null
   ) {
     const application =
@@ -185,6 +190,7 @@ export class ReportService {
       },
       data: {
         status,
+        rejection_reason: status === ReportStatus.REJECTED ? rejectionReason! : null,
         reviewed_at: new Date(),
       },
     });
@@ -201,6 +207,7 @@ export class ReportService {
         cohortId,
         previousStatus: application.report.status,
         status,
+        rejectionReason: status === ReportStatus.REJECTED ? rejectionReason : null,
       },
     });
 

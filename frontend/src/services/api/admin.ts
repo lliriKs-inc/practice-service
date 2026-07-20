@@ -26,6 +26,7 @@ export interface AdminReportSummary {
     status: ReportStatus
     uploadedAt: string
     reviewedAt: string | null
+    rejectionReason: string | null
     downloadPath: string
 }
 
@@ -43,7 +44,7 @@ export interface AdminApplicationSummary {
 
 function mapAdminReport(raw: any): AdminReportSummary | null {
     if (!raw) return null
-    return { status: raw.status, uploadedAt: raw.uploadedAt, reviewedAt: raw.reviewedAt ?? null, downloadPath: raw.downloadPath }
+    return { status: raw.status, uploadedAt: raw.uploadedAt, reviewedAt: raw.reviewedAt ?? null, rejectionReason: raw.rejectionReason ?? null, downloadPath: raw.downloadPath }
 }
 
 function mapAdminDocuments(raw: any[]): DocumentReadinessItem[] {

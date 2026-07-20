@@ -256,9 +256,17 @@ export default function DashboardDocumentsPage() {
                 </div>
 
                 {report ? (
-                    <p className="text-sm text-ink">
-                        Загружен {new Date(report.uploadedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </p>
+                    <>
+                        <p className="text-sm text-ink">
+                            Загружен {new Date(report.uploadedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                        {report.status === 'REJECTED' && report.rejectionReason && (
+                            <div className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3">
+                                <p className="text-xs font-semibold text-danger mb-1">Причина отклонения</p>
+                                <p className="text-sm text-danger whitespace-pre-wrap">{report.rejectionReason}</p>
+                            </div>
+                        )}
+                    </>
                 ) : (
                     <p className="text-sm text-warning">Отчёт ещё не загружен</p>
                 )}

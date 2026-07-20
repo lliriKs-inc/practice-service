@@ -232,6 +232,7 @@ model Report {
   application_id String       @unique
   file_url       String
   status         ReportStatus @default(PENDING)
+  rejection_reason String?
   uploaded_at    DateTime     @default(now())
   reviewed_at    DateTime?
 
