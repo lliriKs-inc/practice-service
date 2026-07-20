@@ -38,6 +38,13 @@ function firstPracticeWeekMonday(practiceStartIso: string): Date {
     return getMondayOfWeek(d)
 }
 
+function lastPracticeWeekMonday(practiceEndIso: string): Date {
+    let d = new Date(practiceEndIso)
+    d.setUTCHours(0, 0, 0, 0)
+    while (isWeekendUTC(d)) d = addDays(d, -1)
+    return getMondayOfWeek(d)
+}
+
 const DAYS_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт']
 
 export default function AdminTasksPage() {
@@ -82,12 +89,29 @@ export default function AdminTasksPage() {
     }, [load])
 
     function goPrevWeek() {
-        setWeekStart(prev => toISODate(addDays(new Date(prev), -7)))
+        if (!selectedCohort) return
+        const firstWeek = firstPracticeWeekMonday(selectedCohort.start_date)
+        setWeekStart(prev => {
+            const candidate = addDays(new Date(prev), -7)
+            return candidate < firstWeek ? toISODate(firstWeek) : toISODate(candidate)
+        })
     }
 
     function goNextWeek() {
-        setWeekStart(prev => toISODate(addDays(new Date(prev), 7)))
+        if (!selectedCohort) return
+        const lastWeek = lastPracticeWeekMonday(selectedCohort.end_date)
+        setWeekStart(prev => {
+            const candidate = addDays(new Date(prev), 7)
+            return candidate > lastWeek ? toISODate(lastWeek) : toISODate(candidate)
+        })
     }
+
+    const firstWeekStart = selectedCohort
+        ? toISODate(firstPracticeWeekMonday(selectedCohort.start_date))
+        : null
+    const lastWeekStart = selectedCohort
+        ? toISODate(lastPracticeWeekMonday(selectedCohort.end_date))
+        : null
 
     return (
         <div className="flex flex-col gap-6">
@@ -100,8 +124,10 @@ export default function AdminTasksPage() {
                 </div>
                 {selectedCohort && (
                     <div className="flex gap-2">
-                        <button onClick={goPrevWeek} className="px-4 py-2 text-sm font-medium border border-border-soft rounded-lg bg-white text-muted-ink hover:bg-surface">← Пред.</button>
-                        <button onClick={goNextWeek} className="px-4 py-2 text-sm font-medium border border-border-soft rounded-lg bg-white text-muted-ink hover:bg-surface">След. →</button>
+                        <button onClick={goPrevWeek} disabled={weekStart === firstWeekStart}
+                            className="px-4 py-2 text-sm font-medium border border-border-soft rounded-lg bg-white text-muted-ink hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed">← Пред.</button>
+                        <button onClick={goNextWeek} disabled={weekStart === lastWeekStart}
+                            className="px-4 py-2 text-sm font-medium border border-border-soft rounded-lg bg-white text-muted-ink hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed">След. →</button>
                     </div>
                 )}
             </div>

@@ -140,4 +140,14 @@ describe('AdminTasksPage (прогресс когорты)', () => {
         renderWithCohort()
         expect(await screen.findByText('⚠️ Пропущенные дни на этой неделе', {}, { timeout: 3000 })).toBeInTheDocument()
     })
+
+    it('ограничивает навигацию первой и последней неделей практики', async () => {
+        renderWithCohort()
+
+        const previous = await screen.findByRole('button', { name: '← Пред.' })
+        const next = screen.getByRole('button', { name: 'След. →' })
+
+        expect(previous).toBeDisabled()
+        expect(next).not.toBeDisabled()
+    })
 })
