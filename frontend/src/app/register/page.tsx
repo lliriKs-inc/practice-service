@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { GraduationCap, MoveRight } from 'lucide-react'
+import { GraduationCap, MoveRight, MailCheck, TriangleAlert } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -74,8 +74,8 @@ function RegisterForm() {
 
                 {redirect && (
                     <Alert className="w-full bg-brand-subtle border-brand-subtle-border mb-5">
-                        <AlertDescription className="flex items-center gap-2.5 text-xs text-brand-hover leading-relaxed">
-                            <span className="text-base">📨</span> Создайте аккаунт, чтобы продолжить заполнение анкеты по приглашению.
+                        <AlertDescription className="flex items-center gap-2.5 text-sm text-brand-hover leading-relaxed">
+                            <MailCheck className="size-4 flex-shrink-0" /> Создайте аккаунт, чтобы продолжить заполнение анкеты по приглашению.
                         </AlertDescription>
                     </Alert>
                 )}
@@ -118,7 +118,7 @@ function RegisterForm() {
                         {error && (
                             <Alert className="bg-danger-bg border-danger-border">
                                 <AlertDescription className="flex items-center gap-2 text-sm text-danger">
-                                    <span className="text-sm">⚠️</span> {error}
+                                    <TriangleAlert className="size-4 flex-shrink-0" /> {error}
                                 </AlertDescription>
                             </Alert>
                         )}

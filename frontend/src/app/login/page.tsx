@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { GraduationCap, MoveRight, ClipboardList, FileText, ListChecks } from 'lucide-react'
+import { GraduationCap, MoveRight, ClipboardList, FileText, ListChecks, TriangleAlert, ShieldAlert, MailCheck } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -68,16 +68,16 @@ function LoginForm() {
 
                 {sessionExpired && (
                     <Alert className="w-full bg-danger-bg border-danger-border mb-5">
-                        <AlertDescription className="flex items-center gap-2.5 text-xs text-danger leading-relaxed">
-                            <span className="text-base">⚠️</span> Сессия истекла или недействительна. Войдите снова.
+                        <AlertDescription className="flex items-center gap-2.5 text-sm text-danger leading-relaxed">
+                            <TriangleAlert className="size-4 flex-shrink-0" /> Сессия истекла или недействительна. Войдите снова.
                         </AlertDescription>
                     </Alert>
                 )}
 
                 {forbidden && (
                     <Alert className="w-full bg-danger-bg border-danger-border mb-5">
-                        <AlertDescription className="flex items-center gap-2.5 text-xs text-danger leading-relaxed">
-                            <span className="text-base">🚫</span> У этого аккаунта нет доступа к запрошенному разделу. Войдите под подходящим аккаунтом.
+                        <AlertDescription className="flex items-center gap-2.5 text-sm text-danger leading-relaxed">
+                            <ShieldAlert className="size-4 flex-shrink-0" /> У этого аккаунта нет доступа к запрошенному разделу. Войдите под подходящим аккаунтом.
                         </AlertDescription>
                     </Alert>
                 )}
@@ -85,8 +85,8 @@ function LoginForm() {
                 {/* Если пришли по инвайту — показываем контекст */}
                 {redirect && !sessionExpired && !forbidden && (
                     <Alert className="w-full bg-brand-subtle border-brand-subtle-border mb-5">
-                        <AlertDescription className="flex items-center gap-2.5 text-xs text-brand-hover leading-relaxed">
-                            <span className="text-base">📨</span> Войдите, чтобы продолжить заполнение анкеты по приглашению.
+                        <AlertDescription className="flex items-center gap-2.5 text-sm text-brand-hover leading-relaxed">
+                            <MailCheck className="size-4 flex-shrink-0" /> Войдите, чтобы продолжить заполнение анкеты по приглашению.
                         </AlertDescription>
                     </Alert>
                 )}
@@ -116,7 +116,7 @@ function LoginForm() {
                         {error && (
                             <Alert className="bg-danger-bg border-danger-border">
                                 <AlertDescription className="flex items-center gap-2 text-sm text-danger">
-                                    <span className="text-sm">⚠️</span> {error}
+                                    <TriangleAlert className="size-4 flex-shrink-0" /> {error}
                                 </AlertDescription>
                             </Alert>
                         )}

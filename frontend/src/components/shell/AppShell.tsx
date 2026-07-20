@@ -61,7 +61,7 @@ export function AppShell({
                         <span className="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0" />
                         <span className="text-sm font-semibold text-brand-hover truncate">{userName ?? userEmail ?? '…'}</span>
                     </div>
-                    <div className="w-8 h-8 rounded-full bg-brand text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand to-brand-light text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
                         {(userName ?? userEmail)?.[0]?.toUpperCase() ?? '?'}
                     </div>
                 </div>

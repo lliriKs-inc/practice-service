@@ -170,7 +170,7 @@ describe('DashboardTasksPage (дневник задач)', () => {
         expect(await screen.findByText(/3 авг – 7 авг/, {}, { timeout: 3000 })).toBeInTheDocument()
         expect(screen.queryByText(/27 июл – 31 июл/)).not.toBeInTheDocument()
         // "Пред." должна быть заблокирована — раньше первой рабочей недели практики уходить некуда
-        expect(screen.getByRole('button', { name: '← Пред.' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Предыдущая неделя' })).toBeDisabled()
     })
 
     it('блокирует заполнение дней и показывает предупреждение, если практика ещё не началась', async () => {
@@ -185,7 +185,7 @@ describe('DashboardTasksPage (дневник задач)', () => {
         expect(screen.getAllByText('Пока недоступно')).toHaveLength(5)
 
         fireEvent.click(screen.getAllByText('Пока недоступно')[0])
-        expect(screen.queryByText('Что делал сегодня?')).not.toBeInTheDocument()
+        expect(screen.queryByText('Что было сделано сегодня?')).not.toBeInTheDocument()
     })
 
     it('показывает недельную сетку из 5 будних дней для одобренной заявки', async () => {
@@ -203,7 +203,7 @@ describe('DashboardTasksPage (дневник задач)', () => {
         const cells = await screen.findAllByText('+ Заполнить день', {}, { timeout: 3000 })
         fireEvent.click(cells[0])
 
-        const dialog = await screen.findByText('Что делал сегодня?')
+        const dialog = await screen.findByText('Что было сделано сегодня?')
         const textarea = dialog.parentElement!.querySelector('textarea') as HTMLTextAreaElement
         fireEvent.change(textarea, { target: { value: 'Настроил окружение' } })
 
@@ -214,7 +214,7 @@ describe('DashboardTasksPage (дневник задач)', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
 
         // Ждём закрытия попапа (иначе описание совпадает с текстом внутри его собственной textarea)
-        await waitFor(() => expect(screen.queryByText('Что делал сегодня?')).not.toBeInTheDocument(), { timeout: 3000 })
+        await waitFor(() => expect(screen.queryByText('Что было сделано сегодня?')).not.toBeInTheDocument(), { timeout: 3000 })
 
         expect(await screen.findByText('Настроил окружение', {}, { timeout: 3000 })).toBeInTheDocument()
         expect(screen.getByText(/🔗 Ссылка/)).toBeInTheDocument()
@@ -251,12 +251,12 @@ describe('DashboardTasksPage (дневник задач)', () => {
         const textarea = screen.getByPlaceholderText('Опиши выполненную работу…')
         fireEvent.change(textarea, { target: { value: 'Черновик' } })
         fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
-        await waitFor(() => expect(screen.queryByText('Что делал сегодня?')).not.toBeInTheDocument(), { timeout: 3000 })
+        await waitFor(() => expect(screen.queryByText('Что было сделано сегодня?')).not.toBeInTheDocument(), { timeout: 3000 })
         await screen.findByText('Черновик', {}, { timeout: 3000 })
 
         fireEvent.click(screen.getByText('Черновик'))
         fireEvent.click(await screen.findByRole('button', { name: 'Очистить день' }))
-        await waitFor(() => expect(screen.queryByText('Что делал сегодня?')).not.toBeInTheDocument(), { timeout: 3000 })
+        await waitFor(() => expect(screen.queryByText('Что было сделано сегодня?')).not.toBeInTheDocument(), { timeout: 3000 })
         await waitFor(() => expect(screen.getAllByText('+ Заполнить день')).toHaveLength(5), { timeout: 3000 })
     }, 10000)
 })

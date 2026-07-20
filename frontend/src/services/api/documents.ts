@@ -56,8 +56,8 @@ export const DOCUMENT_FIELD_CONFIG: Record<DocumentType, DocumentFieldConfig[]> 
         { key: 'review_employed', label: 'Трудоустроен', owner: 'ADMIN', required: true },
         { key: 'review_next_practice', label: 'Рекомендация к следующей практике', owner: 'ADMIN', required: true },
         { key: 'review_employment_offer', label: 'Предложение о трудоустройстве', owner: 'ADMIN', required: true },
-        { key: 'review_suggestions', label: 'Пожелания', owner: 'ADMIN', required: true, multiline: true },
         { key: 'review_grade', label: 'Оценка', owner: 'ADMIN', required: true },
+        { key: 'review_suggestions', label: 'Пожелания', owner: 'ADMIN', required: true, multiline: true },
     ],
     NOTICE: [
         { key: 'student_fio', label: 'ФИО студента', owner: 'STUDENT', required: true },

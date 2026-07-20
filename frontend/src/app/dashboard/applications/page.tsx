@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ChevronDown, Route, MoveRight, TriangleAlert, Check, ClipboardList } from 'lucide-react'
+import { ChevronDown, Route, MoveRight, TriangleAlert, Check, ClipboardList, Star } from 'lucide-react'
 import { getMyApplications, type Application } from '@/services/api/invitation'
 import { getMe, selectActiveApplication } from '@/services/api/auth'
 import { Button } from '@/components/ui/button'
@@ -69,8 +69,7 @@ export default function DashboardApplicationsPage() {
     return (
         <div className="flex flex-col gap-6">
             <div>
-                <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1">Мои заявки</h1>
-                <p className="text-sm text-muted-ink">Архив всех заявок на практику по всем когортам.</p>
+                <h1 className="font-extrabold text-2xl tracking-tight text-ink">Мои заявки</h1>
             </div>
 
             {!applicationsLoading && !applicationsError && needsApplicationSelection && (
@@ -93,8 +92,9 @@ export default function DashboardApplicationsPage() {
             )}
 
             {applicationsError && (
-                <div className="bg-danger-bg border border-danger-border rounded-xl px-5 py-4">
-                    <p className="text-sm text-danger">⚠️ {applicationsError}</p>
+                <div className="bg-danger-bg border border-danger-border rounded-xl px-5 py-4 flex items-start gap-3">
+                    <TriangleAlert className="size-5 text-danger flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-danger">{applicationsError}</p>
                 </div>
             )}
 
@@ -113,10 +113,17 @@ export default function DashboardApplicationsPage() {
 
             {!applicationsLoading && !applicationsError && applications.length > 0 && (
                 <div className="flex flex-col gap-4">
-                    {applications.map(app => {
+                    {[...applications]
+                        .sort((a, b) => {
+                            const aSelected = a.id === activeApplicationId && a.status === 'approved'
+                            const bSelected = b.id === activeApplicationId && b.status === 'approved'
+                            return aSelected === bSelected ? 0 : aSelected ? -1 : 1
+                        })
+                        .map(app => {
                         const status = STATUS_CONFIG[app.status]
+                        const isSelectedTrack = activeApplicationId === app.id && app.status === 'approved'
                         return (
-                            <div key={app.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                            <div key={app.id} className={`bg-white rounded-2xl overflow-hidden ${isSelectedTrack ? 'border-t-[3px] border-brand-hover shadow-md' : 'shadow-sm'}`}>
                                 <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between gap-4">
                                     <div>
                                         <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Практика</span>
@@ -125,9 +132,14 @@ export default function DashboardApplicationsPage() {
                                             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
                                                 <Route className="size-3.5" />{app.track.title}
                                             </span>
+                                            {isSelectedTrack && (
+                                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-warning bg-warning-bg border border-warning-border rounded-full px-2.5 py-1">
+                                                    <Star className="size-3.5 fill-warning-dot text-warning-dot" />Текущая практика
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
-                                    <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border flex-shrink-0 ${status.className}`}>
+                                    <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border flex-shrink-0 ${status.className} ${isSelectedTrack ? '' : 'opacity-70'}`}>
                                         <div className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
                                         <span className="text-xs font-semibold">{status.label}</span>
                                     </div>
@@ -188,23 +200,20 @@ export default function DashboardApplicationsPage() {
                                     )}
                                 </div>
 
-                                <div className="px-7 py-4 flex items-center justify-between">
+                                <div className="px-7 py-3 bg-surface flex items-center justify-between">
                                     <span className="text-xs text-muted-ink">
                                         Подана {new Date(app.submitted_at).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}
                                     </span>
                                     {app.status === 'approved' && (
                                         <div className="flex items-center gap-4">
                                             {activeApplicationId === app.id ? (
-                                                    <Button variant="outline"
-                                                        disabled
-                                                        className={`px-4 py-2 rounded-lg h-auto ${isPracticeStarted(app) ? '' : 'bg-success-bg border-success-border text-success disabled:opacity-100'}`}>
-                                                        {isPracticeStarted(app)
-                                                            ? 'Выбор закреплён'
-                                                            : <><Check className="size-3.5" />Выбранный трек</>}
-                                                    </Button>
+                                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success">
+                                                        <Check className="size-3.5" />Выбранный трек
+                                                    </span>
+                                                ) : isPracticeStarted(app) ? (
+                                                    <span className="text-xs font-medium text-faint-ink">Выбран другой трек</span>
                                                 ) : (
                                                     <Button variant="brand" onClick={() => setApplicationToSelect(app)}
-                                                        disabled={isPracticeStarted(app)}
                                                         className="px-4 py-2 rounded-lg h-auto">
                                                         Выбрать этот трек
                                                     </Button>
