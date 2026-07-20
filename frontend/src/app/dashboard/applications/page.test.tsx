@@ -75,7 +75,7 @@ describe('DashboardApplicationsPage (архив заявок студента)',
         ])
         render(<DashboardApplicationsPage />)
 
-        expect(await screen.findByText('Выберите рабочий трек')).toBeInTheDocument()
+        expect(await screen.findByText('Выберите трек')).toBeInTheDocument()
     })
 
     it('запрашивает подтверждение перед выбором одобренного трека', async () => {
@@ -87,7 +87,7 @@ describe('DashboardApplicationsPage (архив заявок студента)',
 
         fireEvent.click(screen.getByRole('button', { name: 'Выбрать трек' }))
         await waitFor(() => expect(selectActiveApplication).toHaveBeenCalledWith('app-1'))
-        expect(await screen.findByRole('button', { name: '✓ Выбранный трек' })).toBeInTheDocument()
+        expect(await screen.findByRole('button', { name: 'Выбранный трек' })).toBeInTheDocument()
     })
 
     it('не показывает ссылку на тестовое задание для отклонённой заявки', async () => {

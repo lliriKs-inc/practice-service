@@ -30,6 +30,9 @@ const buttonVariants = cva(
         // Опасное/отменяющее действие в фирменном стиле (заливка, как у brand).
         danger:
           "border-0 bg-gradient-to-br from-danger to-danger-light text-white font-semibold shadow-md hover:brightness-110 active:brightness-90",
+        // Подтверждённое/завершённое состояние (например, уже выбранный трек).
+        success:
+          "border-0 bg-gradient-to-br from-success to-success-light text-white font-semibold shadow-md hover:brightness-110 active:brightness-90",
       },
       size: {
         default:

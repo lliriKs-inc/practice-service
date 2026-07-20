@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import DashboardTasksPage from './page'
 import { saveToken, saveUser } from '@/lib/api/session'
@@ -123,8 +123,16 @@ describe('DashboardTasksPage (дневник задач)', () => {
             active_application_id: APPLICATION_ID,
         })
         vi.clearAllMocks()
+        // Дефолтное окно практики теста (2027-07-19 — 2027-07-30) должно восприниматься
+        // как уже идущая практика — иначе новая блокировка "до начала практики"
+        // помешает сценариям заполнения дня. Замораживаем Date.now() внутри окна.
+        vi.spyOn(Date, 'now').mockReturnValue(new Date('2027-07-20T12:00:00.000Z').getTime())
         resetTaskStore('2027-07-19T00:00:00.000Z', '2027-07-30T00:00:00.000Z')
         setupTasksMocks()
+    })
+
+    afterEach(() => {
+        vi.restoreAllMocks()
     })
 
     it('показывает заглушку "недоступен", если нет одобренной заявки', async () => {
@@ -159,17 +167,32 @@ describe('DashboardTasksPage (дневник задач)', () => {
         getMyApplications.mockResolvedValue([makeApplication('approved', { start_date: '2026-08-01T00:00:00.000Z', end_date: '2026-08-31T00:00:00.000Z' })])
         render(<DashboardTasksPage />)
 
-        expect(await screen.findByText(/3–7 авг/, {}, { timeout: 3000 })).toBeInTheDocument()
-        expect(screen.queryByText(/27–31 июл/)).not.toBeInTheDocument()
+        expect(await screen.findByText(/3 авг – 7 авг/, {}, { timeout: 3000 })).toBeInTheDocument()
+        expect(screen.queryByText(/27 июл – 31 июл/)).not.toBeInTheDocument()
         // "Пред." должна быть заблокирована — раньше первой рабочей недели практики уходить некуда
         expect(screen.getByRole('button', { name: '← Пред.' })).toBeDisabled()
+    })
+
+    it('блокирует заполнение дней и показывает предупреждение, если практика ещё не началась', async () => {
+        // Frozen "now" — 2027-07-20, окно практики этой заявки начинается позже.
+        resetTaskStore('2028-01-03T00:00:00.000Z', '2028-01-14T00:00:00.000Z') // Monday
+        getMyApplications.mockResolvedValue([makeApplication('approved', { start_date: '2028-01-03T00:00:00.000Z', end_date: '2028-01-14T00:00:00.000Z' })])
+        render(<DashboardTasksPage />)
+
+        expect(await screen.findByText('Практика ещё не началась', {}, { timeout: 3000 })).toBeInTheDocument()
+        expect(await screen.findByText(/3 янв – 7 янв/, {}, { timeout: 3000 })).toBeInTheDocument()
+        expect(screen.queryByText('+ Заполнить день')).not.toBeInTheDocument()
+        expect(screen.getAllByText('Пока недоступно')).toHaveLength(5)
+
+        fireEvent.click(screen.getAllByText('Пока недоступно')[0])
+        expect(screen.queryByText('Что делал сегодня?')).not.toBeInTheDocument()
     })
 
     it('показывает недельную сетку из 5 будних дней для одобренной заявки', async () => {
         getMyApplications.mockResolvedValue([makeApplication('approved')])
         render(<DashboardTasksPage />)
 
-        expect(await screen.findByText(/19–23 июл/, {}, { timeout: 3000 })).toBeInTheDocument()
+        expect(await screen.findByText(/19 июл – 23 июл/, {}, { timeout: 3000 })).toBeInTheDocument()
         expect(screen.getAllByText('+ Заполнить день')).toHaveLength(5)
     })
 

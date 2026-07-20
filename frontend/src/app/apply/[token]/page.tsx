@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
+import Link from 'next/link'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { GraduationCap, MoveRight, MailCheck, CircleCheck } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { isAuthenticated, getUser } from '@/services/api/auth'
 import { describeApiErrors } from '@/lib/api/error-messages'
 import {
@@ -183,16 +186,18 @@ export default function ApplyByInvitationPage() {
         return (
             <div className="min-h-screen flex items-center justify-center bg-surface px-6">
                 <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
-                    <div className="w-16 h-16 rounded-full bg-success-bg flex items-center justify-center text-3xl mb-5">✅</div>
+                    <div className="w-16 h-16 rounded-xl bg-success-bg text-success flex items-center justify-center mb-5">
+                        <CircleCheck className="size-8" />
+                    </div>
                     <h2 className="font-extrabold text-2xl text-ink mb-2">Заявка отправлена!</h2>
                     <p className="text-sm text-muted-ink mb-7 leading-relaxed">
                         Как только организаторы её рассмотрят, статус появится в личном кабинете.
                         Тестовое задание (если предусмотрено) станет доступно там же.
                     </p>
-                    <a href="/dashboard/applications"
-                        className="text-white text-sm font-semibold px-6 py-3 rounded-lg shadow-md transition-colors bg-gradient-to-br from-brand to-brand-light">
-                        Перейти в личный кабинет →
-                    </a>
+                    <Button variant="brand" render={<a href="/dashboard/applications" />} nativeButton={false}
+                        className="px-6 py-3 rounded-lg h-auto">
+                        Перейти в личный кабинет<MoveRight className="size-4" />
+                    </Button>
                 </div>
             </div>
         )
@@ -207,19 +212,20 @@ export default function ApplyByInvitationPage() {
             {/* LEFT */}
             <aside className="hidden lg:flex w-[30%] flex-col sticky top-0 h-screen overflow-hidden text-white p-14"
                 style={{ background: 'linear-gradient(155deg, #6C63FF 0%, #9B8FFF 55%, #C4BEFF 100%)' }}>
-                <div className="flex items-center gap-3 mb-auto">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
-                        style={{ background: 'rgba(255,255,255,0.22)' }}>🎓</div>
-                    <span className="font-bold text-base">Практика УрФУ</span>
-                </div>
+                <Link href="/" className="group flex items-center gap-3 mb-auto">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105"
+                        style={{ background: 'rgba(255,255,255,0.22)' }}><GraduationCap className="size-5" /></div>
+                    <span className="font-bold text-base transition-opacity group-hover:opacity-80">Практика УрФУ</span>
+                </Link>
 
                 <div className="flex flex-col justify-center flex-1">
-                    <p className="text-xs font-semibold tracking-widest uppercase opacity-60 mb-5">{form.cohort.title}</p>
+                    <p className="text-xs font-semibold tracking-widest uppercase opacity-60 mb-5">Практика</p>
                     <h2 className="font-extrabold text-5xl leading-tight tracking-tight mb-5">
-                        Начни путь<br />в профессию
+                        {form.cohort.title}
                     </h2>
                     <p className="text-sm leading-relaxed opacity-80 mb-12 max-w-xs">
-                        Заполните анкету — после отправки вы увидите статус и тестовое задание в личном кабинете.
+                        Заполните анкету — далее в личном кабинете появятся статус заявки
+                        и тестовое задание.
                     </p>
 
                     <div className="flex flex-col gap-4">
@@ -248,8 +254,7 @@ export default function ApplyByInvitationPage() {
                 <div className="w-[75%] py-14 flex flex-col">
 
                     <div className="mb-7">
-                        <h1 className="font-extrabold text-3xl tracking-tight text-ink mb-2">Заявка на практику</h1>
-                        <p className="text-sm text-muted-ink">{form.cohort.title} · заполни анкету ниже</p>
+                        <h1 className="font-extrabold text-3xl tracking-tight text-ink">Заявка на практику</h1>
                     </div>
 
                     <div className="bg-white rounded-2xl shadow-sm p-9">
@@ -261,7 +266,7 @@ export default function ApplyByInvitationPage() {
                                     <p className="text-[10px] font-bold tracking-widest uppercase text-brand-hover mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-border-soft">
                                         Направление
                                     </p>
-                                    <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center gap-3 flex-wrap">
                                         <Label>Желаемый трек <span className="text-brand-hover">*</span></Label>
                                         <div className="flex flex-wrap gap-2">
                                             {form.tracks.map(track => (
@@ -287,17 +292,22 @@ export default function ApplyByInvitationPage() {
                                     <p className="text-[10px] font-bold tracking-widest uppercase text-brand-hover mb-5 flex items-center gap-2 after:flex-1 after:h-px after:bg-border-soft">
                                         Анкета
                                     </p>
-                                    <div className="flex flex-col gap-4">
-                                        {[...form.questions]
-                                            .sort((a, b) => a.order_index - b.order_index)
-                                            .map(q => (
+                                    <div className="grid sm:grid-cols-2 gap-4 items-start">
+                                        {(() => {
+                                            const sorted = [...form.questions].sort((a, b) => a.order_index - b.order_index)
+                                            const firstRadioId = sorted.find(q => q.type === 'radio')?.id
+                                            const firstCheckboxId = sorted.find(q => q.type === 'checkbox')?.id
+                                            return sorted.map(q => (
                                                 <QuestionInput
                                                     key={q.id}
                                                     question={q}
                                                     value={answers[q.id] ?? ''}
                                                     onChange={val => setAnswer(q.id, val)}
+                                                    className={q.type === 'textarea' ? 'sm:col-span-2' : ''}
+                                                    showHint={q.id === firstRadioId || q.id === firstCheckboxId}
                                                 />
-                                            ))}
+                                            ))
+                                        })()}
                                     </div>
                                 </div>
                             ) : (
@@ -319,14 +329,14 @@ export default function ApplyByInvitationPage() {
                             <div className="flex justify-end items-center pt-2">
                                 <Button type="submit" variant="brand" disabled={submitting}
                                     className="px-8 py-5 rounded-lg">
-                                    {submitting ? 'Отправляем…' : 'Отправить заявку →'}
+                                    {submitting ? 'Отправляем…' : <>Отправить заявку<MoveRight className="size-4" /></>}
                                 </Button>
                             </div>
                         </form>
                     </div>
 
                     <div className="flex items-start gap-3 mt-5 p-4 bg-brand-subtle rounded-xl border-l-4 border-brand">
-                        <span className="text-lg">📬</span>
+                        <MailCheck className="size-5 text-brand-hover flex-shrink-0" />
                         <p className="text-sm text-muted-ink leading-relaxed">
                             <strong className="text-ink">После отправки</strong> статус заявки и тестовое задание
                             будут доступны в личном кабинете.
@@ -343,10 +353,14 @@ function QuestionInput({
     question,
     value,
     onChange,
+    className,
+    showHint,
 }: {
     question: Question
     value: string
     onChange: (v: string) => void
+    className?: string
+    showHint?: boolean
 }) {
     const label = (
         <label className="text-sm font-medium text-ink">
@@ -357,7 +371,7 @@ function QuestionInput({
 
     if (question.type === 'textarea') {
         return (
-            <div className="flex flex-col gap-1.5">
+            <div className={cn('flex flex-col gap-1.5', className)}>
                 {label}
                 <Textarea value={value} onChange={e => onChange(e.target.value)}
                     placeholder="Ваш ответ" rows={3} autoComplete="off"
@@ -368,7 +382,7 @@ function QuestionInput({
 
     if (question.type === 'select') {
         return (
-            <div className="flex flex-col gap-1.5">
+            <div className={cn('flex flex-col gap-1.5', className)}>
                 {label}
                 <select value={value} onChange={e => onChange(e.target.value)} required={question.required}
                     className="w-full text-sm rounded-lg border-[1.5px] border-border-soft bg-surface px-3 py-2 text-ink focus:outline-none focus:border-brand">
@@ -383,8 +397,11 @@ function QuestionInput({
 
     if (question.type === 'radio') {
         return (
-            <div className="flex flex-col gap-1.5">
-                {label}
+            <div className={cn('flex flex-col gap-1.5', className)}>
+                <div className="flex items-center gap-2 flex-wrap">
+                    {label}
+                    {showHint && <span className="text-xs text-muted-ink">выберите один вариант из списка</span>}
+                </div>
                 <div className="flex flex-wrap gap-2">
                     {question.options.map(opt => (
                         <button key={opt} type="button"
@@ -410,21 +427,28 @@ function QuestionInput({
             onChange(next.join(', '))
         }
         return (
-            <div className="flex flex-col gap-1.5">
-                {label}
-                <div className="flex flex-col gap-2">
+            <div className={cn('flex flex-col gap-1.5', className)}>
+                <div className="flex items-center gap-2 flex-wrap">
+                    {label}
+                    {showHint && <span className="text-xs text-muted-ink">можно выбрать несколько вариантов</span>}
+                </div>
+                <div className="flex flex-wrap gap-2">
                     {question.options.map(opt => (
-                        <div key={opt} className="flex items-center gap-3 cursor-pointer" onClick={() => toggle(opt)}>
-                            <div className={`w-[18px] h-[18px] min-w-[18px] rounded-md border-[1.5px] flex items-center justify-center transition-colors
+                        <button key={opt} type="button" onClick={() => toggle(opt)}
+                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border-[1.5px] transition-all
+                                ${selected.includes(opt)
+                                    ? 'border-brand bg-brand-subtle text-brand-hover'
+                                    : 'border-border-soft bg-surface text-muted-ink'}`}>
+                            <div className={`w-[14px] h-[14px] min-w-[14px] rounded-[4px] border-[1.5px] flex items-center justify-center transition-colors
                                 ${selected.includes(opt) ? 'bg-brand border-brand' : 'border-border-soft bg-surface'}`}>
                                 {selected.includes(opt) && (
-                                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                                    <svg width="8" height="7" viewBox="0 0 10 8" fill="none">
                                         <path d="M1 4L3.8 7L9 1" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                                     </svg>
                                 )}
                             </div>
-                            <span className="text-sm text-muted-ink">{opt}</span>
-                        </div>
+                            {opt}
+                        </button>
                     ))}
                 </div>
             </div>
@@ -433,7 +457,7 @@ function QuestionInput({
 
     // text (default)
     return (
-        <div className="flex flex-col gap-1.5">
+        <div className={cn('flex flex-col gap-1.5', className)}>
             {label}
             <Input type="text" value={value} onChange={e => onChange(e.target.value)}
                 placeholder="Ваш ответ" autoComplete="off" required={question.required} />

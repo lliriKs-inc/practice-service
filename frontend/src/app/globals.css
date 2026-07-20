@@ -67,6 +67,7 @@
   --color-success-bg: var(--success-bg);
   --color-success-border: var(--success-border);
   --color-success-dot: var(--success-dot);
+  --color-success-light: var(--success-light);
 
   --color-warning: var(--warning);
   --color-warning-bg: var(--warning-bg);
@@ -106,6 +107,7 @@
   --success-bg: #EDFBF4;
   --success-border: #7EE8B8;
   --success-dot: #2CB87A;
+  --success-light: #34C98A;
 
   --warning: #7A5C1A;
   --warning-bg: #FFF8ED;

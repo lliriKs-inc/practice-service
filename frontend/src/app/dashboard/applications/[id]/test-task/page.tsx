@@ -15,6 +15,8 @@ import {
     type MyTestTask,
 } from '@/services/api/test-task'
 import { downloadProtectedFile } from '@/lib/api/download'
+import { Route, Clock, CheckCircle2, Upload, RotateCw, Check } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 const STATUS_CONFIG: Record<Application['status'], { label: string; className: string; dot: string }> = {
     pending: { label: 'На рассмотрении', className: 'bg-warning-bg border-warning-border text-warning', dot: 'bg-warning-dot' },
@@ -109,18 +111,27 @@ export default function ApplicationTestTaskPage() {
     const status = STATUS_CONFIG[application.status]
 
     return (
-        <div className="w-full max-w-2xl mx-auto flex flex-col gap-6">
+        <div className="w-full flex flex-col gap-6">
 
-            <a href="/dashboard/applications" className="text-sm font-medium text-brand-hover hover:underline self-start">← К списку заявок</a>
+            <a href="/dashboard/applications"
+                className="self-start inline-flex items-center text-sm font-medium text-brand-hover bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300">
+                ← К списку заявок
+            </a>
 
+            <div className="grid lg:grid-cols-2 gap-6 items-start">
                     {/* Карточка заявки */}
                     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                        <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between">
+                        <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between gap-4">
                             <div>
-                                <p className="text-xs font-bold tracking-widest uppercase text-muted-ink mb-1">{application.cohort.title}</p>
-                                <h1 className="font-extrabold text-xl text-ink">{application.track.title}</h1>
+                                <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Практика</span>
+                                <div className="flex items-center gap-3 flex-wrap mt-0.5">
+                                    <h1 className="font-extrabold text-xl text-ink tracking-tight uppercase">{application.cohort.title}</h1>
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
+                                        <Route className="size-3.5" />{application.track.title}
+                                    </span>
+                                </div>
                             </div>
-                            <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border ${status.className}`}>
+                            <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border flex-shrink-0 ${status.className}`}>
                                 <div className={`w-2 h-2 rounded-full ${status.dot}`} />
                                 <span className="text-xs font-semibold">{status.label}</span>
                             </div>
@@ -128,32 +139,37 @@ export default function ApplicationTestTaskPage() {
 
                         <div className="grid grid-cols-2 divide-x divide-border-soft">
                             <div className="px-7 py-4 flex flex-col gap-1">
-                                <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Период практики</span>
-                                <span className="text-sm font-semibold text-ink">
-                                    {new Date(application.cohort.start_date).toLocaleDateString('ru')} — {new Date(application.cohort.end_date).toLocaleDateString('ru')}
-                                </span>
-                            </div>
-                            <div className="px-7 py-4 flex flex-col gap-1">
                                 <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Заявка подана</span>
                                 <span className="text-sm font-semibold text-ink">
                                     {new Date(application.submitted_at).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}
                                 </span>
                             </div>
+                            <div className="px-7 py-4 flex flex-col gap-1">
+                                <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Период практики</span>
+                                <span className="text-sm font-semibold text-ink">
+                                    {new Date(application.cohort.start_date).toLocaleDateString('ru')} — {new Date(application.cohort.end_date).toLocaleDateString('ru')}
+                                </span>
+                            </div>
                         </div>
 
-                        {application.answers && application.answers.length > 0 && (
-                            <div className="px-7 py-5 border-t border-border-soft flex flex-col gap-3">
-                                <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Твои ответы в анкете</span>
-                                <div className="flex flex-col gap-2.5">
-                                    {application.answers.map((a, i) => (
-                                        <div key={i} className="flex flex-col gap-0.5">
-                                            <span className="text-xs text-muted-ink">{a.label}</span>
-                                            <span className="text-sm text-ink">{a.value}</span>
-                                        </div>
-                                    ))}
+                        <div className="px-7 py-5 border-t border-border-soft flex flex-col gap-4">
+                            {[
+                                { n: '1', label: 'Анкета', sub: 'Заявка отправлена', done: true },
+                                { n: '2', label: 'Тестовое задание', sub: 'Сейчас, на этой странице', active: true },
+                                { n: '3', label: 'Результат', sub: 'После проверки' },
+                            ].map(step => (
+                                <div key={step.n} className={`flex items-center gap-3 ${step.done || step.active ? 'opacity-100' : 'opacity-50'}`}>
+                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
+                                        ${step.done ? 'bg-brand text-white' : step.active ? 'border-2 border-brand text-brand-hover' : 'border-2 border-border-soft text-faint-ink'}`}>
+                                        {step.done ? <Check className="size-3.5" /> : step.n}
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-medium text-ink">{step.label}</div>
+                                        <div className="text-xs text-muted-ink">{step.sub}</div>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            ))}
+                        </div>
                     </div>
 
                     {/* Тестовое задание */}
@@ -191,31 +207,37 @@ export default function ApplicationTestTaskPage() {
                                     <div className="border-t border-border-soft pt-5 flex flex-col gap-3">
                                         <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Твоё решение</span>
 
-                                        {testTask.submission ? (
-                                            <div className="flex items-center gap-3 bg-success-bg border border-success-border rounded-xl px-4 py-3">
-                                                <span className="text-lg">✅</span>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-semibold text-ink truncate">{testTask.submission.fileName}</p>
-                                                    <p className="text-xs text-muted-ink">
-                                                        Загружено {new Date(testTask.submission.submittedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                    </p>
+                                        <div className="flex items-stretch gap-3">
+                                            {testTask.submission ? (
+                                                <div className="flex-1 flex items-center gap-3 bg-success-bg border border-success-border rounded-xl px-4 py-3">
+                                                    <CheckCircle2 className="size-5 text-success flex-shrink-0" />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-semibold text-ink truncate">{testTask.submission.fileName}</p>
+                                                        <p className="text-xs text-muted-ink">
+                                                            Загружено {new Date(testTask.submission.submittedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center gap-3 bg-warning-bg border border-warning-border rounded-xl px-4 py-3">
-                                                <span className="text-lg">⏳</span>
-                                                <p className="text-sm text-warning">Решение ещё не загружено</p>
-                                            </div>
-                                        )}
+                                            ) : (
+                                                <div className="flex-1 flex items-center gap-3 bg-warning-bg border border-warning-border rounded-xl px-4 py-3">
+                                                    <Clock className="size-5 text-warning flex-shrink-0" />
+                                                    <p className="text-sm text-warning">Решение ещё не загружено</p>
+                                                </div>
+                                            )}
 
-                                        <input ref={fileInputRef} type="file" className="hidden"
-                                            accept={ALLOWED_SUBMISSION_EXTENSIONS.join(',')}
-                                            onChange={handleFileSelected} />
+                                            <input ref={fileInputRef} type="file" className="hidden"
+                                                accept={ALLOWED_SUBMISSION_EXTENSIONS.join(',')}
+                                                onChange={handleFileSelected} />
 
-                                        <button onClick={openFilePicker} disabled={uploading}
-                                            className="self-start text-sm font-semibold px-5 py-2.5 rounded-lg text-white shadow-sm disabled:opacity-60 bg-gradient-to-br from-brand to-brand-light">
-                                            {uploading ? 'Загружаем…' : testTask.submission ? '🔄 Заменить решение' : '📤 Загрузить решение'}
-                                        </button>
+                                            <Button variant="brand" onClick={openFilePicker} disabled={uploading}
+                                                className="px-5 rounded-lg h-auto flex-shrink-0">
+                                                {uploading
+                                                    ? 'Загружаем…'
+                                                    : testTask.submission
+                                                        ? <><RotateCw className="size-4" />Заменить решение</>
+                                                        : <><Upload className="size-4" />Загрузить решение</>}
+                                            </Button>
+                                        </div>
 
                                         {uploadError && (
                                             <div className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3">
@@ -223,15 +245,23 @@ export default function ApplicationTestTaskPage() {
                                             </div>
                                         )}
 
-                                        <p className="text-xs text-muted-ink">
-                                            Форматы: {ALLOWED_SUBMISSION_EXTENSIONS.join(', ')} · до {MAX_SUBMISSION_SIZE_BYTES / (1024 * 1024)} МБ.
-                                            Повторная загрузка заменяет предыдущее решение.
-                                        </p>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="text-xs text-muted-ink">Форматы:</span>
+                                            {ALLOWED_SUBMISSION_EXTENSIONS.map(ext => (
+                                                <span key={ext} className="text-[11px] font-medium px-2 py-0.5 rounded-full border border-border-soft bg-white text-muted-ink">
+                                                    {ext}
+                                                </span>
+                                            ))}
+                                            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full border border-border-soft bg-white text-muted-ink">
+                                                до {MAX_SUBMISSION_SIZE_BYTES / (1024 * 1024)} МБ
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             )}
                         </div>
                     </div>
+            </div>
         </div>
     )
 }

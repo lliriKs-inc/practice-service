@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ChevronDown, Route, MoveRight } from 'lucide-react'
+import { ChevronDown, Route, MoveRight, TriangleAlert, Check, ClipboardList } from 'lucide-react'
 import { getMyApplications, type Application } from '@/services/api/invitation'
 import { getMe, selectActiveApplication } from '@/services/api/auth'
 import { Button } from '@/components/ui/button'
@@ -74,12 +74,12 @@ export default function DashboardApplicationsPage() {
             </div>
 
             {!applicationsLoading && !applicationsError && needsApplicationSelection && (
-                <div className="bg-[#FFF8ED] border border-[#F5D9A0] rounded-xl px-5 py-4 flex items-start gap-3">
-                    <span className="text-lg" aria-hidden="true">⚠️</span>
+                <div className="bg-warning-bg border border-warning-border rounded-xl px-5 py-4 flex items-start gap-3">
+                    <TriangleAlert className="size-5 text-warning flex-shrink-0 mt-0.5" />
                     <div>
-                        <p className="text-sm font-semibold text-[#7A5C1A]">Выберите рабочий трек</p>
-                        <p className="text-sm text-[#6B6880] mt-1">
-                            У вас несколько одобренных заявок. До начала практики выберите трек, по которому будете выполнять задачи и оформлять документы.
+                        <p className="text-sm font-semibold text-warning">Выберите трек</p>
+                        <p className="text-sm text-muted-ink mt-1">
+                            У вас несколько одобренных заявок. До начала практики выберите трек, по которому будете проходить практику.
                         </p>
                     </div>
                 </div>
@@ -99,8 +99,10 @@ export default function DashboardApplicationsPage() {
             )}
 
             {!applicationsLoading && !applicationsError && applications.length === 0 && (
-                <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
-                    <div className="text-4xl mb-4">📋</div>
+                <div className="bg-white rounded-2xl shadow-sm p-12 min-h-[280px] flex flex-col items-center justify-center text-center">
+                    <div className="w-12 h-12 rounded-xl bg-brand-subtle text-brand-hover flex items-center justify-center mb-4">
+                        <ClipboardList className="size-5" />
+                    </div>
                     <p className="font-semibold text-ink mb-1">Заявок пока нет</p>
                     <p className="text-sm text-muted-ink max-w-sm">
                         Чтобы подать заявку на практику, перейдите по ссылке-приглашению,
@@ -169,14 +171,16 @@ export default function DashboardApplicationsPage() {
                                         <ChevronDown className={`size-4 text-muted-ink transition-transform ${expandedAnswers.has(app.id) ? 'rotate-180' : ''}`} />
                                     </button>
                                     {expandedAnswers.has(app.id) && (
-                                        <div className="px-7 py-4 flex flex-col gap-3">
+                                        <div className="px-7 py-4">
                                             {app.answers && app.answers.length > 0 ? (
-                                                app.answers.map((a, i) => (
-                                                    <div key={i} className="flex flex-col gap-0.5">
-                                                        <span className="text-xs text-muted-ink">{a.label}</span>
-                                                        <span className="text-sm text-ink">{a.value}</span>
-                                                    </div>
-                                                ))
+                                                <div className="grid sm:grid-cols-2 gap-4">
+                                                    {app.answers.map((a, i) => (
+                                                        <div key={i} className="flex flex-col gap-0.5">
+                                                            <span className="text-xs text-muted-ink">{a.label}</span>
+                                                            <span className="text-sm text-ink">{a.value}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             ) : (
                                                 <p className="text-sm text-muted-ink">В анкете этой когорты не было вопросов.</p>
                                             )}
@@ -193,10 +197,10 @@ export default function DashboardApplicationsPage() {
                                             {activeApplicationId === app.id ? (
                                                     <Button variant="outline"
                                                         disabled
-                                                        className="px-4 py-2 rounded-lg h-auto">
+                                                        className={`px-4 py-2 rounded-lg h-auto ${isPracticeStarted(app) ? '' : 'bg-success-bg border-success-border text-success disabled:opacity-100'}`}>
                                                         {isPracticeStarted(app)
                                                             ? 'Выбор закреплён'
-                                                            : '✓ Выбранный трек'}
+                                                            : <><Check className="size-3.5" />Выбранный трек</>}
                                                     </Button>
                                                 ) : (
                                                     <Button variant="brand" onClick={() => setApplicationToSelect(app)}
@@ -229,16 +233,15 @@ export default function DashboardApplicationsPage() {
                         <p className="mt-3 text-sm text-muted-ink leading-relaxed text-left">
                             До начала практики выбор можно изменить. После начала практики смена трека будет недоступна.
                         </p>
-                        <div className="mt-7 flex justify-end gap-3">
+                        <div className="mt-7 flex justify-end items-center gap-5">
                             <button type="button" onClick={() => setApplicationToSelect(null)} disabled={selectionSaving}
-                                className="px-5 py-2.5 text-sm font-medium text-[#6B6880] hover:bg-[#F5F4FD] rounded-xl disabled:opacity-50">
+                                className="text-sm font-semibold text-muted-ink hover:text-ink transition-colors disabled:opacity-50">
                                 Отмена
                             </button>
-                            <button type="button" onClick={confirmApplicationSelection} disabled={selectionSaving}
-                                className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-sm disabled:opacity-50"
-                                style={{ background: 'linear-gradient(135deg, #6C63FF, #9B8FFF)' }}>
+                            <Button type="button" variant="brand" onClick={confirmApplicationSelection} disabled={selectionSaving}
+                                className="px-4 py-2 rounded-lg h-auto">
                                 {selectionSaving ? 'Сохраняем…' : 'Выбрать трек'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
