@@ -181,7 +181,7 @@ describe('DashboardDocumentsPage', () => {
         expect(screen.getByText('Отзыв руководителя практики')).toBeInTheDocument()
         expect(screen.getByText('Извещение о прохождении практики')).toBeInTheDocument()
         expect(screen.getByText('Отчёт ещё не загружен')).toBeInTheDocument()
-        expect(screen.getByText('Заполняется куратором практики — доступно только для просмотра.')).toBeInTheDocument()
+        expect(screen.getAllByText('(заполняет куратор)').length).toBeGreaterThan(0)
     })
 
     it('сохраняет поле по blur и разблокирует кнопку "Сформировать" после заполнения всех полей NOTICE', async () => {

@@ -279,7 +279,6 @@ export default function DashboardDocumentsPage() {
             <div className="flex flex-col gap-4">
                 {DOCUMENT_TYPES.map(type => {
                     const fields = DOCUMENT_FIELD_CONFIG[type]
-                    const isStudentEditable = fields.every(f => f.owner === 'STUDENT')
                     const itemReadiness = readinessFor(type)
 
                     return (
@@ -324,48 +323,49 @@ export default function DashboardDocumentsPage() {
                                 </div>
                             )}
 
-                            {isStudentEditable ? (
-                                <div className="px-7 py-5 grid grid-cols-2 gap-4">
-                                    {fields.map(field => {
-                                        const key = draftKey(type, field.key)
-                                        return (
-                                            <div key={field.key} className={`flex flex-col gap-1.5 ${field.multiline ? 'col-span-2' : ''}`}>
-                                                <label htmlFor={key} className="text-xs font-medium text-muted-ink flex items-center gap-2">
-                                                    {field.label}
-                                                    {savingKey === key && <span className="text-[10px] text-muted-ink">сохраняем…</span>}
-                                                </label>
-                                                {field.multiline ? (
-                                                    <textarea
-                                                        id={key}
-                                                        value={fieldDrafts[key] ?? ''}
-                                                        onChange={e => handleFieldChange(type, field.key, e.target.value)}
-                                                        onBlur={() => handleFieldBlur(type, field.key)}
-                                                        rows={3}
-                                                        className="w-full text-sm"
-                                                        style={{ resize: 'vertical' }}
-                                                    />
-                                                ) : (
-                                                    <input
-                                                        id={key}
-                                                        type="text"
-                                                        value={fieldDrafts[key] ?? ''}
-                                                        onChange={e => handleFieldChange(type, field.key, e.target.value)}
-                                                        onBlur={() => handleFieldBlur(type, field.key)}
-                                                        className="w-full text-sm"
-                                                    />
-                                                )}
-                                                {fieldError?.key === key && (
-                                                    <span className="text-xs text-danger">⚠️ {fieldError.message}</span>
-                                                )}
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="px-7 py-5">
-                                    <p className="text-sm text-muted-ink">Заполняется куратором практики — доступно только для просмотра.</p>
-                                </div>
-                            )}
+                            <div className="px-7 py-5 grid grid-cols-2 gap-4">
+                                {fields.map(field => {
+                                    const key = draftKey(type, field.key)
+                                    const canEdit = field.owner === 'STUDENT'
+                                    const value = fieldDrafts[key] ?? ''
+                                    return (
+                                        <div key={field.key} className={`flex flex-col gap-1.5 ${field.multiline ? 'col-span-2' : ''}`}>
+                                            <label htmlFor={canEdit ? key : undefined} className="text-xs font-medium text-muted-ink flex items-center gap-2">
+                                                {field.label}
+                                                {!canEdit && <span className="text-[10px]">(заполняет куратор)</span>}
+                                                {savingKey === key && <span className="text-[10px] text-muted-ink">сохраняем…</span>}
+                                            </label>
+                                            {canEdit ? (field.multiline ? (
+                                                <textarea
+                                                    id={key}
+                                                    value={value}
+                                                    onChange={e => handleFieldChange(type, field.key, e.target.value)}
+                                                    onBlur={() => handleFieldBlur(type, field.key)}
+                                                    rows={3}
+                                                    className="w-full text-sm"
+                                                    style={{ resize: 'vertical' }}
+                                                />
+                                            ) : (
+                                                <input
+                                                    id={key}
+                                                    type="text"
+                                                    value={value}
+                                                    onChange={e => handleFieldChange(type, field.key, e.target.value)}
+                                                    onBlur={() => handleFieldBlur(type, field.key)}
+                                                    className="w-full text-sm"
+                                                />
+                                            )) : (
+                                                <p className="min-h-10 rounded-lg border border-border-soft bg-surface px-3 py-2 text-sm text-ink whitespace-pre-wrap">
+                                                    {value || '—'}
+                                                </p>
+                                            )}
+                                            {fieldError?.key === key && (
+                                                <span className="text-xs text-danger">⚠️ {fieldError.message}</span>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
                         </div>
                     )
                 })}

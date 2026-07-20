@@ -281,7 +281,7 @@ export default function AdminDocumentsPage() {
                                                                 {fields.map(field => {
                                                                     const value = values.find(v => v.key === field.key)?.value ?? ''
                                                                     const key = reviewKey(doc.applicationId, field.key)
-                                                                    if (isReview) {
+                                                                    if (isReview && field.owner === 'ADMIN') {
                                                                         return (
                                                                             <div key={field.key} className={`flex flex-col gap-1 ${field.multiline ? 'col-span-2' : ''}`}>
                                                                                 <label htmlFor={key} className="text-[11px] text-muted-ink flex items-center gap-2">
