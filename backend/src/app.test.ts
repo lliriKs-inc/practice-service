@@ -208,7 +208,7 @@ describe("platform HTTP foundation", () => {
       response.headers[
         "access-control-expose-headers"
       ]
-    ).toBe("Content-Disposition");
+    ).toBe("Content-Disposition,X-Download-Filename");
   });
 
   it("does not grant CORS access to another origin", async () => {

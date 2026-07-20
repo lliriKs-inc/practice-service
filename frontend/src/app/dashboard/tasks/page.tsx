@@ -91,11 +91,12 @@ export default function DashboardTasksPage() {
     const selectedApplication = approvedApplications.find(a => a.id === activeApplicationId) ?? null
     const needsApplicationSelection = approvedApplications.length > 1 && !selectedApplication
     const approvedApplication = selectedApplication ?? (approvedApplications.length === 1 ? approvedApplications[0] : null)
+    const [currentTime] = useState(() => Date.now())
     // Сервер создаёт DailyTask на весь срок практики сразу при одобрении заявки —
     // ячейки на будущие недели существуют заранее. Заполнять их до фактического
     // начала практики смысла не имеет, поэтому блокируем взаимодействие на фронте.
     const practiceStarted = approvedApplication
-        ? Date.now() >= new Date(approvedApplication.cohort.start_date).getTime()
+        ? currentTime >= new Date(approvedApplication.cohort.start_date).getTime()
         : false
 
     const [weekStart, setWeekStart] = useState<string>(() => toISODate(getMondayOfWeek(new Date())))
