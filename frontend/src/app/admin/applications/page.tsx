@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Route } from 'lucide-react'
+import { Route, ListFilter, ChevronDown } from 'lucide-react'
 import { updateApplicationStatus, type Application } from '@/services/api/invitation'
 import { getAdminApplications, getAdminApplicationDetail, type AdminApplicationSummary } from '@/services/api/admin'
 import { useCohortWorkspace } from '../cohort-context'
@@ -11,6 +11,35 @@ const STATUS_LABELS: Record<Application['status'], string> = {
     pending: 'На рассмотрении',
     approved: 'Одобрена',
     rejected: 'Отклонена',
+}
+
+function studentKey(app: AdminApplicationSummary): string {
+    return app.student?.email ?? app.student?.id ?? app.applicationId
+}
+
+function pluralizeApplications(n: number): string {
+    const mod10 = n % 10
+    const mod100 = n % 100
+    if (mod10 === 1 && mod100 !== 11) return 'заявка'
+    if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) return 'заявки'
+    return 'заявок'
+}
+
+// Заявки одного студента (по email) идут подряд, порядок групп и порядок
+// заявок внутри группы — как пришли от бэкенда (стабильная группировка).
+function groupByStudent(applications: AdminApplicationSummary[]): { list: AdminApplicationSummary[]; countByKey: Map<string, number> } {
+    const groups = new Map<string, AdminApplicationSummary[]>()
+    const order: string[] = []
+    for (const app of applications) {
+        const key = studentKey(app)
+        if (!groups.has(key)) {
+            groups.set(key, [])
+            order.push(key)
+        }
+        groups.get(key)!.push(app)
+    }
+    const countByKey = new Map(order.map(key => [key, groups.get(key)!.length]))
+    return { list: order.flatMap(key => groups.get(key)!), countByKey }
 }
 
 export default function AdminApplicationsPage() {
@@ -122,10 +151,12 @@ export default function AdminApplicationsPage() {
     return (
         <div className="flex flex-col gap-6">
             <div>
-                <h1 className="font-extrabold text-2xl tracking-tight text-ink mb-1">Заявки</h1>
-                <p className="text-sm text-muted-ink">
-                    {selectedCohort ? `Заявки кандидатов когорты «${selectedCohort.title}»` : 'Выберите рабочую когорту в шапке, чтобы увидеть заявки.'}
-                </p>
+                <h1 className="font-extrabold text-2xl tracking-tight text-ink">
+                    {selectedCohort ? <>Заявки по когорте «{selectedCohort.title}»</> : 'Заявки'}
+                </h1>
+                {!selectedCohort && (
+                    <p className="text-sm text-muted-ink mt-1">Выберите рабочую когорту в шапке, чтобы увидеть заявки.</p>
+                )}
             </div>
 
             {!selectedCohort && (
@@ -138,22 +169,37 @@ export default function AdminApplicationsPage() {
 
             {selectedCohort && (
                 <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-wrap items-center gap-3">
-                    <select aria-label="Фильтр по статусу заявки" value={statusFilter} onChange={e => setStatusFilter(e.target.value as Application['status'] | '')}
-                        className="text-sm px-3 py-2 rounded-lg border border-border-soft">
-                        <option value="">Все статусы</option>
-                        <option value="pending">На рассмотрении</option>
-                        <option value="approved">Одобрена</option>
-                        <option value="rejected">Отклонена</option>
-                    </select>
-                    <select aria-label="Фильтр по треку" value={trackFilter} onChange={e => setTrackFilter(e.target.value)}
-                        className="text-sm px-3 py-2 rounded-lg border border-border-soft">
-                        <option value="">Все треки</option>
-                        {sourceCohort?.tracks.map(t => (
-                            <option key={t.id} value={t.id}>{t.title}</option>
-                        ))}
-                    </select>
+                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white flex-shrink-0 focus-within:border-brand cursor-pointer">
+                        <ListFilter className="size-3.5 text-muted-ink flex-shrink-0 pointer-events-none" />
+                        <span className="text-sm font-medium text-ink truncate pointer-events-none">
+                            {statusFilter ? STATUS_LABELS[statusFilter] : 'Все статусы'}
+                        </span>
+                        <ChevronDown className="size-3.5 text-muted-ink absolute right-2.5 pointer-events-none" />
+                        <select aria-label="Фильтр по статусу заявки" value={statusFilter}
+                            onChange={e => setStatusFilter(e.target.value as Application['status'] | '')}
+                            className="absolute inset-0 w-full h-full !p-0 !border-0 opacity-0 cursor-pointer text-sm">
+                            <option value="">Все статусы</option>
+                            <option value="pending">На рассмотрении</option>
+                            <option value="approved">Одобрена</option>
+                            <option value="rejected">Отклонена</option>
+                        </select>
+                    </div>
+                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white flex-shrink-0 focus-within:border-brand cursor-pointer">
+                        <Route className="size-3.5 text-muted-ink flex-shrink-0 pointer-events-none" />
+                        <span className="text-sm font-medium text-ink truncate pointer-events-none">
+                            {sourceCohort?.tracks.find(t => t.id === trackFilter)?.title ?? 'Все треки'}
+                        </span>
+                        <ChevronDown className="size-3.5 text-muted-ink absolute right-2.5 pointer-events-none" />
+                        <select aria-label="Фильтр по треку" value={trackFilter} onChange={e => setTrackFilter(e.target.value)}
+                            className="absolute inset-0 w-full h-full !p-0 !border-0 opacity-0 cursor-pointer text-sm">
+                            <option value="">Все треки</option>
+                            {sourceCohort?.tracks.map(t => (
+                                <option key={t.id} value={t.id}>{t.title}</option>
+                            ))}
+                        </select>
+                    </div>
                     <input type="text" aria-label="Поиск по email" value={search} onChange={e => setSearch(e.target.value)}
-                        placeholder="Поиск по email…" className="text-sm px-3 py-2 rounded-lg border border-border-soft flex-1 min-w-[180px]" />
+                        placeholder="Поиск по email…" className="h-9 text-sm px-3 rounded-lg border border-border-soft flex-1 min-w-[180px]" />
                 </div>
             )}
 
@@ -183,16 +229,27 @@ export default function AdminApplicationsPage() {
 
             {selectedCohort && !applicationsError && applications.length > 0 && (
                 <div className="flex flex-col gap-4">
-                    {applications.map(app => {
+                    {(() => {
+                        const { list, countByKey } = groupByStudent(applications)
+                        return list.map(app => {
                         const trackTestTask = sourceCohort?.tracks.find(t => t.id === app.track.id)?.testTask
+                        const applicationsCount = countByKey.get(studentKey(app)) ?? 1
 
                         return (
                             <div key={app.applicationId} className="bg-white rounded-2xl shadow-sm overflow-hidden">
                                 <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between">
                                     <div className="flex flex-col gap-1.5">
-                                        <span className="inline-flex items-center gap-1.5 self-start text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
-                                            <Route className="size-3.5" />{app.track.title}
-                                        </span>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="inline-flex items-center gap-1.5 self-start text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
+                                                <Route className="size-3.5" />{app.track.title}
+                                            </span>
+                                            {applicationsCount > 1 && (
+                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-surface border border-border-soft text-muted-ink"
+                                                    title="У этого студента несколько заявок в этой когорте — какая из них станет рабочей, студент выбирает сам в личном кабинете.">
+                                                    {applicationsCount} {pluralizeApplications(applicationsCount)} у студента
+                                                </span>
+                                            )}
+                                        </div>
                                         <h2 className="font-bold text-lg text-ink">{app.student?.email ?? 'Неизвестный кандидат'}</h2>
                                     </div>
                                     <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border
@@ -317,7 +374,8 @@ export default function AdminApplicationsPage() {
                                 </div>
                             </div>
                         )
-                    })}
+                        })
+                    })()}
                 </div>
             )}
             {applicationToApprove && (
