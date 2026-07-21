@@ -22,6 +22,13 @@ vi.mock('@/services/api/tasks', async () => {
     return { ...actual, getMyWeekTasks, updateDailyTask }
 })
 
+// "+ Заполнить день" теперь рендерится как "+" в отдельном <span> и текст
+// рядом — обычный текстовый матч по строке больше не находит один узел
+// с этим текстом целиком, матчим по textContent самой кнопки.
+function isEmptyDayButton(_content: string, element: Element | null): boolean {
+    return element?.tagName === 'BUTTON' && /\+\s*Заполнить день/.test(element.textContent ?? '')
+}
+
 function loginAsStudent() {
     saveToken('mock-jwt-student-1')
     saveUser({ id: 'student-1', email: 'student@urfu.ru', role: 'STUDENT', created_at: '2026-01-01' })
@@ -181,7 +188,7 @@ describe('DashboardTasksPage (дневник задач)', () => {
 
         expect(await screen.findByText('Практика ещё не началась', {}, { timeout: 3000 })).toBeInTheDocument()
         expect(await screen.findByText(/3 янв – 7 янв/, {}, { timeout: 3000 })).toBeInTheDocument()
-        expect(screen.queryByText('+ Заполнить день')).not.toBeInTheDocument()
+        expect(screen.queryByText(isEmptyDayButton)).not.toBeInTheDocument()
         expect(screen.getAllByText('Пока недоступно')).toHaveLength(5)
 
         fireEvent.click(screen.getAllByText('Пока недоступно')[0])
@@ -193,14 +200,14 @@ describe('DashboardTasksPage (дневник задач)', () => {
         render(<DashboardTasksPage />)
 
         expect(await screen.findByText(/19 июл – 23 июл/, {}, { timeout: 3000 })).toBeInTheDocument()
-        expect(screen.getAllByText('+ Заполнить день')).toHaveLength(5)
+        expect(screen.getAllByText(isEmptyDayButton)).toHaveLength(5)
     })
 
     it('заполняет день описанием и ссылкой, значения сохраняются и отображаются', async () => {
         getMyApplications.mockResolvedValue([makeApplication('approved')])
         render(<DashboardTasksPage />)
 
-        const cells = await screen.findAllByText('+ Заполнить день', {}, { timeout: 3000 })
+        const cells = await screen.findAllByText(isEmptyDayButton, {}, { timeout: 3000 })
         fireEvent.click(cells[0])
 
         const dialog = await screen.findByText('Что было сделано сегодня?')
@@ -217,7 +224,7 @@ describe('DashboardTasksPage (дневник задач)', () => {
         await waitFor(() => expect(screen.queryByText('Что было сделано сегодня?')).not.toBeInTheDocument(), { timeout: 3000 })
 
         expect(await screen.findByText('Настроил окружение', {}, { timeout: 3000 })).toBeInTheDocument()
-        expect(screen.getByText(/🔗 Ссылка/)).toBeInTheDocument()
+        expect(screen.getByText('Ссылка')).toBeInTheDocument()
 
         const monday = taskStore['2027-07-19']
         expect(monday.description).toBe('Настроил окружение')
@@ -228,7 +235,7 @@ describe('DashboardTasksPage (дневник задач)', () => {
         getMyApplications.mockResolvedValue([makeApplication('approved')])
         render(<DashboardTasksPage />)
 
-        const cells = await screen.findAllByText('+ Заполнить день', {}, { timeout: 3000 })
+        const cells = await screen.findAllByText(isEmptyDayButton, {}, { timeout: 3000 })
         fireEvent.click(cells[0])
 
         fireEvent.click(screen.getByText('+ Добавить ссылку'))
@@ -246,7 +253,7 @@ describe('DashboardTasksPage (дневник задач)', () => {
         getMyApplications.mockResolvedValue([makeApplication('approved')])
         render(<DashboardTasksPage />)
 
-        const cells = await screen.findAllByText('+ Заполнить день', {}, { timeout: 3000 })
+        const cells = await screen.findAllByText(isEmptyDayButton, {}, { timeout: 3000 })
         fireEvent.click(cells[0])
         const textarea = screen.getByPlaceholderText('Опиши выполненную работу…')
         fireEvent.change(textarea, { target: { value: 'Черновик' } })
@@ -257,6 +264,6 @@ describe('DashboardTasksPage (дневник задач)', () => {
         fireEvent.click(screen.getByText('Черновик'))
         fireEvent.click(await screen.findByRole('button', { name: 'Очистить день' }))
         await waitFor(() => expect(screen.queryByText('Что было сделано сегодня?')).not.toBeInTheDocument(), { timeout: 3000 })
-        await waitFor(() => expect(screen.getAllByText('+ Заполнить день')).toHaveLength(5), { timeout: 3000 })
+        await waitFor(() => expect(screen.getAllByText(isEmptyDayButton)).toHaveLength(5), { timeout: 3000 })
     }, 10000)
 })

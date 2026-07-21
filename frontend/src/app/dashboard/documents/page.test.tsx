@@ -46,8 +46,13 @@ vi.mock('@/services/api/documents', async () => {
 // getByLabelText полагается на нативную ассоциацию label[for]/input.labels,
 // которая в jsdom нестабильна для динамически смонтированных узлов — ищем
 // поле напрямую через label -> соседний input/textarea в том же блоке.
+// Текст лейбла обёрнут во вложенный <span>, поэтому обычный getByText с
+// selector: 'label' не находит его (getNodeText берёт только прямые
+// текстовые узлы элемента) — матчим по textContent самого label вручную.
 function getFieldInput(container: HTMLElement, labelText: RegExp): HTMLInputElement | HTMLTextAreaElement {
-    const label = within(container).getByText(labelText, { selector: 'label' })
+    const label = within(container).getByText((_content, element) =>
+        element?.tagName === 'LABEL' && labelText.test(element.textContent ?? '')
+    )
     const field = label.parentElement!.querySelector('input, textarea')
     if (!field) throw new Error(`Не нашла поле рядом с лейблом ${labelText}`)
     return field as HTMLInputElement | HTMLTextAreaElement
@@ -181,7 +186,7 @@ describe('DashboardDocumentsPage', () => {
         expect(screen.getByText('Отзыв руководителя практики')).toBeInTheDocument()
         expect(screen.getByText('Извещение о прохождении практики')).toBeInTheDocument()
         expect(screen.getByText('Отчёт ещё не загружен')).toBeInTheDocument()
-        expect(screen.getAllByText('(заполняет куратор)').length).toBeGreaterThan(0)
+        expect(screen.getAllByText('заполняет куратор').length).toBeGreaterThan(0)
     })
 
     it('сохраняет поле по blur и разблокирует кнопку "Сформировать" после заполнения всех полей NOTICE', async () => {
@@ -206,11 +211,9 @@ describe('DashboardDocumentsPage', () => {
         fireEvent.blur(topicInput)
 
         await waitFor(() => {
-            expect(within(noticeCard).getByText('✅ Готов к формированию')).toBeInTheDocument()
+            const generateButton = within(noticeCard).getByRole('button', { name: /Сформировать/ })
+            expect(generateButton).not.toBeDisabled()
         }, { timeout: 3000 })
-
-        const generateButton = within(noticeCard).getByRole('button', { name: /Сформировать/ })
-        expect(generateButton).not.toBeDisabled()
     })
 
     it('показывает готовность документа НЕготовым, если требуется одобренный отчёт (TITLE_PAGE)', async () => {
