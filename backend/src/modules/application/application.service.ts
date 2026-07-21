@@ -27,6 +27,17 @@ export class ApplicationService {
     if (!invitation!.cohort.survey) throw new AppError("Survey not found", 404, "SURVEY_NOT_FOUND");
     const questions = invitation!.cohort.survey.questions;
     this.validateAnswers(dto, questions);
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!userExists) {
+      throw new AppError(
+        "Authentication session references a user that no longer exists",
+        401,
+        "AUTH_SESSION_INVALID"
+      );
+    }
     try {
       return await prisma.$transaction(async (tx) => {
         const application = await tx.application.create({ data: { user_id: userId, track_id: dto.track_id, status: ApplicationStatus.PENDING } });

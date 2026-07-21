@@ -28,7 +28,7 @@
 }
 ```
 
-JWT middleware использует `AUTH_TOKEN_MISSING`, `AUTH_TOKEN_INVALID_FORMAT` и `AUTH_TOKEN_INVALID` с HTTP `401`. Проверка роли возвращает `INSUFFICIENT_PERMISSIONS` с HTTP `403`. Неизвестный versioned route после успешной аутентификации возвращает `ROUTE_NOT_FOUND` с HTTP `404`.
+JWT middleware использует `AUTH_TOKEN_MISSING`, `AUTH_TOKEN_INVALID_FORMAT` и `AUTH_TOKEN_INVALID` с HTTP `401`. Валидный JWT, ссылающийся на уже удалённого пользователя, очищает browser session cookie и возвращает `401 AUTH_SESSION_INVALID`. Проверка роли возвращает `INSUFFICIENT_PERMISSIONS` с HTTP `403`. Неизвестный versioned route после успешной аутентификации возвращает `ROUTE_NOT_FOUND` с HTTP `404`.
 
 `POST /auth/register`, `POST /auth/login` и `GET /auth/me` используют тот же error envelope. Auth-specific codes: `USER_ALREADY_EXISTS`, `INVALID_CREDENTIALS` и `USER_NOT_FOUND`.
 
@@ -194,7 +194,9 @@ Create cohort body:
 }
 ```
 
-`DRAFT`, `ACTIVE`, `CLOSED` — допустимые statuses. Для `ACTIVE` обязательно application window; диапазоны дат не пересекаются в обратном порядке.
+`DRAFT`, `ACTIVE`, `CLOSED` — допустимые statuses. Для `ACTIVE` обязательно application window; диапазоны дат не пересекаются в обратном порядке. Все даты когорты должны находиться в диапазоне `2000-01-01` — `2100-12-31`.
+
+Удалить можно только `DRAFT`-когорту. `PENDING` и `APPROVED` заявки блокируют удаление с `409 COHORT_HAS_APPLICATIONS`; `REJECTED` заявки удаляются каскадно вместе со связанными ответами, заданиями, отчётами, документами и файлами.
 
 Create track body:
 
@@ -232,7 +234,9 @@ Validate body и response:
 }
 ```
 
-Ошибки: `COHORT_NOT_FOUND`, `TRACK_ALREADY_EXISTS`, `INVALID_TOKEN`, `TOKEN_EXPIRED`, `COHORT_CLOSED`, `APPLICATION_WINDOW_CLOSED`, `COHORT_CONTEXT_MISSING`, `COHORT_CONTEXT_MISMATCH`.
+Создание или перегенерация приглашения требует хотя бы одного сохранённого трека в когорте. Если треков нет, API возвращает `409 COHORT_TRACK_REQUIRED`.
+
+Ошибки: `COHORT_NOT_FOUND`, `COHORT_TRACK_REQUIRED`, `TRACK_ALREADY_EXISTS`, `INVALID_TOKEN`, `TOKEN_EXPIRED`, `COHORT_CLOSED`, `APPLICATION_WINDOW_CLOSED`, `COHORT_CONTEXT_MISSING`, `COHORT_CONTEXT_MISMATCH`.
 
 ## 5. Survey и public form
 
@@ -384,6 +388,8 @@ Daily task body:
 ```
 
 `description` может быть `null`; максимум 10 000 символов. `links` содержит до 50 уникальных URL и заменяется атомарно.
+
+Admin cohort progress, missed-days и список документов учитывают рабочую заявку студента из `active_application_id`. Если у студента несколько одобренных треков, после выбора в admin read-model остаётся только выбранный. До начала практики без выбора показываются все одобренные варианты; после начала без выбора используется самая ранняя одобренная заявка — тот же fallback, что и в `GET /auth/me`.
 
 Student week response:
 

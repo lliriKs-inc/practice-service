@@ -9,6 +9,7 @@ const cohort = {
   status: CohortStatus.ACTIVE,
   application_start: new Date(Date.now() - 60_000),
   application_end: new Date(Date.now() + 86_400_000),
+  _count: { tracks: 1 },
 };
 
 describe("InvitationService", () => {
@@ -23,6 +24,25 @@ describe("InvitationService", () => {
     const upsert = vi.spyOn(prisma.invitation, "upsert").mockResolvedValue({ id: "inv-1", cohort_id: "cohort-1", token: "token", created_at: new Date(), expires_at: new Date() } as any);
     await new InvitationService().createInvitation({ cohort_id: "cohort-1", expires_in_days: 7 });
     expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { cohort_id: "cohort-1" }, create: expect.objectContaining({ cohort_id: "cohort-1" }) }));
+  });
+
+  it("rejects creating an invitation for a cohort without tracks", async () => {
+    vi.spyOn(prisma.cohort, "findUnique").mockResolvedValue({
+      ...cohort,
+      _count: { tracks: 0 },
+    } as any);
+    const upsert = vi.spyOn(prisma.invitation, "upsert");
+
+    await expect(
+      new InvitationService().createInvitation({
+        cohort_id: "cohort-1",
+        expires_in_days: 7,
+      })
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: "COHORT_TRACK_REQUIRED",
+    });
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   it("rejects expired tokens and closed cohorts", async () => {

@@ -106,6 +106,57 @@ describe("DailyTaskProgressReadService.getMissed", () => {
     expect(result.missed).toEqual([]);
   });
 
+  it("counts missed tasks only for the selected working application", async () => {
+    vi.spyOn(prisma.application, "findMany").mockResolvedValue([
+      {
+        id: "application-backend",
+        submitted_at: new Date("2026-07-01T00:00:00.000Z"),
+        user: {
+          id: "student-1",
+          full_name: "Student One",
+          email: "student@example.com",
+          active_application_id: "application-backend",
+        },
+        track: { id: "track-backend", title: "Backend" },
+        dailyTasks: [{
+          id: "task-backend",
+          task_date: utcDateOnly(-1),
+          description: null,
+          saved_at: null,
+          application_id: "application-backend",
+          links: [],
+        }],
+      },
+      {
+        id: "application-frontend",
+        submitted_at: new Date("2026-07-02T00:00:00.000Z"),
+        user: {
+          id: "student-1",
+          full_name: "Student One",
+          email: "student@example.com",
+          active_application_id: "application-backend",
+        },
+        track: { id: "track-frontend", title: "Frontend" },
+        dailyTasks: [{
+          id: "task-frontend",
+          task_date: utcDateOnly(-1),
+          description: null,
+          saved_at: null,
+          application_id: "application-frontend",
+          links: [],
+        }],
+      },
+    ] as any);
+
+    const result = await service.getMissed("cohort-1", "2026-07-13");
+
+    expect(result.missed).toHaveLength(1);
+    expect(result.missed[0]).toMatchObject({
+      applicationId: "application-backend",
+      taskId: "task-backend",
+    });
+  });
+
   it("filters by studentId", async () => {
     const findMany = vi
       .spyOn(prisma.application, "findMany")

@@ -1,7 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "./error.middleware";
 import { verifyToken } from "../shared/jwt";
-import { AUTH_SESSION_COOKIE } from "../modules/auth/auth-session.cookie";
+import {
+  AUTH_SESSION_COOKIE,
+  clearAuthSessionCookie,
+} from "../modules/auth/auth-session.cookie";
+import { prisma } from "../shared/prisma";
 
 function cookieValue(cookieHeader: string | undefined, name: string) {
   if (!cookieHeader) return null;
@@ -13,9 +17,9 @@ function cookieValue(cookieHeader: string | undefined, name: string) {
   return value ? decodeURIComponent(value.slice(prefix.length)) : null;
 }
 
-export function authenticateJWT(
+export async function authenticateJWT(
   req: Request,
-  _res: Response,
+  res: Response,
   next: NextFunction
 ) {
   const cookieToken = cookieValue(req.headers.cookie, AUTH_SESSION_COOKIE);
@@ -48,15 +52,9 @@ export function authenticateJWT(
     );
   }
 
+  let payload;
   try {
-    const payload = verifyToken(token);
-
-    req.user = {
-      id: payload.id,
-      role: payload.role,
-    };
-
-    return next();
+    payload = verifyToken(token);
   } catch {
     return next(
       new AppError(
@@ -65,5 +63,40 @@ export function authenticateJWT(
         "AUTH_TOKEN_INVALID"
       )
     );
+  }
+
+  if (!cookieToken) {
+    req.user = {
+      id: payload.id,
+      role: payload.role,
+    };
+    return next();
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: payload.id },
+      select: { id: true, role: true },
+    });
+
+    if (!user) {
+      clearAuthSessionCookie(res);
+      return next(
+        new AppError(
+          "Сессия ссылается на несуществующего пользователя",
+          401,
+          "AUTH_SESSION_INVALID"
+        )
+      );
+    }
+
+    req.user = {
+      id: user.id,
+      role: user.role,
+    };
+
+    return next();
+  } catch (error) {
+    return next(error);
   }
 }

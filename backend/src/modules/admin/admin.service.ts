@@ -6,6 +6,7 @@ import {
 } from "@prisma/client";
 import { AppError } from "../../middlewares/error.middleware";
 import { prisma } from "../../shared/prisma";
+import { selectWorkingApplications } from "../application/select-working-applications";
 import { buildDocumentReadiness } from "../documents/document-readiness.service";
 import type { AdminApplicationsQuery } from "./dto/admin-applications-query.dto";
 import type { AdminDocumentsQuery } from "./dto/admin-documents-query.dto";
@@ -287,7 +288,7 @@ export class AdminService {
     cohortId: string,
     filters: AdminDocumentsQuery = {}
   ) {
-    await this.assertCohortExists(cohortId);
+    const cohort = await this.assertCohortExists(cohortId);
 
     const applications = await prisma.application.findMany({
       where: {
@@ -327,11 +328,13 @@ export class AdminService {
       },
       select: {
         id: true,
+        submitted_at: true,
         user: {
           select: {
             id: true,
             full_name: true,
             email: true,
+            active_application_id: true,
           },
         },
         track: {
@@ -366,7 +369,10 @@ export class AdminService {
       orderBy: [{ user: { full_name: "asc" } }, { id: "asc" }],
     });
 
-    return applications
+    return selectWorkingApplications(
+      applications,
+      cohort.practice_start
+    )
       .map((application) => {
         const readiness = buildDocumentReadiness(
           application.documents,
@@ -375,7 +381,11 @@ export class AdminService {
 
         return {
           applicationId: application.id,
-          student: application.user,
+          student: {
+            id: application.user.id,
+            full_name: application.user.full_name,
+            email: application.user.email,
+          },
           track: application.track,
           report: application.report
             ? {
@@ -606,7 +616,7 @@ export class AdminService {
   private async assertCohortExists(cohortId: string) {
     const cohort = await prisma.cohort.findUnique({
       where: { id: cohortId },
-      select: { id: true },
+      select: { id: true, practice_start: true },
     });
 
     if (!cohort) {
@@ -616,5 +626,7 @@ export class AdminService {
         "COHORT_NOT_FOUND"
       );
     }
+
+    return cohort;
   }
 }

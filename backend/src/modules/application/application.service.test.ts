@@ -20,6 +20,7 @@ describe("ApplicationService", () => {
   it("submits an application and answers in one transaction", async () => {
     vi.spyOn(prisma.invitation, "findUnique").mockResolvedValue(invitation as any);
     vi.spyOn(prisma.track, "findUnique").mockResolvedValue({ id: "track-1", cohort_id: "cohort-1" } as any);
+    vi.spyOn(prisma.user, "findUnique").mockResolvedValue({ id: "user-1" } as any);
     const tx = {
       application: {
         create: vi.fn().mockResolvedValue(application),
@@ -32,6 +33,21 @@ describe("ApplicationService", () => {
     expect(transaction).toHaveBeenCalled();
     expect(tx.application.create).toHaveBeenCalledWith({ data: { user_id: "user-1", track_id: "track-1", status: ApplicationStatus.PENDING } });
     expect(tx.applicationAnswer.createMany).toHaveBeenCalledWith({ data: [{ application_id: "application-1", question_id: "question-1", answer_value: "Alice" }] });
+  });
+
+  it("rejects a submission when the authenticated user was deleted", async () => {
+    vi.spyOn(prisma.invitation, "findUnique").mockResolvedValue(invitation as any);
+    vi.spyOn(prisma.track, "findUnique").mockResolvedValue({ id: "track-1", cohort_id: "cohort-1" } as any);
+    vi.spyOn(prisma.user, "findUnique").mockResolvedValue(null);
+    const transaction = vi.spyOn(prisma, "$transaction");
+
+    await expect(
+      new ApplicationService().submitByInvitation("deleted-user", "token", {
+        track_id: "track-1",
+        answers: [{ question_id: "question-1", answer_value: "Alice" }],
+      })
+    ).rejects.toMatchObject({ code: "AUTH_SESSION_INVALID", statusCode: 401 });
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it("rejects missing required answers", async () => {

@@ -125,6 +125,49 @@ describe("AdminService", () => {
     ).toBe(true);
   });
 
+  it("shows documents only for the student's selected working application", async () => {
+    vi.spyOn(prisma.cohort, "findUnique").mockResolvedValue({
+      id: "cohort-1",
+      practice_start: new Date("2026-07-01T00:00:00.000Z"),
+    } as never);
+    vi.spyOn(prisma.application, "findMany").mockResolvedValue([
+      {
+        id: "application-backend",
+        submitted_at: new Date("2026-06-01T10:00:00.000Z"),
+        user: {
+          ...student,
+          active_application_id: "application-frontend",
+        },
+        track: { id: "track-backend", title: "Backend" },
+        report: null,
+        documents: [],
+      },
+      {
+        id: "application-frontend",
+        submitted_at: new Date("2026-06-01T11:00:00.000Z"),
+        user: {
+          ...student,
+          active_application_id: "application-frontend",
+        },
+        track: { id: "track-frontend", title: "Frontend" },
+        report: null,
+        documents: [],
+      },
+    ] as never);
+
+    const result = await new AdminService().getDocuments("cohort-1");
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      applicationId: "application-frontend",
+      student,
+      track: { id: "track-frontend", title: "Frontend" },
+    });
+    expect(result[0].student).not.toHaveProperty(
+      "active_application_id"
+    );
+  });
+
   it("returns document field values only for an approved scoped application", async () => {
     const findFirst = vi
       .spyOn(prisma.application, "findFirst")
