@@ -6,9 +6,19 @@ import { AppError } from "../../middlewares/error.middleware";
 export class InvitationService {
   async createInvitation(data: { cohort_id: string; expires_in_days: number }) {
     if (!Number.isInteger(data.expires_in_days) || data.expires_in_days <= 0) throw new AppError("expires_in_days must be a positive integer", 400, "INVALID_EXPIRATION");
-    const cohort = await prisma.cohort.findUnique({ where: { id: data.cohort_id } });
+    const cohort = await prisma.cohort.findUnique({
+      where: { id: data.cohort_id },
+      include: { _count: { select: { tracks: true } } },
+    });
     if (!cohort) throw new AppError("Cohort not found", 404, "COHORT_NOT_FOUND");
     if (cohort.status === CohortStatus.CLOSED) throw new AppError("Cohort is closed", 400, "COHORT_CLOSED");
+    if (cohort._count.tracks === 0) {
+      throw new AppError(
+        "Cohort must have at least one track before creating an invitation",
+        409,
+        "COHORT_TRACK_REQUIRED"
+      );
+    }
 
     const token = crypto.randomBytes(32).toString("hex");
     const expires_at = new Date(Date.now() + data.expires_in_days * 24 * 60 * 60 * 1000);

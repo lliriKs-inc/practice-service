@@ -91,15 +91,25 @@ describe("CohortService", () => {
         { testTask: null },
       ],
     } as any);
-    vi.spyOn(prisma.application, "count").mockResolvedValue(0);
-    vi.spyOn(prisma.testTaskSubmission, "count").mockResolvedValue(0);
-    const remove = vi.spyOn(prisma.cohort, "delete").mockResolvedValue({} as any);
+    vi.spyOn(prisma.application, "findMany").mockResolvedValue([]);
+    const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
+    const remove = vi.fn().mockResolvedValue({});
+    vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => callback({
+      application: { deleteMany },
+      cohort: { delete: remove },
+    }));
 
     await expect(
       service.deleteCohort("cohort-1", "admin-1", "request-1"),
     ).resolves.toEqual({ deleted: true });
 
     expect(remove).toHaveBeenCalledWith({ where: { id: "cohort-1" } });
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        status: ApplicationStatus.REJECTED,
+        track: { cohort_id: "cohort-1" },
+      },
+    });
     expect(storage.remove).toHaveBeenCalledWith("test-tasks/task.pdf");
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({
       action: "COHORT_DELETED",
@@ -120,18 +130,74 @@ describe("CohortService", () => {
     });
   });
 
-  it("rejects deleting a cohort that has applications or submissions", async () => {
+  it("rejects deleting a cohort that has pending or approved applications", async () => {
     const service = new CohortService();
     vi.spyOn(service, "getCohort").mockResolvedValue({
       id: "cohort-1",
       status: CohortStatus.DRAFT,
       tracks: [],
     } as any);
-    vi.spyOn(prisma.application, "count").mockResolvedValue(1);
-    vi.spyOn(prisma.testTaskSubmission, "count").mockResolvedValue(0);
+    vi.spyOn(prisma.application, "findMany").mockResolvedValue([
+      {
+        status: ApplicationStatus.PENDING,
+        testTaskSubmission: null,
+        report: null,
+        documents: [],
+      },
+    ] as any);
 
     await expect(service.deleteCohort("cohort-1")).rejects.toMatchObject({
       code: "COHORT_HAS_APPLICATIONS",
     });
+  });
+
+  it("deletes a draft with only rejected applications and cleans up their files", async () => {
+    const storage = { remove: vi.fn().mockResolvedValue(undefined) };
+    const audit = { record: vi.fn() };
+    const service = new CohortService({ storage: storage as any, audit });
+    vi.spyOn(service, "getCohort").mockResolvedValue({
+      id: "cohort-1",
+      status: CohortStatus.DRAFT,
+      tracks: [{ testTask: { file_url: "test-tasks/task.pdf" } }],
+    } as any);
+    vi.spyOn(prisma.application, "findMany").mockResolvedValue([
+      {
+        status: ApplicationStatus.REJECTED,
+        testTaskSubmission: { file_url: "test-task-submissions/solution.zip" },
+        report: { file_url: "reports/report.pdf" },
+        documents: [
+          { generated_file_url: "generated-documents/review.docx" },
+          { generated_file_url: null },
+        ],
+      },
+    ] as any);
+    const deleteMany = vi.fn().mockResolvedValue({ count: 1 });
+    const deleteCohort = vi.fn().mockResolvedValue({});
+    vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => callback({
+      application: { deleteMany },
+      cohort: { delete: deleteCohort },
+    }));
+
+    await expect(service.deleteCohort("cohort-1", "admin-1", "request-1"))
+      .resolves.toEqual({ deleted: true });
+
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        status: ApplicationStatus.REJECTED,
+        track: { cohort_id: "cohort-1" },
+      },
+    });
+    expect(deleteCohort).toHaveBeenCalledWith({ where: { id: "cohort-1" } });
+    expect(storage.remove).toHaveBeenCalledTimes(4);
+    expect(storage.remove).toHaveBeenCalledWith("test-tasks/task.pdf");
+    expect(storage.remove).toHaveBeenCalledWith("test-task-submissions/solution.zip");
+    expect(storage.remove).toHaveBeenCalledWith("reports/report.pdf");
+    expect(storage.remove).toHaveBeenCalledWith("generated-documents/review.docx");
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({
+      metadata: expect.objectContaining({
+        deletedRejectedApplications: 1,
+        fileCount: 4,
+      }),
+    }));
   });
 });

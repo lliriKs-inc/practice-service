@@ -124,28 +124,46 @@ export class CohortService {
       );
     }
 
-    const [applications, submissions] = await Promise.all([
-      prisma.application.count({
-        where: { track: { cohort_id: id } },
-      }),
-      prisma.testTaskSubmission.count({
-        where: { application: { track: { cohort_id: id } } },
-      }),
-    ]);
+    const applications = await prisma.application.findMany({
+      where: { track: { cohort_id: id } },
+      select: {
+        status: true,
+        testTaskSubmission: { select: { file_url: true } },
+        report: { select: { file_url: true } },
+        documents: { select: { generated_file_url: true } },
+      },
+    });
 
-    if (applications > 0 || submissions > 0) {
+    if (applications.some(({ status }) => status !== ApplicationStatus.REJECTED)) {
       throw new AppError(
-        "A cohort with applications cannot be deleted",
+        "A cohort with pending or approved applications cannot be deleted",
         409,
         "COHORT_HAS_APPLICATIONS",
       );
     }
 
-    const fileKeys = cohort.tracks.flatMap((track) =>
+    const taskFileKeys = cohort.tracks.flatMap((track) =>
       track.testTask?.file_url ? [track.testTask.file_url] : [],
     );
+    const applicationFileKeys = applications.flatMap((application) => [
+      application.testTaskSubmission?.file_url,
+      application.report?.file_url,
+      ...application.documents.map(({ generated_file_url }) =>
+        generated_file_url
+      ),
+    ]).filter((key): key is string => Boolean(key));
+    const fileKeys = [...new Set([...taskFileKeys, ...applicationFileKeys])];
 
-    await prisma.cohort.delete({ where: { id } });
+    const deletedApplications = await prisma.$transaction(async (tx) => {
+      const deleted = await tx.application.deleteMany({
+        where: {
+          status: ApplicationStatus.REJECTED,
+          track: { cohort_id: id },
+        },
+      });
+      await tx.cohort.delete({ where: { id } });
+      return deleted.count;
+    });
     const cleanup = await Promise.allSettled(
       fileKeys.map((key) => this.storage.remove(key)),
     );
@@ -158,6 +176,7 @@ export class CohortService {
       resourceType: "cohort",
       resourceId: id,
       metadata: {
+        deletedRejectedApplications: deletedApplications,
         fileCount: fileKeys.length,
         fileCleanupFailures: cleanup.filter(
           ({ status }) => status === "rejected",

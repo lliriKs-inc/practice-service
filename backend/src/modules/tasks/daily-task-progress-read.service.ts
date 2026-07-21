@@ -5,6 +5,7 @@ import {
 } from "@prisma/client";
 import { AppError } from "../../middlewares/error.middleware";
 import { prisma } from "../../shared/prisma";
+import { selectWorkingApplications } from "../application/select-working-applications";
 
 function parseUtcDateOnly(value: string): Date {
   const date = new Date(`${value}T00:00:00.000Z`);
@@ -200,11 +201,13 @@ export class DailyTaskProgressReadService {
               },
               select: {
                 id: true,
+                submitted_at: true,
                 user: {
                   select: {
                     id: true,
                     full_name: true,
                     email: true,
+                    active_application_id: true,
                   },
                 },
                 dailyTasks: {
@@ -233,8 +236,14 @@ export class DailyTaskProgressReadService {
         "COHORT_NOT_FOUND"
       );
     }
-    const applications = cohort.tracks.flatMap(
-      (track) => track.applications
+    const applications = cohort.tracks.flatMap((track) =>
+      track.applications.map((application) => ({
+        ...application,
+        track: {
+          id: track.id,
+          title: track.title,
+        },
+      }))
     );
 
     if (
@@ -255,6 +264,10 @@ export class DailyTaskProgressReadService {
       cohort.practice_start,
       cohort.practice_end
     );
+    const workingApplications = selectWorkingApplications(
+      applications,
+      cohort.practice_start
+    );
 
     return {
       cohort: {
@@ -266,8 +279,7 @@ export class DailyTaskProgressReadService {
       weekStart: formatDate(weekStart),
       weekEnd: formatDate(weekEnd),
       days: practiceWeekdays.map((date) => formatDate(date)),
-      students: cohort.tracks.flatMap((track) =>
-        track.applications.map((application) => {
+      students: workingApplications.map((application) => {
           const tasksByDate = new Map(
             application.dailyTasks.map((task) => [
               formatDate(task.task_date),
@@ -279,16 +291,15 @@ export class DailyTaskProgressReadService {
             applicationId: application.id,
             student: application.user,
             track: {
-              id: track.id,
-              title: track.title,
+              id: application.track.id,
+              title: application.track.title,
             },
             tasks: practiceWeekdays.map((date) => ({
               date: formatDate(date),
               task: tasksByDate.get(formatDate(date)) ?? null,
             })),
           };
-        })
-      ),
+        }),
     };
   }
   async getMissed(
@@ -371,11 +382,13 @@ export class DailyTaskProgressReadService {
         },
         select: {
           id: true,
+          submitted_at: true,
           user: {
             select: {
               id: true,
               full_name: true,
               email: true,
+              active_application_id: true,
             },
           },
           track: {
@@ -406,11 +419,16 @@ export class DailyTaskProgressReadService {
         },
       });
 
+    const workingApplications = selectWorkingApplications(
+      applications,
+      cohort.practice_start
+    );
+
     return {
       cohortId,
       weekStart: formatDate(weekStart),
       weekEnd: formatDate(weekEnd),
-      missed: applications.flatMap((application) =>
+      missed: workingApplications.flatMap((application) =>
         application.dailyTasks.map((task) => ({
           applicationId: application.id,
           taskId: task.id,

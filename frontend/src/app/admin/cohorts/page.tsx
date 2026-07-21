@@ -62,10 +62,27 @@ const QUESTION_TYPES = [
     { value: 'checkbox', label: 'Несколько вариантов' },
 ]
 
+const COHORT_DATE_MIN = '2000-01-01'
+const COHORT_DATE_MAX = '2100-12-31'
+const COHORT_DATE_ERROR = 'Укажите даты с четырёхзначным годом в диапазоне от 2000 до 2100.'
+
+function isAllowedCohortDate(value: string | null | undefined): boolean {
+    if (!value) return false
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return false
+    const year = date.getUTCFullYear()
+    return year >= 2000 && year <= 2100
+}
+
 function toDateInput(iso: string): string {
     if (!iso) return ''
     const d = new Date(iso)
-    return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10)
+    return !isAllowedCohortDate(iso) || Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10)
+}
+
+function formatCohortDate(iso: string | null | undefined): string {
+    if (!isAllowedCohortDate(iso)) return 'Некорректная дата'
+    return new Date(iso!).toLocaleDateString('ru')
 }
 
 function uid() {
@@ -158,6 +175,10 @@ export default function AdminCohortsPage() {
     async function handleCreateCohort() {
         if (!isCreateFormComplete()) {
             setCreateErrors(['Заполните название и все 4 даты'])
+            return
+        }
+        if (![newCohort.application_start, newCohort.application_end, newCohort.start_date, newCohort.end_date].every(isAllowedCohortDate)) {
+            setCreateErrors([COHORT_DATE_ERROR])
             return
         }
         setCreateLoading(true)
@@ -306,6 +327,11 @@ export default function AdminCohortsPage() {
 
     async function handleSaveEdit() {
         if (!editDraft) return
+        if (![editDraft.application_start, editDraft.application_end, editDraft.start_date, editDraft.end_date].every(isAllowedCohortDate)) {
+            setEditTab('general')
+            setEditErrors([COHORT_DATE_ERROR])
+            return
+        }
         const duplicateTitle = getDuplicateTrackTitle(editDraft.tracks)
         if (duplicateTitle) {
             const duplicateTrack = editDraft.tracks.find((track, index, tracks) =>
@@ -473,6 +499,10 @@ export default function AdminCohortsPage() {
 
     async function createDraftInvitation() {
         if (!editDraft) return
+        if (!editDraft.tracks.some(track => track.title.trim().length > 0)) {
+            setEditErrors(['Сначала добавьте и сохраните хотя бы один трек, затем создайте ссылку-приглашение.'])
+            return
+        }
         setInvitationSaving(true)
         setEditErrors([])
         try {
@@ -616,12 +646,12 @@ export default function AdminCohortsPage() {
                                     {
                                         label: 'Период приёма заявок',
                                         value: cohort.application_start && cohort.application_end
-                                            ? `${new Date(cohort.application_start).toLocaleDateString('ru')} — ${new Date(cohort.application_end).toLocaleDateString('ru')}`
+                                            ? `${formatCohortDate(cohort.application_start)} — ${formatCohortDate(cohort.application_end)}`
                                             : 'Не задан',
                                     },
                                     {
                                         label: 'Период практики',
-                                        value: `${new Date(cohort.start_date).toLocaleDateString('ru')} — ${new Date(cohort.end_date).toLocaleDateString('ru')}`,
+                                        value: `${formatCohortDate(cohort.start_date)} — ${formatCohortDate(cohort.end_date)}`,
                                     },
                                 ].map((item, i) => (
                                     <div key={i} className="px-6 py-4 flex flex-col gap-1">
@@ -684,7 +714,7 @@ export default function AdminCohortsPage() {
                             Когорта «{cohortToDelete.title}» будет удалена безвозвратно.
                         </p>
                         <p className="text-sm text-muted-ink leading-relaxed">
-                            Вместе с ней удалятся треки, анкета, приглашение и другие черновые настройки.
+                            Вместе с ней удалятся треки, анкета, приглашение, все отклонённые заявки и связанные с ними файлы.
                         </p>
                         <div className="mt-7 flex justify-end gap-3">
                             <button type="button" onClick={closeDeleteModal} disabled={Boolean(deletingCohortId)}
@@ -773,13 +803,13 @@ export default function AdminCohortsPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-ink">Начало приёма заявок <span className="text-brand-hover">*</span></label>
-                                    <input type="date" required value={newCohort.application_start}
+                                    <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.application_start}
                                         onChange={e => setNewCohort(prev => ({ ...prev, application_start: e.target.value }))}
                                         className="w-full text-sm" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-ink">Конец приёма заявок <span className="text-brand-hover">*</span></label>
-                                    <input type="date" required value={newCohort.application_end}
+                                    <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.application_end}
                                         onChange={e => setNewCohort(prev => ({ ...prev, application_end: e.target.value }))}
                                         className="w-full text-sm" />
                                 </div>
@@ -788,13 +818,13 @@ export default function AdminCohortsPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-ink">Начало практики <span className="text-brand-hover">*</span></label>
-                                    <input type="date" required value={newCohort.start_date}
+                                    <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.start_date}
                                         onChange={e => setNewCohort(prev => ({ ...prev, start_date: e.target.value }))}
                                         className="w-full text-sm" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-ink">Конец практики <span className="text-brand-hover">*</span></label>
-                                    <input type="date" required value={newCohort.end_date}
+                                    <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.end_date}
                                         onChange={e => setNewCohort(prev => ({ ...prev, end_date: e.target.value }))}
                                         className="w-full text-sm" />
                                 </div>
@@ -908,13 +938,13 @@ export default function AdminCohortsPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-ink">Начало приёма заявок</label>
-                                    <input type="date" value={toDateInput(editDraft.application_start ?? '')}
+                                    <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.application_start ?? '')}
                                         onChange={e => patchDraft({ application_start: e.target.value })}
                                         className="w-full text-sm" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-ink">Конец приёма заявок</label>
-                                    <input type="date" value={toDateInput(editDraft.application_end ?? '')}
+                                    <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.application_end ?? '')}
                                         onChange={e => patchDraft({ application_end: e.target.value })}
                                         className="w-full text-sm" />
                                 </div>
@@ -923,13 +953,13 @@ export default function AdminCohortsPage() {
                             <div className="grid grid-cols-2 gap-4">
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-sm font-medium text-ink">Начало практики</label>
-                                            <input type="date" value={toDateInput(editDraft.start_date)}
+                                            <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.start_date)}
                                                 onChange={e => patchDraft({ start_date: e.target.value })}
                                                 className="w-full text-sm" />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-sm font-medium text-ink">Конец практики</label>
-                                            <input type="date" value={toDateInput(editDraft.end_date)}
+                                            <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.end_date)}
                                                 onChange={e => patchDraft({ end_date: e.target.value })}
                                                 className="w-full text-sm" />
                                         </div>

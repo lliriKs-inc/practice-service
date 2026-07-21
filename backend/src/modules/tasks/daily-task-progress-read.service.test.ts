@@ -133,4 +133,57 @@ describe("DailyTaskProgressReadService weekly boundaries", () => {
       })
     ).rejects.toMatchObject({ code: "APPLICATION_NOT_FOUND" });
   });
+
+  it("shows only the selected working application when one student has two approved tracks", async () => {
+    vi.spyOn(prisma.cohort, "findUnique").mockResolvedValue({
+      id: "cohort-1",
+      title: "Practice 2027",
+      practice_start: new Date("2027-07-23T00:00:00.000Z"),
+      practice_end: new Date("2027-07-24T00:00:00.000Z"),
+      tracks: [
+        {
+          id: "track-backend",
+          title: "Backend",
+          applications: [{
+            id: "application-backend",
+            submitted_at: new Date("2026-07-01T00:00:00.000Z"),
+            user: {
+              id: "student-1",
+              full_name: "Student",
+              email: "student@example.com",
+              active_application_id: "application-backend",
+            },
+            dailyTasks: [],
+          }],
+        },
+        {
+          id: "track-frontend",
+          title: "Frontend",
+          applications: [{
+            id: "application-frontend",
+            submitted_at: new Date("2026-07-02T00:00:00.000Z"),
+            user: {
+              id: "student-1",
+              full_name: "Student",
+              email: "student@example.com",
+              active_application_id: "application-backend",
+            },
+            dailyTasks: [],
+          }],
+        },
+      ],
+    } as any);
+
+    const result = await service.getCohort(
+      "cohort-1",
+      "2027-07-19",
+      { id: "admin-1", role: UserRole.ADMIN }
+    );
+
+    expect(result.students).toHaveLength(1);
+    expect(result.students[0]).toMatchObject({
+      applicationId: "application-backend",
+      track: { id: "track-backend", title: "Backend" },
+    });
+  });
 });
