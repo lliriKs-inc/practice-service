@@ -128,8 +128,8 @@ export default function DashboardDocumentsPage() {
     useEffect(() => {
         if (!approvedApplication || !studentName || documents.length === 0) return
         if (autoFilledForAppId === approvedApplication.id) return
-        setAutoFilledForAppId(approvedApplication.id)
         ;(async () => {
+            setAutoFilledForAppId(approvedApplication.id)
             const missing = studentFieldOccurrences('student_fio').filter(t => {
                 const doc = documents.find(d => d.type === t)
                 return !(doc?.fieldValues.find(f => f.key === 'student_fio')?.value ?? '').trim()
