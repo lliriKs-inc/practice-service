@@ -18,7 +18,7 @@ import {
     type Question,
     type TestTask,
 } from '@/services/api/cohorts'
-import { Info, Star, Route, Link as LinkIcon, ClipboardCheck, ClipboardX, Plus } from 'lucide-react'
+import { Info, Star, Route, Link as LinkIcon, ClipboardCheck, ClipboardX, Plus, Pencil, TriangleAlert, Settings, FileText, X, RotateCw, Paperclip, Download, Copy, ChevronDown, Type, Layers, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useCohortWorkspace } from '../cohort-context'
 import { describeApiErrors } from '@/lib/api/error-messages'
@@ -46,6 +46,12 @@ const STATUS_LABELS: Record<CohortStatus, string> = {
     draft: 'Черновик',
     active: 'Активна',
     closed: 'Закрыта',
+}
+
+const STATUS_DOTS: Record<CohortStatus, string> = {
+    draft: 'bg-muted-ink',
+    active: 'bg-success-dot',
+    closed: 'bg-danger-dot',
 }
 
 const STATUS_STYLES: Record<CohortStatus, string> = {
@@ -150,6 +156,45 @@ export default function AdminCohortsPage() {
     const [newTrackTitle, setNewTrackTitle] = useState('')
     const [newTrackError, setNewTrackError] = useState('')
     const [trackTitleErrors, setTrackTitleErrors] = useState<Record<string, string>>({})
+
+    // Автоскролл к только что добавленному треку/вопросу, если список большой
+    // и новый элемент появляется за пределами видимой области.
+    const trackRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+    const questionRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+    const prevEditDraftId = useRef<string | null>(null)
+    const prevTracksLen = useRef(0)
+    const prevQuestionsLen = useRef(0)
+
+    useEffect(() => {
+        if (!editDraft) {
+            prevEditDraftId.current = null
+            return
+        }
+        const tracksLen = editDraft.tracks.length
+        const questionsLen = editDraft.survey?.questions.length ?? 0
+
+        // Модалка только открылась (или открыта другая когорта) — запоминаем
+        // текущие длины без скролла, иначе при открытии когорты с большим
+        // числом треков/вопросов страница дёргалась бы к последнему элементу.
+        if (prevEditDraftId.current !== editDraft.id) {
+            prevEditDraftId.current = editDraft.id
+            prevTracksLen.current = tracksLen
+            prevQuestionsLen.current = questionsLen
+            return
+        }
+
+        if (tracksLen > prevTracksLen.current) {
+            const last = editDraft.tracks[tracksLen - 1]
+            trackRefs.current.get(last.id)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+        prevTracksLen.current = tracksLen
+
+        if (questionsLen > prevQuestionsLen.current) {
+            const last = editDraft.survey!.questions[questionsLen - 1]
+            questionRefs.current.get(last.id)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+        prevQuestionsLen.current = questionsLen
+    }, [editDraft])
 
     // Пока открыта любая модалка — блокируем скролл страницы позади неё,
     // иначе движение мыши за пределы модалки листает фон.
@@ -580,9 +625,12 @@ export default function AdminCohortsPage() {
                 )}
 
                 {deleteErrors.length > 0 && (
-                    <div className="bg-danger-bg border border-danger-border rounded-xl px-5 py-4">
+                    <div className="bg-danger-bg border border-danger-border rounded-xl px-5 py-4 flex flex-col gap-1.5">
                         {deleteErrors.map(message => (
-                            <p key={message} className="text-sm text-danger">⚠️ {message}</p>
+                            <div key={message} className="flex items-start gap-3">
+                                <TriangleAlert className="size-5 text-danger flex-shrink-0 mt-0.5" />
+                                <p className="text-sm text-danger">{message}</p>
+                            </div>
                         ))}
                     </div>
                 )}
@@ -609,7 +657,8 @@ export default function AdminCohortsPage() {
                             <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between gap-4">
                                 <div className="flex items-center gap-3 flex-wrap">
                                     <h2 className="font-extrabold text-xl text-ink tracking-tight uppercase">{cohort.title}</h2>
-                                    <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${STATUS_STYLES[cohort.status]}`}>
+                                    <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border ${STATUS_STYLES[cohort.status]}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOTS[cohort.status]}`} />
                                         {STATUS_LABELS[cohort.status]}
                                     </span>
                                     {isWorking && (
@@ -621,22 +670,22 @@ export default function AdminCohortsPage() {
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                     {!isWorking && (
                                         <button onClick={() => setSelectedCohortId(cohort.id)}
-                                            className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-border-soft text-muted-ink hover:bg-surface transition-all">
+                                            className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle transition-colors duration-300">
                                             Сделать рабочей
                                         </button>
                                     )}
-                                    <button onClick={() => openEdit(cohort)}
-                                        className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle transition-all inline-flex items-center gap-1.5">
-                                        <span className="text-sm leading-none">✎</span> Редактировать
-                                    </button>
+                                    <Button variant="brand" onClick={() => openEdit(cohort)} className="px-4 py-1.5 rounded-lg h-auto text-xs">
+                                        <Pencil className="size-3.5" /> Редактировать
+                                    </Button>
                                     {cohort.status === 'draft' && (
-                                        <button
+                                        <Button
+                                            variant="danger"
                                             type="button"
                                             onClick={() => openDeleteModal(cohort)}
                                             disabled={deletingCohortId === cohort.id}
-                                            className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-danger-border text-danger hover:bg-danger-bg transition-all disabled:opacity-50">
+                                            className="px-4 py-1.5 rounded-lg h-auto text-xs">
                                             {deletingCohortId === cohort.id ? 'Удаляем…' : 'Удалить'}
-                                        </button>
+                                        </Button>
                                     )}
                                 </div>
                             </div>
@@ -686,15 +735,16 @@ export default function AdminCohortsPage() {
                                     <LinkIcon className="size-3.5 text-muted-ink flex-shrink-0" />
                                     <span className="text-xs text-muted-ink flex-shrink-0">Ссылка для кандидатов:</span>
                                     <code className="text-xs text-brand-hover flex-1 min-w-0 truncate">/apply/{cohort.invitation.token}</code>
+                                    {cohort.status !== 'active' && (
+                                        <span className="inline-flex items-center justify-center text-warning cursor-help flex-shrink-0"
+                                            title="Кандидаты не увидят анкету, пока когорта не переведена в статус «Активна»">
+                                            <TriangleAlert className="size-3.5" />
+                                        </span>
+                                    )}
                                     <button onClick={() => copyInvitation(cohort.invitation!.token)}
                                         className="text-xs font-semibold text-brand-hover bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300 shrink-0">
                                         Копировать
                                     </button>
-                                    {cohort.status !== 'active' && (
-                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-warning-bg border border-warning-border text-warning shrink-0">
-                                            заработает после активации
-                                        </span>
-                                    )}
                                 </div>
                             )}
                         </div>
@@ -706,25 +756,25 @@ export default function AdminCohortsPage() {
             {cohortToDelete && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
                     {...deleteModalOverlay}>
-                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md mx-4"
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md mx-4 text-center"
                         onClick={e => e.stopPropagation()}>
-                        <div className="w-12 h-12 rounded-full bg-danger-bg flex items-center justify-center text-2xl mb-5">🗑️</div>
-                        <h3 className="font-bold text-xl text-ink mb-2">Удалить когорту?</h3>
-                        <p className="text-sm text-muted-ink leading-relaxed mb-3">
-                            Когорта «{cohortToDelete.title}» будет удалена безвозвратно.
+                        <h3 className="font-bold text-xl text-ink mb-3">Удалить когорту?</h3>
+                        <span className="inline-flex items-center gap-2 text-sm font-semibold text-danger bg-danger-bg border border-danger-border rounded-full px-3 py-1.5 mb-6">
+                            <Trash2 className="size-4" />{cohortToDelete.title}
+                        </span>
+                        <p className="text-sm text-muted-ink leading-relaxed text-left">
+                            Когорта будет удалена безвозвратно, вместе с ней — треки, анкета, приглашение, все
+                            отклонённые заявки и связанные с ними файлы.
                         </p>
-                        <p className="text-sm text-muted-ink leading-relaxed">
-                            Вместе с ней удалятся треки, анкета, приглашение, все отклонённые заявки и связанные с ними файлы.
-                        </p>
-                        <div className="mt-7 flex justify-end gap-3">
+                        <div className="mt-7 flex justify-end items-center gap-5">
                             <button type="button" onClick={closeDeleteModal} disabled={Boolean(deletingCohortId)}
-                                className="px-5 py-2.5 text-sm font-medium text-muted-ink hover:bg-surface rounded-xl disabled:opacity-50">
+                                className="text-sm font-semibold text-muted-ink hover:text-ink transition-colors disabled:opacity-50">
                                 Отмена
                             </button>
-                            <button type="button" onClick={handleDeleteCohort} disabled={Boolean(deletingCohortId)}
-                                className="px-5 py-2.5 text-sm font-semibold text-white bg-danger hover:bg-danger-hover rounded-xl shadow-sm disabled:opacity-50">
+                            <Button variant="danger" type="button" onClick={handleDeleteCohort} disabled={Boolean(deletingCohortId)}
+                                className="px-4 py-2 rounded-lg h-auto">
                                 {deletingCohortId ? 'Удаляем…' : 'Удалить'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -733,47 +783,61 @@ export default function AdminCohortsPage() {
             {showCopySurveyModal && editDraft?.survey && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
                     {...copySurveyModalOverlay}>
-                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg mx-4"
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md mx-4 text-center"
                         onClick={e => e.stopPropagation()}>
-                        <div className="w-12 h-12 rounded-full bg-brand-subtle flex items-center justify-center text-2xl mb-5">📋</div>
-                        <h3 className="font-bold text-xl text-ink mb-2">Скопировать анкету</h3>
-                        <p className="text-sm text-muted-ink leading-relaxed mb-5">
+                        <h3 className="font-bold text-xl text-ink mb-3">Скопировать анкету?</h3>
+                        <span className="inline-flex items-center gap-2 text-sm font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-3 py-1.5 mb-6">
+                            <FileText className="size-4" />{editDraft.title}
+                        </span>
+                        <p className="text-sm text-muted-ink leading-relaxed text-left">
                             Будут скопированы название анкеты, вопросы, их типы, обязательность и варианты ответов.
                         </p>
-                        <label className="flex flex-col gap-1.5 text-sm font-medium text-ink">
-                            Целевая когорта
-                            <select value={copyTargetCohortId} onChange={e => setCopyTargetCohortId(e.target.value)}
-                                disabled={copySurveyLoading || !cohorts.some(cohort => cohort.id !== editDraft.id && !cohort.survey)}
-                                className="w-full text-sm">
-                                {cohorts.filter(cohort => cohort.id !== editDraft.id && !cohort.survey).length === 0 ? (
-                                    <option value="">Нет когорт без анкеты</option>
-                                ) : (
-                                    cohorts.filter(cohort => cohort.id !== editDraft.id && !cohort.survey).map(cohort => (
-                                        <option key={cohort.id} value={cohort.id}>{cohort.title}</option>
-                                    ))
-                                )}
-                            </select>
-                        </label>
-                        <p className="mt-3 text-xs text-muted-ink">
-                            Скопировать можно только в когорту, у которой ещё нет собственной анкеты.
-                        </p>
+
+                        <div className="flex flex-col gap-1.5 text-left mt-5">
+                            <label className="text-sm font-medium text-ink">Целевая когорта</label>
+                            <div className={`relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white focus-within:border-brand
+                                ${copySurveyLoading || !cohorts.some(cohort => cohort.id !== editDraft.id && !cohort.survey) ? 'opacity-50' : 'cursor-pointer'}`}>
+                                <Layers className="size-3.5 text-muted-ink flex-shrink-0 pointer-events-none" />
+                                <span className="text-sm font-semibold text-ink truncate pointer-events-none flex-1">
+                                    {cohorts.find(c => c.id === copyTargetCohortId)?.title ?? 'Выберите когорту'}
+                                </span>
+                                <ChevronDown className="size-3.5 text-muted-ink absolute right-3 pointer-events-none" />
+                                <select value={copyTargetCohortId} onChange={e => setCopyTargetCohortId(e.target.value)}
+                                    disabled={copySurveyLoading || !cohorts.some(cohort => cohort.id !== editDraft.id && !cohort.survey)}
+                                    aria-label="Выбор целевой когорты"
+                                    className="absolute inset-0 w-full h-full !p-0 !border-0 opacity-0 cursor-pointer text-sm">
+                                    {cohorts.filter(cohort => cohort.id !== editDraft.id && !cohort.survey).length === 0 ? (
+                                        <option value="">Нет когорт без анкеты</option>
+                                    ) : (
+                                        cohorts.filter(cohort => cohort.id !== editDraft.id && !cohort.survey).map(cohort => (
+                                            <option key={cohort.id} value={cohort.id}>{cohort.title}</option>
+                                        ))
+                                    )}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="mt-2 bg-surface border border-border-soft rounded-xl px-4 py-2.5 text-left">
+                            <p className="text-xs text-muted-ink">
+                                Скопировать можно только в когорту, у которой ещё нет собственной анкеты.
+                            </p>
+                        </div>
                         {copySurveyErrors.length > 0 && (
-                            <div className="mt-4 bg-danger-bg border border-danger-border rounded-xl px-4 py-3">
+                            <div className="mt-4 bg-danger-bg border border-danger-border rounded-xl px-4 py-3 text-left">
                                 {copySurveyErrors.map(message => (
                                     <p key={message} className="text-sm text-danger">⚠️ {message}</p>
                                 ))}
                             </div>
                         )}
-                        <div className="mt-7 flex justify-end gap-3">
+                        <div className="mt-7 flex justify-end items-center gap-5">
                             <button type="button" onClick={closeCopySurveyModal} disabled={copySurveyLoading}
-                                className="px-5 py-2.5 text-sm font-medium text-muted-ink hover:bg-surface rounded-xl disabled:opacity-50">
+                                className="text-sm font-semibold text-muted-ink hover:text-ink transition-colors disabled:opacity-50">
                                 Отмена
                             </button>
-                            <button type="button" onClick={handleCopySurvey}
+                            <Button type="button" variant="brand" onClick={handleCopySurvey}
                                 disabled={copySurveyLoading || !copyTargetCohortId}
-                                className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-sm disabled:opacity-50 bg-gradient-to-br from-brand to-brand-light">
+                                className="px-4 py-2 rounded-lg h-auto">
                                 {copySurveyLoading ? 'Копируем…' : 'Скопировать'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -786,7 +850,7 @@ export default function AdminCohortsPage() {
                     <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg mx-4"
                         onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-6">
-                            <h3 className="font-bold text-xl text-ink">Новая когорта</h3>
+                            <h3 className="font-extrabold text-2xl text-ink tracking-tight">Новая когорта</h3>
                             <button onClick={closeCreateModal}
                                 className="text-muted-ink hover:text-ink text-2xl leading-none">×</button>
                         </div>
@@ -797,7 +861,7 @@ export default function AdminCohortsPage() {
                                 <input type="text" placeholder="Практика 2027" required
                                     value={newCohort.title}
                                     onChange={e => setNewCohort(prev => ({ ...prev, title: e.target.value }))}
-                                    className="w-full text-sm" />
+                                    className="w-full text-sm rounded-xl" />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
@@ -805,13 +869,13 @@ export default function AdminCohortsPage() {
                                     <label className="text-sm font-medium text-ink">Начало приёма заявок <span className="text-brand-hover">*</span></label>
                                     <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.application_start}
                                         onChange={e => setNewCohort(prev => ({ ...prev, application_start: e.target.value }))}
-                                        className="w-full text-sm" />
+                                        className="w-full text-sm rounded-xl" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-ink">Конец приёма заявок <span className="text-brand-hover">*</span></label>
                                     <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.application_end}
                                         onChange={e => setNewCohort(prev => ({ ...prev, application_end: e.target.value }))}
-                                        className="w-full text-sm" />
+                                        className="w-full text-sm rounded-xl" />
                                 </div>
                             </div>
 
@@ -820,19 +884,19 @@ export default function AdminCohortsPage() {
                                     <label className="text-sm font-medium text-ink">Начало практики <span className="text-brand-hover">*</span></label>
                                     <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.start_date}
                                         onChange={e => setNewCohort(prev => ({ ...prev, start_date: e.target.value }))}
-                                        className="w-full text-sm" />
+                                        className="w-full text-sm rounded-xl" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-ink">Конец практики <span className="text-brand-hover">*</span></label>
                                     <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.end_date}
                                         onChange={e => setNewCohort(prev => ({ ...prev, end_date: e.target.value }))}
-                                        className="w-full text-sm" />
+                                        className="w-full text-sm rounded-xl" />
                                 </div>
                             </div>
 
-                            <div className="bg-brand-subtle border border-brand-subtle-border rounded-xl px-4 py-3">
-                                <p className="text-xs text-brand-hover">
-                                    💡 После создания когорта будет в статусе «Черновик». Треки, анкету и тестовое задание
+                            <div className="bg-surface border border-border-soft rounded-xl px-4 py-2.5">
+                                <p className="text-xs text-muted-ink">
+                                    После создания когорта будет в статусе «Черновик». Треки, анкету и тестовое задание
                                     можно добавить через кнопку «Редактировать».
                                 </p>
                             </div>
@@ -844,14 +908,14 @@ export default function AdminCohortsPage() {
                             ))}
 
                             <div className="flex justify-end gap-3 mt-2">
-                                <button onClick={closeCreateModal}
-                                    className="px-5 py-2.5 text-sm font-medium text-muted-ink hover:bg-surface rounded-xl">
+                                <Button variant="ghost" onClick={closeCreateModal}
+                                    className="px-5 py-2.5 rounded-xl h-auto text-sm text-muted-ink hover:bg-surface hover:text-ink">
                                     Отмена
-                                </button>
-                                <button disabled={createLoading || !isCreateFormComplete()} onClick={handleCreateCohort}
-                                    className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-md disabled:opacity-60 bg-gradient-to-br from-brand to-brand-light">
+                                </Button>
+                                <Button variant="brand" disabled={createLoading || !isCreateFormComplete()} onClick={handleCreateCohort}
+                                    className="px-5 py-2.5 rounded-xl h-auto text-sm">
                                     {createLoading ? 'Создаём…' : 'Создать'}
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     </div>
@@ -868,24 +932,21 @@ export default function AdminCohortsPage() {
                         {/* Шапка */}
                         <div className="px-8 pt-7 pb-5 border-b border-border-soft shrink-0">
                             <div className="flex items-start justify-between mb-4">
-                                <div>
-                                    <h3 className="font-bold text-xl text-ink">{editDraft.title}</h3>
-                                    <p className="text-sm text-muted-ink mt-0.5">Редактирование потока практики</p>
-                                </div>
+                                <h3 className="font-extrabold text-2xl text-ink tracking-tight">{editDraft.title}</h3>
                                 <button onClick={closeEdit} className="text-muted-ink hover:text-ink text-2xl leading-none">×</button>
                             </div>
 
                             <div className="flex gap-1">
                                 {([
-                                    { id: 'general', label: '⚙️ Основное' },
-                                    { id: 'tracks', label: '🛤 Треки' },
-                                    { id: 'survey', label: '📝 Анкета' },
-                                    { id: 'invitation', label: '🔗 Приглашение' },
+                                    { id: 'general', label: 'Основное', icon: Settings },
+                                    { id: 'tracks', label: 'Треки', icon: Route },
+                                    { id: 'survey', label: 'Анкета', icon: FileText },
+                                    { id: 'invitation', label: 'Приглашение', icon: LinkIcon },
                                 ] as const).map(t => (
                                     <button key={t.id} onClick={() => setEditTab(t.id)}
-                                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all
-                                            ${editTab === t.id ? 'bg-brand-subtle text-brand-hover' : 'text-muted-ink hover:bg-surface'}`}>
-                                        {t.label}
+                                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-300 inline-flex items-center gap-1.5
+                                            ${editTab === t.id ? 'bg-gradient-to-br from-brand to-brand-light text-white shadow-sm' : 'text-muted-ink hover:bg-surface'}`}>
+                                        <t.icon className="size-4" />{t.label}
                                     </button>
                                 ))}
                             </div>
@@ -895,6 +956,50 @@ export default function AdminCohortsPage() {
                                     Изменения на этой вкладке применятся только после нажатия «Сохранить» внизу окна.
                                 </p>
                             </div>
+
+                            {/* ── ТРЕКИ: пояснение и добавление — закреплены сверху, вне скролла списка ── */}
+                            {editTab === 'tracks' && (
+                                <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-border-soft -mx-8 px-8">
+                                    <div className="bg-surface border border-border-soft rounded-xl px-4 py-2.5">
+                                        <p className="text-xs text-muted-ink">
+                                            У каждого трека — своё тестовое задание. Кандидат выбирает трек при заполнении анкеты.
+                                        </p>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <input type="text" placeholder="Название трека, напр. Backend"
+                                            value={newTrackTitle}
+                                            onChange={e => setNewTrackTitle(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && addTrack()}
+                                            className="flex-1 text-sm rounded-xl" />
+                                        <Button variant="brand" onClick={addTrack} className="px-4 py-2 rounded-xl h-auto text-sm">
+                                            <Plus className="size-4" />Трек
+                                        </Button>
+                                    </div>
+
+                                    {newTrackError && (
+                                        <p className="text-xs text-danger">⚠️ {newTrackError}</p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* ── АНКЕТА: заголовок и кнопки — закреплены сверху, вне скролла списка ── */}
+                            {editTab === 'survey' && (
+                                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-border-soft -mx-8 px-8">
+                                    <p className="text-sm font-medium text-ink">Вопросы публичной анкеты когорты</p>
+                                    <div className="flex gap-2 flex-shrink-0">
+                                        {editDraft.survey && (
+                                            <button onClick={openCopySurveyModal}
+                                                className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle transition-colors duration-300 whitespace-nowrap inline-flex items-center gap-1.5">
+                                                <Copy className="size-3.5" />Копировать в когорту
+                                            </button>
+                                        )}
+                                        <Button variant="brand" onClick={addQuestion} className="px-4 py-1.5 rounded-lg h-auto text-xs whitespace-nowrap">
+                                            <Plus className="size-3.5" />Вопрос
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Контент таба */}
@@ -903,36 +1008,48 @@ export default function AdminCohortsPage() {
                             {/* ── ОСНОВНОЕ ── */}
                             {editTab === 'general' && (
                                 <div className="flex flex-col gap-5">
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-sm font-medium text-ink">Статус когорты</label>
-                                        <div className="flex gap-2">
-                                            {(['draft', 'active', 'closed'] as CohortStatus[]).map(s => {
-                                                const allowed = canSetStatus(editDraft.status, s)
-                                                return (
-                                                    <button key={s} disabled={!allowed} onClick={() => handleStatusChange(s)}
-                                                        title={!allowed ? 'Такой переход статуса недоступен' : undefined}
-                                                        className={`px-4 py-2 text-sm font-semibold rounded-lg border transition-all
-                                                            ${editDraft.status === s
-                                                                ? STATUS_STYLES[s] + ' border-current'
-                                                                : allowed
-                                                                    ? 'text-muted-ink border-border-soft hover:bg-surface'
-                                                                    : 'text-faint-ink border-border-soft opacity-50 cursor-not-allowed'}`}>
-                                                        {STATUS_LABELS[s]}
-                                                    </button>
-                                                )
-                                            })}
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex items-center justify-between flex-wrap gap-3">
+                                            <label className="text-sm font-medium text-ink flex-shrink-0">Статус когорты</label>
+                                            <div className="flex gap-2">
+                                                {(['draft', 'active', 'closed'] as CohortStatus[]).map(s => {
+                                                    const allowed = canSetStatus(editDraft.status, s)
+                                                    return (
+                                                        <button key={s} disabled={!allowed} onClick={() => handleStatusChange(s)}
+                                                            title={!allowed ? 'Такой переход статуса недоступен' : undefined}
+                                                            className={`px-4 py-2 text-sm font-semibold rounded-lg border transition-colors duration-300
+                                                                ${editDraft.status === s
+                                                                    ? STATUS_STYLES[s] + ' border-current'
+                                                                    : allowed
+                                                                        ? 'text-muted-ink border-border-soft hover:bg-surface'
+                                                                        : 'text-faint-ink border-border-soft opacity-50 cursor-not-allowed'}`}>
+                                                            {STATUS_LABELS[s]}
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
                                         </div>
-                                        <p className="text-xs text-muted-ink">
-                                            Черновик — невидим для кандидатов · Активна — принимаются заявки · Закрыта — только архив.
-                                            Вернуть закрытую или активную когорту в черновик нельзя — переходы статуса односторонние.
-                                        </p>
+                                        <div className="flex flex-col gap-1.5 bg-surface border border-border-soft rounded-xl px-4 py-3">
+                                            <div className="flex items-center gap-2 text-xs text-muted-ink">
+                                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOTS.draft}`} />Черновик — невидим для кандидатов
+                                            </div>
+                                            <div className="flex items-center gap-2 text-xs text-muted-ink">
+                                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOTS.active}`} />Активна — принимаются заявки
+                                            </div>
+                                            <div className="flex items-center gap-2 text-xs text-muted-ink">
+                                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOTS.closed}`} />Закрыта — только архив
+                                            </div>
+                                            <div className="flex items-center gap-2 text-xs text-muted-ink mt-1 pt-1.5 border-t border-border-soft">
+                                                <TriangleAlert className="size-3.5 flex-shrink-0" />Переходы статуса односторонние — закрытую или активную когорту в черновик не вернуть
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-sm font-medium text-ink">Название потока</label>
                                         <input type="text" value={editDraft.title}
                                             onChange={e => patchDraft({ title: e.target.value })}
-                                            className="w-full text-sm" />
+                                            className="w-full text-sm rounded-xl" />
                                     </div>
 
                             <div className="grid grid-cols-2 gap-4">
@@ -940,13 +1057,13 @@ export default function AdminCohortsPage() {
                                     <label className="text-sm font-medium text-ink">Начало приёма заявок</label>
                                     <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.application_start ?? '')}
                                         onChange={e => patchDraft({ application_start: e.target.value })}
-                                        className="w-full text-sm" />
+                                        className="w-full text-sm rounded-xl" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-ink">Конец приёма заявок</label>
                                     <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.application_end ?? '')}
                                         onChange={e => patchDraft({ application_end: e.target.value })}
-                                        className="w-full text-sm" />
+                                        className="w-full text-sm rounded-xl" />
                                 </div>
                             </div>
 
@@ -955,13 +1072,13 @@ export default function AdminCohortsPage() {
                                             <label className="text-sm font-medium text-ink">Начало практики</label>
                                             <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.start_date)}
                                                 onChange={e => patchDraft({ start_date: e.target.value })}
-                                                className="w-full text-sm" />
+                                                className="w-full text-sm rounded-xl" />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-sm font-medium text-ink">Конец практики</label>
                                             <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.end_date)}
                                                 onChange={e => patchDraft({ end_date: e.target.value })}
-                                                className="w-full text-sm" />
+                                                className="w-full text-sm rounded-xl" />
                                         </div>
                                     </div>
                                 </div>
@@ -970,26 +1087,6 @@ export default function AdminCohortsPage() {
                             {/* ── ТРЕКИ ── */}
                             {editTab === 'tracks' && (
                                 <div className="flex flex-col gap-5">
-                                    <p className="text-sm text-muted-ink">
-                                        У каждого трека — своё тестовое задание. Кандидат выбирает трек при заполнении анкеты.
-                                    </p>
-
-                                    <div className="flex gap-2">
-                                        <input type="text" placeholder="Название трека, напр. Backend"
-                                            value={newTrackTitle}
-                                            onChange={e => setNewTrackTitle(e.target.value)}
-                                            onKeyDown={e => e.key === 'Enter' && addTrack()}
-                                            className="flex-1 text-sm" />
-                                        <button onClick={addTrack}
-                                            className="px-4 py-2 text-sm font-semibold text-white rounded-lg bg-gradient-to-br from-brand to-brand-light">
-                                            + Трек
-                                        </button>
-                                    </div>
-
-                                    {newTrackError && (
-                                        <p className="text-xs text-danger">⚠️ {newTrackError}</p>
-                                    )}
-
                                     {editDraft.tracks.length === 0 ? (
                                         <div className="rounded-xl border border-dashed border-border-soft px-4 py-8 text-center">
                                             <p className="text-sm text-muted-ink">Треков пока нет. Добавьте первое направление.</p>
@@ -1007,6 +1104,10 @@ export default function AdminCohortsPage() {
                                                     onSaveTestTask={patch => saveTrackTestTask(track.id, patch)}
                                                     onPublish={() => publishTrack(track.id)}
                                                     onFileUploaded={task => saveTrackTestTask(track.id, task)}
+                                                    registerRef={el => {
+                                                        if (el) trackRefs.current.set(track.id, el)
+                                                        else trackRefs.current.delete(track.id)
+                                                    }}
                                                 />
                                             ))}
                                         </div>
@@ -1017,22 +1118,6 @@ export default function AdminCohortsPage() {
                             {/* ── АНКЕТА ── */}
                             {editTab === 'survey' && (
                                 <div className="flex flex-col gap-5">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-sm text-muted-ink">Вопросы публичной анкеты когорты.</p>
-                                        <div className="flex gap-2">
-                                            {editDraft.survey && (
-                                                <button onClick={openCopySurveyModal}
-                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-border-soft text-muted-ink hover:bg-surface transition-all whitespace-nowrap">
-                                                    Копировать в когорту
-                                                </button>
-                                            )}
-                                            <button onClick={addQuestion}
-                                                className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle transition-all whitespace-nowrap">
-                                                + Вопрос
-                                            </button>
-                                        </div>
-                                    </div>
-
                                     {(!editDraft.survey || editDraft.survey.questions.length === 0) ? (
                                         <div className="rounded-xl border border-dashed border-border-soft px-4 py-8 text-center">
                                             <p className="text-sm text-muted-ink">Вопросов пока нет. Добавьте первый.</p>
@@ -1046,6 +1131,10 @@ export default function AdminCohortsPage() {
                                                     index={idx}
                                                     onSave={patch => saveQuestion(q.id, patch)}
                                                     onRemove={() => removeQuestion(q.id)}
+                                                    registerRef={el => {
+                                                        if (el) questionRefs.current.set(q.id, el)
+                                                        else questionRefs.current.delete(q.id)
+                                                    }}
                                                 />
                                             ))}
                                         </div>
@@ -1056,9 +1145,11 @@ export default function AdminCohortsPage() {
                             {/* ── ПРИГЛАШЕНИЕ ── */}
                             {editTab === 'invitation' && (
                                 <div className="flex flex-col gap-5">
-                                    <p className="text-sm text-muted-ink">
-                                        Общая ссылка-приглашение для кандидатов. Не персональная — кто угодно с этой ссылкой может подать заявку.
-                                    </p>
+                                    <div className="bg-surface border border-border-soft rounded-xl px-4 py-2.5">
+                                        <p className="text-xs text-muted-ink">
+                                            Общая ссылка-приглашение для всех кандидатов этой когорты.
+                                        </p>
+                                    </div>
 
                                     {editDraft.invitation ? (
                                         <div className="flex flex-col gap-4">
@@ -1067,27 +1158,27 @@ export default function AdminCohortsPage() {
                                                 <div className="flex gap-2">
                                                     <input type="text" readOnly
                                                         value={getInvitationUrl(editDraft.invitation.token)}
-                                                        className="flex-1 text-sm font-mono bg-surface" />
-                                                    <button onClick={() => copyInvitation(editDraft.invitation!.token)} disabled={invitationSaving}
-                                                        className="px-4 py-2 text-sm font-semibold border border-brand text-brand-hover rounded-lg hover:bg-brand-subtle shrink-0">
+                                                        className="flex-1 text-sm font-mono bg-surface rounded-xl" />
+                                                    <Button variant="brand" onClick={() => copyInvitation(editDraft.invitation!.token)} disabled={invitationSaving}
+                                                        className="px-4 py-2 rounded-lg h-auto text-sm shrink-0">
                                                         Копировать
-                                                    </button>
+                                                    </Button>
                                                 </div>
-                                                <span className="text-xs text-muted-ink">Ссылка уже создана и готова к использованию.</span>
                                             </div>
                                             <div className="flex gap-3">
                                                 <button onClick={regenerateDraftInvitation} disabled={invitationSaving}
-                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-border-soft text-muted-ink hover:bg-surface transition-all disabled:opacity-50">
-                                                    {invitationSaving ? 'Сохранение…' : '🔄 Перегенерировать токен'}
+                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle transition-colors duration-300 disabled:opacity-50 inline-flex items-center gap-1.5">
+                                                    <RotateCw className="size-3.5" />{invitationSaving ? 'Сохранение…' : 'Перегенерировать токен'}
                                                 </button>
-                                                <button onClick={deleteDraftInvitation} disabled={invitationSaving}
-                                                    className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-danger-border text-danger hover:bg-danger-bg transition-all disabled:opacity-50">
-                                                    🗑 Удалить ссылку
-                                                </button>
+                                                <Button variant="danger" onClick={deleteDraftInvitation} disabled={invitationSaving}
+                                                    className="px-4 py-1.5 rounded-lg h-auto text-xs">
+                                                    <Trash2 className="size-3.5" />Удалить ссылку
+                                                </Button>
                                             </div>
-                                            <div className="bg-warning-bg border-l-4 border-warning-dot rounded-xl px-4 py-3">
+                                            <div className="bg-warning-bg border border-warning-border rounded-xl px-4 py-3 flex items-start gap-3">
+                                                <TriangleAlert className="size-4 text-warning flex-shrink-0 mt-0.5" />
                                                 <p className="text-xs text-warning">
-                                                    ⚠️ После сохранения с новым токеном старая ссылка перестанет работать.
+                                                    После сохранения с новым токеном старая ссылка перестанет работать.
                                                 </p>
                                             </div>
                                         </div>
@@ -1114,14 +1205,13 @@ export default function AdminCohortsPage() {
 
                         {/* Футер */}
                         <div className="px-8 py-5 border-t border-border-soft flex justify-end gap-3 shrink-0">
-                            <button onClick={closeEdit} disabled={editSaving}
-                                className="px-5 py-2.5 text-sm font-medium text-muted-ink hover:bg-surface rounded-xl disabled:opacity-50">
+                            <Button variant="ghost" onClick={closeEdit} disabled={editSaving}
+                                className="px-5 py-2.5 rounded-xl h-auto text-sm text-muted-ink hover:bg-surface hover:text-ink">
                                 Отмена
-                            </button>
-                            <button onClick={handleSaveEdit} disabled={editSaving}
-                                className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-md disabled:opacity-60 bg-gradient-to-br from-brand to-brand-light">
+                            </Button>
+                            <Button variant="brand" onClick={handleSaveEdit} disabled={editSaving} className="px-5 py-2.5 rounded-xl h-auto text-sm">
                                 {editSaving ? 'Сохраняем…' : 'Сохранить'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -1140,6 +1230,7 @@ function TrackEditor({
     onSaveTestTask,
     onPublish,
     onFileUploaded,
+    registerRef,
 }: {
     cohortId: string
     track: Track
@@ -1149,6 +1240,7 @@ function TrackEditor({
     onSaveTestTask: (patch: Partial<NonNullable<Track['testTask']>>) => void
     onPublish: () => void
     onFileUploaded: (task: TestTask) => void
+    registerRef?: (el: HTMLDivElement | null) => void
 }) {
     const [title, setTitle] = useState(track.testTask?.title ?? '')
     const [description, setDescription] = useState(track.testTask?.description ?? '')
@@ -1184,12 +1276,15 @@ function TrackEditor({
     }
 
     return (
-        <div className="rounded-xl border border-border-soft bg-surface-alt p-5 flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-brand-subtle flex items-center justify-center text-brand-hover text-sm font-bold shrink-0">🛤</div>
+        <div ref={registerRef} className="rounded-xl border border-border-soft bg-surface-alt p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-brand-subtle flex items-center justify-center text-brand-hover shrink-0"><Route className="size-4" /></div>
                 <input type="text" value={track.title} onChange={e => onTitleChange(e.target.value)}
-                    className="flex-1 text-sm font-semibold" />
-                <button onClick={onRemove} className="text-muted-ink hover:text-danger text-xl leading-none px-1">×</button>
+                    className="flex-1 text-sm font-semibold rounded-xl" />
+                <button onClick={onRemove}
+                    className="self-stretch w-11 flex items-center justify-center text-danger bg-danger-bg border border-danger-border rounded-lg hover:bg-danger-border/40 transition-colors flex-shrink-0">
+                    <X className="size-4" />
+                </button>
             </div>
             {titleError && (
                 <p className="pl-10 -mt-2 text-xs text-danger">⚠️ {titleError}</p>
@@ -1199,31 +1294,41 @@ function TrackEditor({
                 <div className="flex items-center justify-between">
                     <span className="text-xs font-bold tracking-widest uppercase text-muted-ink">Тестовое задание</span>
                     {track.testTask?.publishedAt && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-success-bg border border-success-border text-success">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-success-bg border border-success-border text-success">
                             Опубликовано
+                            <span className="cursor-help" title="Чтобы снять с публикации, нужно удалить всё задание.">
+                                <Info className="size-3.5" />
+                            </span>
                         </span>
                     )}
                 </div>
 
                 <input type="text" value={title}
                     onChange={e => { setTitle(e.target.value); onSaveTestTask({ title: e.target.value }) }}
-                    placeholder="Заголовок задания" className="w-full text-sm" />
+                    placeholder="Заголовок задания" className="w-full text-sm rounded-xl" />
 
-                <textarea rows={3} value={description}
+                <textarea rows={4} value={description}
                     onChange={e => { setDescription(e.target.value); onSaveTestTask({ description: e.target.value }) }}
                     placeholder="Опишите задание для этого трека…"
-                    className="w-full text-sm resize-none rounded-lg border border-border-soft bg-white px-3.5 py-2.5 focus:outline-none focus:border-brand" />
+                    className="w-full text-sm resize-none rounded-xl border border-border-soft bg-white px-3.5 py-2.5 focus:outline-none focus:border-brand" />
 
                 <div className="flex items-center gap-3">
-                    <label className={`text-xs font-semibold px-4 py-1.5 rounded-lg border transition-all cursor-pointer
-                        ${fileUploading ? 'opacity-50 pointer-events-none' : 'border-border-soft text-muted-ink hover:bg-surface'}`}>
-                        {fileUploading ? 'Загружаем…' : track.testTask?.hasFile ? '🔄 Заменить файл' : '📎 Прикрепить файл'}
+                    <label className={`text-xs font-semibold px-4 py-2 rounded-lg border transition-colors duration-300 cursor-pointer inline-flex items-center gap-1.5
+                        ${track.testTask?.hasFile
+                            ? 'border-brand text-brand-hover bg-transparent hover:bg-brand-subtle active:bg-brand-subtle-border'
+                            : 'border-0 text-white bg-gradient-to-br from-brand to-brand-light shadow-md hover:brightness-110 active:brightness-90'}
+                        ${fileUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                        {fileUploading
+                            ? 'Загружаем…'
+                            : track.testTask?.hasFile
+                                ? <><RotateCw className="size-3.5" />Заменить файл</>
+                                : <><Paperclip className="size-3.5" />Прикрепить файл</>}
                         <input type="file" className="hidden" accept=".pdf,.doc,.docx,.zip" onChange={handleFileSelected} disabled={fileUploading} />
                     </label>
                     {track.testTask?.hasFile && track.testTask.downloadPath && (
                         <button onClick={() => downloadProtectedFile(track.testTask!.downloadPath!, track.testTask!.title || 'Тестовое задание').catch(err => setFileErrors([err instanceof Error ? err.message : 'Не удалось скачать файл']))}
-                            className="text-xs font-semibold text-brand-hover hover:underline">
-                            ⬇ Скачать текущий
+                            className="text-xs font-semibold text-white px-4 py-2 rounded-lg bg-gradient-to-br from-brand to-brand-light shadow-md hover:brightness-110 active:brightness-90 inline-flex items-center gap-1.5">
+                            <Download className="size-3.5" />Скачать текущий
                         </button>
                     )}
                 </div>
@@ -1234,13 +1339,9 @@ function TrackEditor({
                     </div>
                 ))}
 
-                {track.testTask?.publishedAt ? (
-                    <span className="self-start text-xs text-muted-ink">
-                        Опубликовано — backend не поддерживает снятие с публикации, только удаление всего задания.
-                    </span>
-                ) : (
+                {!track.testTask?.publishedAt && (
                     <button onClick={onPublish} disabled={!title && !description}
-                        className="self-start text-xs font-semibold px-4 py-1.5 rounded-lg border transition-all disabled:opacity-40 border-brand text-brand-hover hover:bg-brand-subtle">
+                        className="self-start text-xs font-semibold px-4 py-1.5 rounded-lg border transition-colors duration-300 disabled:opacity-40 border-brand text-brand-hover hover:bg-brand-subtle">
                         Опубликовать
                     </button>
                 )}
@@ -1255,11 +1356,13 @@ function QuestionEditor({
     index,
     onSave,
     onRemove,
+    registerRef,
 }: {
     question: Question
     index: number
     onSave: (patch: Partial<Question>) => void
     onRemove: () => void
+    registerRef?: (el: HTMLDivElement | null) => void
 }) {
     function addOption() {
         onSave({ options: [...question.options, ''] })
@@ -1276,64 +1379,75 @@ function QuestionEditor({
     }
 
     return (
-        <div className="rounded-xl border border-border-soft bg-surface-alt p-4 flex flex-col gap-3">
-            <div className="flex items-start gap-2">
-                <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink pt-2.5 w-6 shrink-0">
+        <div ref={registerRef} className="rounded-2xl border border-border-soft bg-surface-alt p-4 flex flex-col gap-3">
+            <div className="flex items-stretch gap-2">
+                <span className="text-xs font-bold tracking-widest uppercase text-muted-ink flex items-center w-7 shrink-0">
                     {String(index + 1).padStart(2, '0')}
                 </span>
-                <div className="flex-1 flex flex-col gap-2">
-                    <input type="text" value={question.label}
-                        onChange={e => onSave({ label: e.target.value })}
-                        placeholder="Текст вопроса" className="w-full text-sm" />
-                    <div className="flex items-center gap-3">
+                <input type="text" value={question.label}
+                    onChange={e => onSave({ label: e.target.value })}
+                    placeholder="Текст вопроса" className="flex-1 text-sm rounded-xl" />
+                <button onClick={onRemove}
+                    className="self-stretch w-11 flex items-center justify-center text-danger bg-danger-bg border border-danger-border rounded-lg hover:bg-danger-border/40 transition-colors shrink-0">
+                    <X className="size-4" />
+                </button>
+            </div>
+
+            <div className="pl-9 flex flex-col gap-2">
+                <div className="inline-flex items-center rounded-lg border border-border-soft bg-white overflow-hidden w-fit">
+                    <div className="relative flex items-center h-8 gap-2 pl-3 pr-7 flex-shrink-0 cursor-pointer w-48">
+                        <Type className="size-3.5 text-muted-ink flex-shrink-0 pointer-events-none" />
+                        <span className="text-xs font-semibold text-ink truncate pointer-events-none">
+                            {QUESTION_TYPES.find(t => t.value === question.type)?.label}
+                        </span>
+                        <ChevronDown className="size-3.5 text-muted-ink absolute right-2.5 pointer-events-none" />
                         <select value={question.type}
                             onChange={e => onSave({ type: e.target.value as Question['type'] })}
-                            className="text-xs rounded-lg border border-border-soft px-2.5 py-1.5 bg-white focus:outline-none focus:border-brand">
+                            aria-label="Тип вопроса"
+                            className="absolute inset-0 w-full h-full !p-0 !border-0 opacity-0 cursor-pointer text-sm">
                             {QUESTION_TYPES.map(t => (
                                 <option key={t.value} value={t.value}>{t.label}</option>
                             ))}
                         </select>
-                        <label className="flex items-center gap-1.5 text-xs text-muted-ink cursor-pointer select-none">
-                            <input type="checkbox" checked={question.required}
-                                onChange={e => onSave({ required: e.target.checked })}
-                                className="accent-brand" />
-                            Обязательный
-                        </label>
                     </div>
-
-                    {['select', 'radio', 'checkbox'].includes(question.type) && (
-                        <div className="flex flex-col gap-2 mt-1">
-                            <div className="flex items-center justify-between">
-                                <label className="text-xs font-medium text-muted-ink">Варианты ответа</label>
-                                <button type="button" onClick={addOption}
-                                    className="text-xs font-semibold text-brand-hover hover:underline">
-                                    + Вариант
-                                </button>
-                            </div>
-
-                            {question.options.length === 0 && (
-                                <p className="text-xs text-muted-ink">Вариантов пока нет — добавь первый.</p>
-                            )}
-
-                            <div className="flex flex-col gap-2">
-                                {question.options.map((opt, i) => (
-                                    <div key={i} className="flex items-center gap-2">
-                                        <input type="text" value={opt}
-                                            onChange={e => updateOption(i, e.target.value)}
-                                            placeholder={`Вариант ${i + 1}`}
-                                            className="flex-1 text-sm" />
-                                        <button type="button" onClick={() => removeOption(i)}
-                                            className="text-muted-ink hover:text-danger text-lg leading-none px-1 shrink-0"
-                                            aria-label="Удалить вариант">
-                                            ×
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                    <label className="flex items-center gap-1.5 text-xs text-muted-ink cursor-pointer select-none px-3 h-8 border-l border-border-soft flex-shrink-0 whitespace-nowrap">
+                        <input type="checkbox" checked={question.required}
+                            onChange={e => onSave({ required: e.target.checked })}
+                            className="accent-brand" />
+                        Обязательный
+                    </label>
                 </div>
-                <button onClick={onRemove} className="text-muted-ink hover:text-danger text-xl leading-none px-1 shrink-0">×</button>
+
+                {['select', 'radio', 'checkbox'].includes(question.type) && (
+                    <div className="flex flex-col gap-2 mt-1">
+                        <div className="flex items-center justify-between">
+                            <label className="text-xs font-medium text-muted-ink">Варианты ответа</label>
+                            <Button variant="brand" type="button" onClick={addOption} className="px-3 py-1 rounded-lg h-auto text-xs">
+                                <Plus className="size-3.5" />Вариант
+                            </Button>
+                        </div>
+
+                        {question.options.length === 0 && (
+                            <p className="text-xs text-muted-ink">Вариантов пока нет — добавь первый.</p>
+                        )}
+
+                        <div className="flex flex-col gap-2">
+                            {question.options.map((opt, i) => (
+                                <div key={i} className="flex items-stretch gap-2">
+                                    <input type="text" value={opt}
+                                        onChange={e => updateOption(i, e.target.value)}
+                                        placeholder={`Вариант ${i + 1}`}
+                                        className="flex-1 text-sm rounded-xl" />
+                                    <button type="button" onClick={() => removeOption(i)}
+                                        className="w-11 flex items-center justify-center text-danger bg-danger-bg border border-danger-border rounded-lg hover:bg-danger-border/40 transition-colors shrink-0"
+                                        aria-label="Удалить вариант">
+                                        <X className="size-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )
