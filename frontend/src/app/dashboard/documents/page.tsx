@@ -14,6 +14,7 @@ import {
     DOCUMENT_TYPES,
     DOCUMENT_TYPE_LABELS,
     DOCUMENT_FIELD_CONFIG,
+    DOCUMENT_REQUIRES_APPROVED_REPORT,
     DocumentValidationError,
     type DocumentType,
     type DocumentData,
@@ -379,6 +380,11 @@ export default function DashboardDocumentsPage() {
                                                 </span>
                                             )
                                         })}
+                                        {DOCUMENT_REQUIRES_APPROVED_REPORT[type] && report?.status !== 'APPROVED' && (
+                                            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full border bg-warning-bg border-warning-border text-warning">
+                                                нужен одобрен куратором отчёт
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 flex-shrink-0">
