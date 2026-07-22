@@ -11,6 +11,58 @@ import { buildDocumentReadiness } from "../documents/document-readiness.service"
 import type { AdminApplicationsQuery } from "./dto/admin-applications-query.dto";
 import type { AdminDocumentsQuery } from "./dto/admin-documents-query.dto";
 
+type WorkingCandidate = {
+  id: string;
+  submitted_at: Date;
+  status: ApplicationStatus;
+  user: { id: string; active_application_id?: string | null };
+};
+
+// Считает, какие из ОДОБРЕННЫХ заявок студента являются его рабочим треком —
+// той же логикой, что и selectWorkingApplications (Задачи/Документы), но без
+// отбрасывания остальных заявок: списку заявок в админке нужно видеть все,
+// просто пометив, какая из них выбрана студентом (или выбрана по fallback,
+// если практика уже началась, а выбор ещё не сделан).
+function computeWorkingApplicationIds(
+  applications: WorkingCandidate[],
+  practiceStart: Date,
+  now = new Date()
+): Set<string> {
+  const approvedByStudent = new Map<string, WorkingCandidate[]>();
+  for (const application of applications) {
+    if (application.status !== ApplicationStatus.APPROVED) continue;
+    const current = approvedByStudent.get(application.user.id) ?? [];
+    current.push(application);
+    approvedByStudent.set(application.user.id, current);
+  }
+
+  const workingIds = new Set<string>();
+  for (const studentApplications of approvedByStudent.values()) {
+    const activeApplicationId =
+      studentApplications[0].user.active_application_id ?? null;
+
+    if (activeApplicationId) {
+      if (studentApplications.some(({ id }) => id === activeApplicationId)) {
+        workingIds.add(activeApplicationId);
+      }
+      continue;
+    }
+
+    if (studentApplications.length === 1 || practiceStart > now) {
+      studentApplications.forEach(({ id }) => workingIds.add(id));
+      continue;
+    }
+
+    const earliest = [...studentApplications].sort(
+      (left, right) =>
+        left.submitted_at.getTime() - right.submitted_at.getTime()
+    )[0];
+    workingIds.add(earliest.id);
+  }
+
+  return workingIds;
+}
+
 function utcToday(): Date {
   const now = new Date();
 
@@ -46,7 +98,7 @@ export class AdminService {
     cohortId: string,
     filters: AdminApplicationsQuery = {}
   ) {
-    await this.assertCohortExists(cohortId);
+    const cohort = await this.assertCohortExists(cohortId);
 
     const where: Prisma.ApplicationWhereInput = {
       track: {
@@ -88,6 +140,7 @@ export class AdminService {
             id: true,
             full_name: true,
             email: true,
+            active_application_id: true,
           },
         },
         track: {
@@ -123,13 +176,26 @@ export class AdminService {
       orderBy: [{ submitted_at: "desc" }, { id: "asc" }],
     });
 
+    const workingApplicationIds = computeWorkingApplicationIds(
+      applications,
+      cohort.practice_start
+    );
+
     return applications.map((application) => ({
       applicationId: application.id,
       status: application.status,
       submittedAt: application.submitted_at,
       rejectionReason: application.rejection_reason,
-      student: application.user,
+      student: {
+        id: application.user.id,
+        full_name: application.user.full_name,
+        email: application.user.email,
+      },
       track: application.track,
+      isWorkingApplication:
+        application.status === ApplicationStatus.APPROVED
+          ? workingApplicationIds.has(application.id)
+          : null,
       testTaskSubmission: application.testTaskSubmission
         ? {
             id: application.testTaskSubmission.id,

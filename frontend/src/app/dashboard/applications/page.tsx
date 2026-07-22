@@ -146,15 +146,15 @@ export default function DashboardApplicationsPage() {
                                 </div>
 
                                 {/* Инфо о когорте — раньше её нигде не было видно */}
-                                <div className="px-7 py-4 border-b border-border-soft grid grid-cols-2 gap-3">
-                                    <div className="flex flex-col gap-0.5">
+                                <div className="grid grid-cols-2 divide-x divide-border-soft border-b border-border-soft">
+                                    <div className="px-7 py-4 flex flex-col gap-0.5">
                                         <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Период практики</span>
                                         <span className="text-sm text-ink">
                                             {new Date(app.cohort.start_date).toLocaleDateString('ru')} — {new Date(app.cohort.end_date).toLocaleDateString('ru')}
                                         </span>
                                     </div>
                                     {app.status !== 'rejected' && (
-                                        <div className="flex flex-col gap-0.5">
+                                        <div className="px-7 py-4 flex flex-col gap-0.5">
                                             <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Тестовое задание</span>
                                             <a href={`/dashboard/applications/${app.id}/test-task`}
                                                 className="self-start inline-flex items-center gap-1 text-sm font-semibold text-brand-hover bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300">

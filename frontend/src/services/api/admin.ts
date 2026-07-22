@@ -40,6 +40,10 @@ export interface AdminApplicationSummary {
     testTaskSubmission: SubmissionInfo | null
     report: AdminReportSummary | null
     missedDays: number
+    /** Только для approved: выбрана ли эта заявка студентом как рабочий трек
+     *  (или выбрана по fallback, если практика началась, а выбор не сделан).
+     *  null — не применимо (заявка не одобрена). */
+    isWorkingApplication: boolean | null
 }
 
 function mapAdminReport(raw: any): AdminReportSummary | null {
@@ -68,6 +72,7 @@ function mapAdminApplicationBase(raw: any): Omit<AdminApplicationSummary, 'testT
         track: raw.track,
         report: mapAdminReport(raw.report),
         missedDays: raw.missedDays ?? 0,
+        isWorkingApplication: raw.isWorkingApplication ?? null,
     }
 }
 
