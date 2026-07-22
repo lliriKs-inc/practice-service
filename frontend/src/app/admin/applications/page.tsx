@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Route, ListFilter, ChevronDown } from 'lucide-react'
+import { Route, ListFilter, ChevronDown, Users, CheckCircle2, Download } from 'lucide-react'
 import { updateApplicationStatus, type Application } from '@/services/api/invitation'
 import { getAdminApplications, getAdminApplicationDetail, type AdminApplicationSummary } from '@/services/api/admin'
 import { useCohortWorkspace } from '../cohort-context'
 import { downloadProtectedFile } from '@/lib/api/download'
+import { Button } from '@/components/ui/button'
 
 const STATUS_LABELS: Record<Application['status'], string> = {
     pending: 'На рассмотрении',
@@ -61,6 +62,7 @@ export default function AdminApplicationsPage() {
     const [expandedId, setExpandedId] = useState<string | null>(null)
     const [answersById, setAnswersById] = useState<Record<string, { label: string; value: string }[]>>({})
     const [answersLoading, setAnswersLoading] = useState<string | null>(null)
+    const [expandedTestTaskId, setExpandedTestTaskId] = useState<string | null>(null)
 
     const loadApplications = useCallback(async () => {
         if (!selectedCohort) return
@@ -198,8 +200,8 @@ export default function AdminApplicationsPage() {
                             ))}
                         </select>
                     </div>
-                    <input type="text" aria-label="Поиск по email" value={search} onChange={e => setSearch(e.target.value)}
-                        placeholder="Поиск по email…" className="h-9 text-sm px-3 rounded-lg border border-border-soft flex-1 min-w-[180px]" />
+                    <input type="text" aria-label="Поиск по ФИО или email" value={search} onChange={e => setSearch(e.target.value)}
+                        placeholder="Поиск по ФИО или email…" className="h-9 text-sm px-3 rounded-lg border border-border-soft flex-1 min-w-[180px]" />
                 </div>
             )}
 
@@ -238,41 +240,53 @@ export default function AdminApplicationsPage() {
                         return (
                             <div key={app.applicationId} className="bg-white rounded-2xl shadow-sm overflow-hidden">
                                 <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between">
-                                    <div className="flex flex-col gap-1.5">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="inline-flex items-center gap-1.5 self-start text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
-                                                <Route className="size-3.5" />{app.track.title}
-                                            </span>
-                                            {applicationsCount > 1 && (
-                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-surface border border-border-soft text-muted-ink"
-                                                    title="У этого студента несколько заявок в этой когорте — какая из них станет рабочей, студент выбирает сам в личном кабинете.">
-                                                    {applicationsCount} {pluralizeApplications(applicationsCount)} у студента
-                                                </span>
-                                            )}
-                                        </div>
-                                        <h2 className="font-bold text-lg text-ink">{app.student?.email ?? 'Неизвестный кандидат'}</h2>
-                                    </div>
+                                    <span className="inline-flex items-center gap-1.5 self-start text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
+                                        <Route className="size-3.5" />{app.track.title}
+                                    </span>
                                     <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border
                                         ${app.status === 'pending' ? 'bg-warning-bg border-warning-border text-warning'
                                             : app.status === 'approved' ? 'bg-success-bg border-success-border text-success'
                                             : 'bg-danger-bg border-danger-border text-danger'}`}>
-                                        <div className={`w-2 h-2 rounded-full
+                                        <div className={`w-1.5 h-1.5 rounded-full
                                             ${app.status === 'pending' ? 'bg-warning-dot' : app.status === 'approved' ? 'bg-success-dot' : 'bg-danger-dot'}`} />
                                         <span className="text-xs font-semibold">{STATUS_LABELS[app.status]}</span>
                                     </div>
                                 </div>
 
-                                <div className="px-7 py-3 border-b border-border-soft">
-                                    <button onClick={() => toggleAnswers(app.applicationId)}
-                                        className="text-xs font-semibold text-brand-hover hover:underline">
-                                        {expandedId === app.applicationId ? '▲ Скрыть ответы анкеты' : '▼ Показать ответы анкеты'}
+                                <div className="grid grid-cols-2 divide-x divide-border-soft border-b border-border-soft">
+                                    <div className="px-7 py-5 flex items-center gap-2 flex-wrap">
+                                        <h2 className="font-bold text-lg text-ink">{app.student?.full_name || 'Неизвестный кандидат'}</h2>
+                                        {applicationsCount > 1 && (
+                                            app.isWorkingApplication ? (
+                                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-success-bg border border-success-border text-success"
+                                                    title="Студент выбрал этот трек рабочим — по нему ведётся дневник задач и отчёт.">
+                                                    <CheckCircle2 className="size-3 flex-shrink-0" />{applicationsCount} {pluralizeApplications(applicationsCount)} · рабочий трек
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-dashed border-border-soft text-faint-ink"
+                                                    title="У этого студента несколько заявок в этой когорте — эта не выбрана рабочей.">
+                                                    <Users className="size-3 flex-shrink-0" />{applicationsCount} {pluralizeApplications(applicationsCount)} · не выбрана
+                                                </span>
+                                            )
+                                        )}
+                                    </div>
+                                    <div className="px-7 py-5 flex items-center">
+                                        <span className="font-bold text-lg text-ink">{app.student?.email ?? '—'}</span>
+                                    </div>
+                                </div>
+
+                                <div className="border-b border-border-soft">
+                                    <button type="button" onClick={() => toggleAnswers(app.applicationId)}
+                                        className="w-full px-7 py-4 flex items-center justify-between text-left hover:bg-surface transition-colors">
+                                        <span className="text-sm font-semibold text-ink">Ответы на анкету</span>
+                                        <ChevronDown className={`size-4 text-muted-ink transition-transform ${expandedId === app.applicationId ? 'rotate-180' : ''}`} />
                                     </button>
                                     {expandedId === app.applicationId && (
-                                        <div className="mt-3">
+                                        <div className="px-7 py-4">
                                             {answersLoading === app.applicationId ? (
                                                 <p className="text-xs text-muted-ink">Загружаем…</p>
                                             ) : answersById[app.applicationId]?.length ? (
-                                                <div className="grid grid-cols-2 gap-3">
+                                                <div className="grid sm:grid-cols-2 gap-4">
                                                     {answersById[app.applicationId].map((a, i) => (
                                                         <div key={i} className="flex flex-col gap-0.5">
                                                             <span className="text-xs text-muted-ink">{a.label}</span>
@@ -289,33 +303,58 @@ export default function AdminApplicationsPage() {
 
                                 {/* Тестовое задание трека */}
                                 {trackTestTask && (trackTestTask.title || trackTestTask.description) && (
-                                    <div className="px-7 py-4 border-b border-border-soft flex flex-col gap-1.5 bg-surface-alt">
-                                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Тестовое задание трека</span>
-                                        <p className="text-sm font-semibold text-ink">{trackTestTask.title || '—'}</p>
-                                        {app.testTaskSubmission ? (
-                                            <div className="flex items-center gap-2 flex-wrap mt-1">
-                                                <p className="text-[11px] text-[#1A7A5A]">
-                                                    ✅ Решение загружено: {app.testTaskSubmission.fileName}
-                                                    {' · '}
-                                                    {new Date(app.testTaskSubmission.submittedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                                </p>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSubmissionDownloadError('')
-                                                        downloadProtectedFile(
-                                                            app.testTaskSubmission!.downloadPath,
-                                                            app.testTaskSubmission!.fileName,
-                                                        ).catch(err => setSubmissionDownloadError(
-                                                            err instanceof Error ? err.message : 'Не удалось скачать решение',
-                                                        ))
-                                                    }}
-                                                    className="text-xs font-semibold text-[#4A42D4] hover:underline">
-                                                    ⬇ Скачать решение
-                                                </button>
+                                    <div className="border-b border-border-soft">
+                                        <button type="button"
+                                            onClick={() => setExpandedTestTaskId(prev => prev === app.applicationId ? null : app.applicationId)}
+                                            className="w-full px-7 py-4 flex items-center justify-between text-left hover:bg-surface transition-colors">
+                                            <span className="text-sm font-semibold text-ink">Тестовое задание трека</span>
+                                            <ChevronDown className={`size-4 text-muted-ink transition-transform ${expandedTestTaskId === app.applicationId ? 'rotate-180' : ''}`} />
+                                        </button>
+                                        {expandedTestTaskId === app.applicationId && (
+                                            <div className="px-7 py-4 bg-surface-alt flex flex-col gap-3">
+                                                <div>
+                                                    <p className="text-sm font-semibold text-ink">{trackTestTask.title || '—'}</p>
+                                                    {trackTestTask.description && (
+                                                        <p className="text-sm text-muted-ink whitespace-pre-wrap mt-1">{trackTestTask.description}</p>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center gap-3 flex-wrap">
+                                                    {trackTestTask.hasFile && trackTestTask.downloadPath && (
+                                                        <Button variant="brand-outline"
+                                                            onClick={() => {
+                                                                setSubmissionDownloadError('')
+                                                                downloadProtectedFile(trackTestTask.downloadPath!, trackTestTask.title || 'Тестовое задание')
+                                                                    .catch(err => setSubmissionDownloadError(err instanceof Error ? err.message : 'Не удалось скачать задание'))
+                                                            }}
+                                                            className="px-4 py-2 rounded-lg h-auto text-xs">
+                                                            <Download className="size-3.5" />Скачать задание
+                                                        </Button>
+                                                    )}
+                                                    {app.testTaskSubmission && (
+                                                        <Button variant="brand"
+                                                            onClick={() => {
+                                                                setSubmissionDownloadError('')
+                                                                downloadProtectedFile(app.testTaskSubmission!.downloadPath, app.testTaskSubmission!.fileName)
+                                                                    .catch(err => setSubmissionDownloadError(err instanceof Error ? err.message : 'Не удалось скачать решение'))
+                                                            }}
+                                                            className="px-4 py-2 rounded-lg h-auto text-xs">
+                                                            <Download className="size-3.5" />Скачать решение
+                                                        </Button>
+                                                    )}
+                                                </div>
+
+                                                {app.testTaskSubmission ? (
+                                                    <p className="inline-flex items-center gap-1.5 text-xs text-success">
+                                                        <CheckCircle2 className="size-3.5 flex-shrink-0" />
+                                                        Решение загружено: {app.testTaskSubmission.fileName}
+                                                        {' · '}
+                                                        {new Date(app.testTaskSubmission.submittedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-xs text-muted-ink">Решение пока не загружено кандидатом.</p>
+                                                )}
                                             </div>
-                                        ) : (
-                                            <p className="text-[11px] text-muted-ink mt-1">Решение пока не загружено кандидатом.</p>
                                         )}
                                     </div>
                                 )}

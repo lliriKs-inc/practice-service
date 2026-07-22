@@ -52,6 +52,7 @@ function makeApplication(overrides: Partial<AdminApplicationSummary> = {}): Admi
         testTaskSubmission: null,
         report: null,
         missedDays: 0,
+        isWorkingApplication: null,
         ...overrides,
     }
 }
@@ -115,7 +116,7 @@ describe('AdminApplicationsPage', () => {
         renderWithCohort()
         await screen.findByText('anna@urfu.ru', {}, { timeout: 3000 })
 
-        fireEvent.click(screen.getByText('▼ Показать ответы анкеты'))
+        fireEvent.click(screen.getByText('Ответы на анкету'))
         expect(await screen.findByText('Люблю бэкенд', {}, { timeout: 3000 })).toBeInTheDocument()
     })
 
@@ -152,7 +153,8 @@ describe('AdminApplicationsPage', () => {
         }
         renderWithCohort({ cohorts: [cohort], selectedCohort: cohort })
 
-        fireEvent.click(await screen.findByRole('button', { name: '⬇ Скачать решение' }))
+        fireEvent.click(await screen.findByText('Тестовое задание трека', {}, { timeout: 3000 }))
+        fireEvent.click(await screen.findByRole('button', { name: /Скачать решение/ }))
 
         expect(downloadProtectedFile).toHaveBeenCalledWith(
             '/files/test-task-submissions/solution.zip',
