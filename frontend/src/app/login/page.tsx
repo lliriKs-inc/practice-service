@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card } from '@/components/ui/card'
 import { login, getUser } from '@/services/api/auth'
+import { describeApiError } from '@/lib/api/error-messages'
 
 export default function LoginPage() {
     return (
@@ -46,7 +47,7 @@ function LoginForm() {
             }
             window.location.href = user?.role === 'ADMIN' ? '/admin/cohorts' : '/dashboard/applications'
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Ошибка входа')
+            setError(describeApiError(err, 'Не удалось войти. Попробуйте ещё раз.'))
             setLoading(false)
         }
     }

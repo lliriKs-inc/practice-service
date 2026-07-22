@@ -15,7 +15,7 @@ import {
     type MyTestTask,
 } from '@/services/api/test-task'
 import { downloadProtectedFile } from '@/lib/api/download'
-import { Route, Clock, CheckCircle2, Upload, RotateCw, Check, TriangleAlert, Inbox, Download } from 'lucide-react'
+import { Route, Clock, CheckCircle2, Upload, RotateCw, Check, X, TriangleAlert, Inbox, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 const STATUS_CONFIG: Record<Application['status'], { label: string; className: string; dot: string }> = {
@@ -111,6 +111,50 @@ export default function ApplicationTestTaskPage() {
     }
 
     const status = STATUS_CONFIG[application.status]
+    const hasSubmission = Boolean(testTask?.available && testTask.submission)
+    const progressSteps = [
+        {
+            n: '1',
+            label: 'Анкета',
+            sub: 'Заявка отправлена',
+            state: 'done',
+            ariaLabel: 'Анкета: заявка отправлена',
+        },
+        {
+            n: '2',
+            label: 'Тестовое задание',
+            sub: hasSubmission ? 'Решение отправлено' : 'Ожидает отправки решения',
+            state: hasSubmission ? 'done' : 'active',
+            ariaLabel: hasSubmission
+                ? 'Тестовое задание: решение отправлено'
+                : 'Тестовое задание: ожидает отправки решения',
+        },
+        {
+            n: '3',
+            label: 'Результат',
+            sub: application.status === 'approved'
+                ? 'Заявка одобрена'
+                : application.status === 'rejected'
+                    ? 'Заявка отклонена'
+                    : hasSubmission
+                        ? 'Решение на проверке'
+                        : 'После проверки',
+            state: application.status === 'approved'
+                ? 'approved'
+                : application.status === 'rejected'
+                    ? 'rejected'
+                    : hasSubmission
+                        ? 'active'
+                        : 'pending',
+            ariaLabel: application.status === 'approved'
+                ? 'Результат: заявка одобрена'
+                : application.status === 'rejected'
+                    ? 'Результат: заявка отклонена'
+                    : hasSubmission
+                        ? 'Результат: решение на проверке'
+                        : 'Результат: ожидает проверки',
+        },
+    ] as const
 
     return (
         <div className="w-full flex flex-col gap-6">
@@ -155,15 +199,24 @@ export default function ApplicationTestTaskPage() {
                         </div>
 
                         <div className="px-7 py-5 border-t border-border-soft flex flex-col gap-4">
-                            {[
-                                { n: '1', label: 'Анкета', sub: 'Заявка отправлена', done: true },
-                                { n: '2', label: 'Тестовое задание', sub: 'Сейчас, на этой странице', active: true },
-                                { n: '3', label: 'Результат', sub: 'После проверки' },
-                            ].map(step => (
-                                <div key={step.n} className={`flex items-center gap-3 ${step.done || step.active ? 'opacity-100' : 'opacity-50'}`}>
+                            {progressSteps.map(step => (
+                                <div key={step.n} className={`flex items-center gap-3 ${step.state !== 'pending' ? 'opacity-100' : 'opacity-50'}`}>
                                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
-                                        ${step.done ? 'bg-brand text-white' : step.active ? 'border-2 border-brand text-brand-hover' : 'border-2 border-border-soft text-faint-ink'}`}>
-                                        {step.done ? <Check className="size-3.5" /> : step.n}
+                                        ${step.state === 'done'
+                                            ? 'bg-brand text-white'
+                                            : step.state === 'approved'
+                                                ? 'bg-success text-white'
+                                                : step.state === 'rejected'
+                                                    ? 'bg-danger text-white'
+                                                    : step.state === 'active'
+                                                        ? 'border-2 border-brand text-brand-hover'
+                                                        : 'border-2 border-border-soft text-faint-ink'}`}
+                                        role="img" aria-label={step.ariaLabel}>
+                                        {step.state === 'done' || step.state === 'approved'
+                                            ? <Check className="size-3.5" />
+                                            : step.state === 'rejected'
+                                                ? <X className="size-3.5" />
+                                                : step.n}
                                     </div>
                                     <div>
                                         <div className="text-sm font-medium text-ink">{step.label}</div>

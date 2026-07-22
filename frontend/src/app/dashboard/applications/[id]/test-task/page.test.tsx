@@ -25,10 +25,10 @@ function loginAsStudent() {
     saveUser({ id: 'student-1', email: 'student@urfu.ru', role: 'STUDENT', created_at: '2026-01-01' })
 }
 
-function rawApplication() {
+function rawApplication(status = 'APPROVED') {
     return {
         id: APPLICATION_ID,
-        status: 'APPROVED',
+        status,
         submitted_at: '2027-07-05T00:00:00.000Z',
         rejection_reason: null,
         track: {
@@ -42,10 +42,15 @@ function rawApplication() {
 
 let currentSubmission: { id: string; file_name: string; submitted_at: string } | null = null
 
-function setupTask(config: { publishedAt: string | null; fileUrl?: string | null }) {
-    currentSubmission = null
+function setupTask(config: {
+    publishedAt: string | null
+    fileUrl?: string | null
+    status?: 'PENDING' | 'APPROVED' | 'REJECTED'
+    submission?: { id: string; file_name: string; submitted_at: string } | null
+}) {
+    currentSubmission = config.submission ?? null
     apiFetch.mockImplementation(async (path: string) => {
-        if (path === `/me/applications/${APPLICATION_ID}`) return rawApplication()
+        if (path === `/me/applications/${APPLICATION_ID}`) return rawApplication(config.status)
         if (path === `/me/applications/${APPLICATION_ID}/test-task`) {
             if (!config.publishedAt) {
                 return { available: false, message: 'Тестовое задание пока не опубликовано.' }
@@ -120,6 +125,42 @@ describe('ApplicationTestTaskPage (просмотр задания + загру�
 
         expect(await screen.findByText('solution.pdf', {}, { timeout: 3000 })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /Заменить решение/ })).toBeInTheDocument()
+        expect(screen.getByRole('img', { name: 'Тестовое задание: решение отправлено' })).toBeInTheDocument()
+    })
+
+    it('показывает завершённые шаги решения и одобрения', async () => {
+        setupTask({
+            publishedAt: '2027-07-10T00:00:00.000Z',
+            status: 'APPROVED',
+            submission: {
+                id: 'sub-1',
+                file_name: 'solution.pdf',
+                submitted_at: '2027-07-11T00:00:00.000Z',
+            },
+        })
+
+        render(<ApplicationTestTaskPage />)
+
+        expect(await screen.findByRole('img', { name: 'Тестовое задание: решение отправлено' })).toBeInTheDocument()
+        expect(screen.getByRole('img', { name: 'Результат: заявка одобрена' })).toBeInTheDocument()
+        expect(screen.getByText('Заявка одобрена')).toBeInTheDocument()
+    })
+
+    it('показывает крестик на шаге результата для отклонённой заявки', async () => {
+        setupTask({
+            publishedAt: '2027-07-10T00:00:00.000Z',
+            status: 'REJECTED',
+            submission: {
+                id: 'sub-1',
+                file_name: 'solution.pdf',
+                submitted_at: '2027-07-11T00:00:00.000Z',
+            },
+        })
+
+        render(<ApplicationTestTaskPage />)
+
+        expect(await screen.findByRole('img', { name: 'Результат: заявка отклонена' })).toBeInTheDocument()
+        expect(screen.getByText('Заявка отклонена')).toBeInTheDocument()
     })
 
     it('отклоняет файл неразрешённого формата с понятной ошибкой', async () => {

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
     createCohort,
     createInvitation,
+    createTrack,
     copySurvey,
     deleteCohort,
     deleteInvitation,
@@ -152,6 +153,7 @@ export default function AdminCohortsPage() {
     const [editTab, setEditTab] = useState<EditTab>('general')
     const [editSaving, setEditSaving] = useState(false)
     const [invitationSaving, setInvitationSaving] = useState(false)
+    const [invitationSavingStage, setInvitationSavingStage] = useState<'tracks' | 'invitation' | null>(null)
     const [editErrors, setEditErrors] = useState<string[]>([])
     const [newTrackTitle, setNewTrackTitle] = useState('')
     const [newTrackError, setNewTrackError] = useState('')
@@ -545,19 +547,63 @@ export default function AdminCohortsPage() {
     async function createDraftInvitation() {
         if (!editDraft) return
         if (!editDraft.tracks.some(track => track.title.trim().length > 0)) {
-            setEditErrors(['Сначала добавьте и сохраните хотя бы один трек, затем создайте ссылку-приглашение.'])
+            setEditErrors(['Сначала добавьте хотя бы один трек, затем создайте ссылку-приглашение.'])
+            return
+        }
+        const duplicateTitle = getDuplicateTrackTitle(editDraft.tracks)
+        if (duplicateTitle) {
+            setEditTab('tracks')
+            setEditErrors([`Трек «${duplicateTitle}» добавлен больше одного раза. Исправьте названия перед созданием ссылки.`])
             return
         }
         setInvitationSaving(true)
+        setInvitationSavingStage('tracks')
         setEditErrors([])
         try {
+            const persisted = await getCohort(editDraft.id)
+            const persistedTrackIds = new Set(persisted.tracks.map(track => track.id))
+            const createdTrackIds = new Map<string, string>()
+
+            for (const track of editDraft.tracks) {
+                if (persistedTrackIds.has(track.id) || !track.title.trim()) continue
+
+                const created = await createTrack(editDraft.id, track.title.trim())
+                createdTrackIds.set(track.id, created.id)
+                persistedTrackIds.add(created.id)
+
+                // Сразу заменяем локальный id после каждого успешного запроса.
+                // Если следующий трек сохранить не удастся, повторная попытка
+                // не создаст уже сохранённый трек ещё раз.
+                setEditDraft(previous => previous ? {
+                    ...previous,
+                    tracks: previous.tracks.map(item => item.id === track.id ? { ...item, id: created.id } : item),
+                } : previous)
+            }
+
+            setInvitationSavingStage('invitation')
             const invitation = await createInvitation(editDraft.id)
-            patchDraft({ invitation })
+            setEditDraft(previous => previous ? {
+                ...previous,
+                invitation,
+                tracks: previous.tracks.map(track => ({
+                    ...track,
+                    id: createdTrackIds.get(track.id) ?? track.id,
+                })),
+            } : previous)
             await refetchCohorts()
         } catch (err: unknown) {
             setEditErrors(describeApiErrors(err, 'Не удалось создать ссылку-приглашение'))
+            try {
+                const fresh = await getCohort(editDraft.id)
+                setEditDraft(previous => previous ? reconcileDraftIds(previous, fresh) : previous)
+                await refetchCohorts()
+            } catch {
+                // Основная ошибка уже показана. Локальный черновик сохраняем,
+                // если дополнительная синхронизация тоже недоступна.
+            }
         } finally {
             setInvitationSaving(false)
+            setInvitationSavingStage(null)
         }
     }
 
@@ -735,12 +781,6 @@ export default function AdminCohortsPage() {
                                     <LinkIcon className="size-3.5 text-muted-ink flex-shrink-0" />
                                     <span className="text-xs text-muted-ink flex-shrink-0">Ссылка для кандидатов:</span>
                                     <code className="text-xs text-brand-hover flex-1 min-w-0 truncate">/apply/{cohort.invitation.token}</code>
-                                    {cohort.status !== 'active' && (
-                                        <span className="inline-flex items-center justify-center text-warning cursor-help flex-shrink-0"
-                                            title="Кандидаты не увидят анкету, пока когорта не переведена в статус «Активна»">
-                                            <TriangleAlert className="size-3.5" />
-                                        </span>
-                                    )}
                                     <button onClick={() => copyInvitation(cohort.invitation!.token)}
                                         className="text-xs font-semibold text-brand-hover bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300 shrink-0">
                                         Копировать
@@ -953,7 +993,7 @@ export default function AdminCohortsPage() {
 
                             <div className="mt-4 bg-surface border border-border-soft rounded-xl px-4 py-2.5">
                                 <p className="text-xs text-muted-ink">
-                                    Изменения на этой вкладке применятся только после нажатия «Сохранить» внизу окна.
+                                    Изменения на этой вкладке применятся после нажатия «Сохранить». При создании приглашения новые треки сохранятся автоматически.
                                 </p>
                             </div>
 
@@ -1147,7 +1187,7 @@ export default function AdminCohortsPage() {
                                 <div className="flex flex-col gap-5">
                                     <div className="bg-surface border border-border-soft rounded-xl px-4 py-2.5">
                                         <p className="text-xs text-muted-ink">
-                                            Общая ссылка-приглашение для всех кандидатов этой когорты.
+                                            Общая ссылка-приглашение для всех кандидатов этой когорты. Новые треки будут сохранены автоматически.
                                         </p>
                                     </div>
 
@@ -1189,7 +1229,11 @@ export default function AdminCohortsPage() {
                                             </div>
                                             <button onClick={createDraftInvitation} disabled={invitationSaving}
                                                 className="self-start text-sm font-semibold text-white px-5 py-2.5 rounded-xl shadow-md disabled:opacity-50 bg-gradient-to-br from-brand to-brand-light">
-                                                {invitationSaving ? 'Создание…' : 'Создать ссылку-приглашение'}
+                                                {invitationSavingStage === 'tracks'
+                                                    ? 'Сохраняем треки…'
+                                                    : invitationSavingStage === 'invitation'
+                                                        ? 'Создаём ссылку…'
+                                                        : 'Создать ссылку-приглашение'}
                                             </button>
                                         </div>
                                     )}
