@@ -235,7 +235,7 @@ describe('DashboardDocumentsPage', () => {
             await waitFor(() => expect(screen.queryByText('сохраняем…')).not.toBeInTheDocument(), { timeout: 3000 })
         }
 
-        expect(await within(card).findByText(/одобрен куратором/, {}, { timeout: 3000 })).toBeInTheDocument()
+        expect(await within(card).findByText('Одобренный отчёт', {}, { timeout: 3000 })).toBeInTheDocument()
         expect(within(card).getByRole('button', { name: /Сформировать/ })).toBeDisabled()
     }, 15000)
 })

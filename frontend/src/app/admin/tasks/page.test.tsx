@@ -136,16 +136,16 @@ describe('AdminTasksPage (прогресс когорты)', () => {
         expect((await screen.findAllByText('anna@urfu.ru', {}, { timeout: 3000 })).length).toBeGreaterThan(0)
     })
 
-    it('показывает раздел с пропущенными днями, если они есть', async () => {
+    it('показывает пропущенный день прямо в ячейке календаря', async () => {
         renderWithCohort()
-        expect(await screen.findByText('⚠️ Пропущенные дни на этой неделе', {}, { timeout: 3000 })).toBeInTheDocument()
+        expect(await screen.findByText('Пропущено', {}, { timeout: 3000 })).toBeInTheDocument()
     })
 
     it('ограничивает навигацию первой и последней неделей практики', async () => {
         renderWithCohort()
 
-        const previous = await screen.findByRole('button', { name: '← Пред.' })
-        const next = screen.getByRole('button', { name: 'След. →' })
+        const previous = await screen.findByRole('button', { name: 'Предыдущая неделя' })
+        const next = screen.getByRole('button', { name: 'Следующая неделя' })
 
         expect(previous).toBeDisabled()
         expect(next).not.toBeDisabled()

@@ -273,6 +273,10 @@ export default function ApplicationTestTaskPage() {
                                                             Загружено {new Date(testTask.submission.submittedAt).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                         </p>
                                                     </div>
+                                                    <button onClick={() => handleDownload(testTask.submission!.downloadPath, testTask.submission!.fileName)}
+                                                        className="flex-shrink-0 text-success hover:brightness-75 transition-[filter]" aria-label="Скачать решение">
+                                                        <Download className="size-5" />
+                                                    </button>
                                                 </div>
                                             ) : (
                                                 <div className="flex-1 flex items-center gap-3 bg-warning-bg border border-warning-border rounded-xl px-4 py-3">

@@ -1,10 +1,26 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Route, MoveRight, TriangleAlert, Check, ClipboardList, Star } from 'lucide-react'
 import { getMyApplications, type Application } from '@/services/api/invitation'
 import { getMe, selectActiveApplication } from '@/services/api/auth'
 import { Button } from '@/components/ui/button'
+
+// Оверлей модалки закрывается только по клику НАЧАВШЕМУСЯ и ЗАКОНЧИВШЕМУСЯ на
+// самом оверлее — иначе выделение текста мышью, отпущенной за пределами
+// модалки (mouseup на оверлее), тоже засчитывалось бы как клик по нему и
+// закрывало окно посреди выделения.
+function useOverlayClose(onClose: () => void) {
+    const mouseDownOnOverlay = useRef(false)
+    return {
+        onMouseDown: (e: React.MouseEvent<HTMLDivElement>) => {
+            mouseDownOnOverlay.current = e.target === e.currentTarget
+        },
+        onClick: (e: React.MouseEvent<HTMLDivElement>) => {
+            if (e.target === e.currentTarget && mouseDownOnOverlay.current) onClose()
+        },
+    }
+}
 
 const STATUS_CONFIG: Record<Application['status'], { label: string; className: string; dot: string }> = {
     pending: { label: 'На рассмотрении', className: 'bg-warning-bg border-warning-border text-warning', dot: 'bg-warning-dot' },
@@ -20,6 +36,7 @@ export default function DashboardApplicationsPage() {
     const [activeApplicationId, setActiveApplicationId] = useState<string | null>(null)
     const [applicationToSelect, setApplicationToSelect] = useState<Application | null>(null)
     const [selectionSaving, setSelectionSaving] = useState(false)
+    const selectModalOverlay = useOverlayClose(() => { if (!selectionSaving) setApplicationToSelect(null) })
     const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set())
     const approvedApplications = applications.filter(app => app.status === 'approved')
     const needsApplicationSelection = approvedApplications.length > 1 &&
@@ -228,11 +245,9 @@ export default function DashboardApplicationsPage() {
             )}
             {applicationToSelect && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
-                    onClick={event => {
-                        if (event.target === event.currentTarget) setApplicationToSelect(null)
-                    }}>
-                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
-                        <h2 className="font-bold text-xl text-ink mb-3">Выбрать этот трек?</h2>
+                    {...selectModalOverlay}>
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center" onClick={e => e.stopPropagation()}>
+                        <h3 className="font-extrabold text-2xl text-ink tracking-tight mb-3">Выбрать этот трек?</h3>
                         <span className="inline-flex items-center gap-2 text-sm font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-3 py-1.5 mb-6">
                             <Route className="size-4" />{applicationToSelect.track.title}
                         </span>
@@ -242,13 +257,13 @@ export default function DashboardApplicationsPage() {
                         <p className="mt-3 text-sm text-muted-ink leading-relaxed text-left">
                             До начала практики выбор можно изменить. После начала практики смена трека будет недоступна.
                         </p>
-                        <div className="mt-7 flex justify-end items-center gap-5">
-                            <button type="button" onClick={() => setApplicationToSelect(null)} disabled={selectionSaving}
-                                className="text-sm font-semibold text-muted-ink hover:text-ink transition-colors disabled:opacity-50">
+                        <div className="flex justify-end gap-3 mt-7">
+                            <Button variant="ghost" onClick={() => setApplicationToSelect(null)} disabled={selectionSaving}
+                                className="px-5 py-2.5 rounded-xl h-auto text-sm text-muted-ink hover:bg-surface hover:text-ink">
                                 Отмена
-                            </button>
-                            <Button type="button" variant="brand" onClick={confirmApplicationSelection} disabled={selectionSaving}
-                                className="px-4 py-2 rounded-lg h-auto">
+                            </Button>
+                            <Button variant="brand" onClick={confirmApplicationSelection} disabled={selectionSaving}
+                                className="px-5 py-2.5 rounded-xl h-auto text-sm">
                                 {selectionSaving ? 'Сохраняем…' : 'Выбрать трек'}
                             </Button>
                         </div>

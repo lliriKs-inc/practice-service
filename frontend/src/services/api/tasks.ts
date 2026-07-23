@@ -55,7 +55,7 @@ export interface CohortWeekProgress {
     days: string[]
     students: {
         applicationId: string
-        student: { id: string; email: string }
+        student: { id: string; email: string; full_name?: string }
         track: { id: string; title: string }
         tasks: WeekDay[]
     }[]
@@ -65,7 +65,7 @@ export interface MissedTaskEntry {
     applicationId: string
     taskId: string
     taskDate: string
-    student: { id: string; email: string }
+    student: { id: string; email: string; full_name?: string }
     track: { id: string; title: string }
     links: DailyTaskLink[]
 }
@@ -141,7 +141,7 @@ export async function getCohortWeekProgress(cohortId: string, weekStart: string)
         days: data.days,
         students: data.students.map((s: any) => ({
             applicationId: s.applicationId,
-            student: { id: s.student.id, email: s.student.email },
+            student: { id: s.student.id, email: s.student.email, full_name: s.student.full_name ?? undefined },
             track: s.track,
             tasks: s.tasks.map((d: any) => ({ date: d.date, task: d.task ? mapDailyTask(d.task) : null })),
         })),
@@ -160,7 +160,7 @@ export async function getMissedProgress(cohortId: string, weekStart: string, stu
             applicationId: m.applicationId,
             taskId: m.taskId,
             taskDate: m.taskDate,
-            student: { id: m.student.id, email: m.student.email },
+            student: { id: m.student.id, email: m.student.email, full_name: m.student.full_name ?? undefined },
             track: m.track,
             links: m.links,
         })),

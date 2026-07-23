@@ -19,7 +19,7 @@ import {
     type Question,
     type TestTask,
 } from '@/services/api/cohorts'
-import { Info, Star, Route, Link as LinkIcon, ClipboardCheck, ClipboardX, Plus, Pencil, TriangleAlert, Settings, FileText, X, RotateCw, Paperclip, Download, Copy, ChevronDown, Type, Layers, Trash2 } from 'lucide-react'
+import { Info, Star, Route, Link as LinkIcon, ClipboardCheck, ClipboardX, Plus, Pencil, TriangleAlert, Settings, FileText, X, RotateCw, Paperclip, Download, Copy, ChevronDown, Type, Layers, Trash2, FolderKanban } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useCohortWorkspace } from '../cohort-context'
 import { describeApiErrors } from '@/lib/api/error-messages'
@@ -150,6 +150,11 @@ export default function AdminCohortsPage() {
     // Все правки в модалке применяются только к editDraft. Ничего не
     // улетает на "сервер" (моки), пока не нажата кнопка "Сохранить".
     const [editDraft, setEditDraft] = useState<Cohort | null>(null)
+    // Статус когорты НА МОМЕНТ ОТКРЫТИЯ окна — переходы разрешаем относительно
+    // него, а не относительно editDraft.status, который меняется при каждом
+    // клике по кнопке статуса. Иначе после клика "Закрыта" её уже нельзя
+    // вернуть обратно на "Активна" до сохранения — хотя это ещё черновик правок.
+    const [originalStatus, setOriginalStatus] = useState<CohortStatus | null>(null)
     const [editTab, setEditTab] = useState<EditTab>('general')
     const [editSaving, setEditSaving] = useState(false)
     const [invitationSaving, setInvitationSaving] = useState(false)
@@ -313,6 +318,7 @@ export default function AdminCohortsPage() {
         // Глубокая копия — правки идут в черновик, исходная когорта в
         // списке не трогается, пока не нажата "Сохранить"
         setEditDraft(JSON.parse(JSON.stringify(cohort)))
+        setOriginalStatus(cohort.status)
         setEditTab('general')
         setEditErrors([])
         setNewTrackTitle('')
@@ -323,6 +329,7 @@ export default function AdminCohortsPage() {
     function closeEdit() {
         // Черновик просто выбрасывается — все несохранённые правки исчезают
         setEditDraft(null)
+        setOriginalStatus(null)
         setEditErrors([])
         setNewTrackError('')
         setTrackTitleErrors({})
@@ -427,7 +434,7 @@ export default function AdminCohortsPage() {
     }
 
     function handleStatusChange(status: CohortStatus) {
-        if (!editDraft || !canSetStatus(editDraft.status, status)) return
+        if (!editDraft || !originalStatus || !canSetStatus(originalStatus, status)) return
         patchDraft({ status })
     }
 
@@ -665,8 +672,9 @@ export default function AdminCohortsPage() {
                 )}
 
                 {cohortsError && (
-                    <div className="bg-danger-bg border border-danger-border rounded-xl px-5 py-4">
-                        <p className="text-sm text-danger">⚠️ {cohortsError}</p>
+                    <div className="bg-danger-bg border border-danger-border rounded-xl px-5 py-4 flex items-start gap-3">
+                        <TriangleAlert className="size-5 text-danger flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-danger">{cohortsError}</p>
                     </div>
                 )}
 
@@ -683,7 +691,9 @@ export default function AdminCohortsPage() {
 
                 {!cohortsLoading && !cohortsError && cohorts.length === 0 && (
                     <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
-                        <div className="text-4xl mb-4">🗂️</div>
+                        <div className="w-12 h-12 rounded-xl bg-brand-subtle text-brand-hover flex items-center justify-center mb-4">
+                            <FolderKanban className="size-5" />
+                        </div>
                         <p className="font-semibold text-ink mb-1">Когорт пока нет</p>
                         <p className="text-sm text-muted-ink">Создайте первый поток практики</p>
                     </div>
@@ -868,9 +878,12 @@ export default function AdminCohortsPage() {
                             </p>
                         </div>
                         {copySurveyErrors.length > 0 && (
-                            <div className="mt-4 bg-danger-bg border border-danger-border rounded-xl px-4 py-3 text-left">
+                            <div className="mt-4 bg-danger-bg border border-danger-border rounded-xl px-4 py-3 text-left flex flex-col gap-1.5">
                                 {copySurveyErrors.map(message => (
-                                    <p key={message} className="text-sm text-danger">⚠️ {message}</p>
+                                    <div key={message} className="flex items-start gap-2">
+                                        <TriangleAlert className="size-4 text-danger flex-shrink-0 mt-0.5" />
+                                        <p className="text-sm text-danger">{message}</p>
+                                    </div>
                                 ))}
                             </div>
                         )}
@@ -948,8 +961,9 @@ export default function AdminCohortsPage() {
                             </div>
 
                             {createErrors.map((message, i) => (
-                                <div key={i} className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3">
-                                    <p className="text-sm text-danger">⚠️ {message}</p>
+                                <div key={i} className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3 flex items-start gap-3">
+                                    <TriangleAlert className="size-5 text-danger flex-shrink-0 mt-0.5" />
+                                    <p className="text-sm text-danger">{message}</p>
                                 </div>
                             ))}
 
@@ -972,7 +986,7 @@ export default function AdminCohortsPage() {
             {editDraft && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
                     {...editModalOverlay}>
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col"
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 max-h-[96vh] flex flex-col"
                         onClick={e => e.stopPropagation()}>
 
                         {/* Шапка */}
@@ -1024,7 +1038,9 @@ export default function AdminCohortsPage() {
                                     </div>
 
                                     {newTrackError && (
-                                        <p className="text-xs text-danger">⚠️ {newTrackError}</p>
+                                        <p className="inline-flex items-center gap-1.5 text-xs text-danger">
+                                            <TriangleAlert className="size-3.5 flex-shrink-0" />{newTrackError}
+                                        </p>
                                     )}
                                 </div>
                             )}
@@ -1059,7 +1075,7 @@ export default function AdminCohortsPage() {
                                             <label className="text-sm font-medium text-ink flex-shrink-0">Статус когорты</label>
                                             <div className="flex gap-2">
                                                 {(['draft', 'active', 'closed'] as CohortStatus[]).map(s => {
-                                                    const allowed = canSetStatus(editDraft.status, s)
+                                                    const allowed = Boolean(originalStatus) && canSetStatus(originalStatus!, s)
                                                     return (
                                                         <button key={s} disabled={!allowed} onClick={() => handleStatusChange(s)}
                                                             title={!allowed ? 'Такой переход статуса недоступен' : undefined}
@@ -1098,18 +1114,27 @@ export default function AdminCohortsPage() {
                                             className="w-full text-sm rounded-xl" />
                                     </div>
 
+                            {editDraft.status !== 'draft' && (
+                                <div className="flex items-center gap-2 text-xs text-muted-ink bg-surface border border-border-soft rounded-xl px-4 py-2.5">
+                                    <TriangleAlert className="size-3.5 flex-shrink-0" />
+                                    Периоды дат можно менять только у когорты в статусе «Черновик»
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-ink">Начало приёма заявок</label>
                                     <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.application_start ?? '')}
                                         onChange={e => patchDraft({ application_start: e.target.value })}
-                                        className="w-full text-sm rounded-xl" />
+                                        disabled={editDraft.status !== 'draft'}
+                                        className="w-full text-sm rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-ink">Конец приёма заявок</label>
                                     <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.application_end ?? '')}
                                         onChange={e => patchDraft({ application_end: e.target.value })}
-                                        className="w-full text-sm rounded-xl" />
+                                        disabled={editDraft.status !== 'draft'}
+                                        className="w-full text-sm rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" />
                                 </div>
                             </div>
 
@@ -1118,13 +1143,15 @@ export default function AdminCohortsPage() {
                                             <label className="text-sm font-medium text-ink">Начало практики</label>
                                             <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.start_date)}
                                                 onChange={e => patchDraft({ start_date: e.target.value })}
-                                                className="w-full text-sm rounded-xl" />
+                                                disabled={editDraft.status !== 'draft'}
+                                                className="w-full text-sm rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-sm font-medium text-ink">Конец практики</label>
                                             <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.end_date)}
                                                 onChange={e => patchDraft({ end_date: e.target.value })}
-                                                className="w-full text-sm rounded-xl" />
+                                                disabled={editDraft.status !== 'draft'}
+                                                className="w-full text-sm rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" />
                                         </div>
                                     </div>
                                 </div>
@@ -1247,8 +1274,9 @@ export default function AdminCohortsPage() {
                             )}
 
                             {editErrors.map((message, i) => (
-                                <div key={i} className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3 mt-5">
-                                    <p className="text-sm text-danger">⚠️ {message}</p>
+                                <div key={i} className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3 mt-5 flex items-start gap-3">
+                                    <TriangleAlert className="size-5 text-danger flex-shrink-0 mt-0.5" />
+                                    <p className="text-sm text-danger">{message}</p>
                                 </div>
                             ))}
                         </div>
@@ -1337,7 +1365,9 @@ function TrackEditor({
                 </button>
             </div>
             {titleError && (
-                <p className="pl-10 -mt-2 text-xs text-danger">⚠️ {titleError}</p>
+                <p className="pl-10 -mt-2 inline-flex items-center gap-1.5 text-xs text-danger">
+                    <TriangleAlert className="size-3.5 flex-shrink-0" />{titleError}
+                </p>
             )}
 
             <div className="flex flex-col gap-3 pl-10">
@@ -1384,8 +1414,9 @@ function TrackEditor({
                 </div>
 
                 {fileErrors.map((message, i) => (
-                    <div key={i} className="bg-danger-bg border border-danger-border rounded-lg px-3 py-2">
-                        <p className="text-xs text-danger">⚠️ {message}</p>
+                    <div key={i} className="bg-danger-bg border border-danger-border rounded-lg px-3 py-2 flex items-start gap-2">
+                        <TriangleAlert className="size-4 text-danger flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-danger">{message}</p>
                     </div>
                 ))}
 

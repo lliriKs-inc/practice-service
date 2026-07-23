@@ -331,9 +331,12 @@ export default function DashboardDocumentsPage() {
                 </div>
 
                 {report?.status === 'REJECTED' && report.rejectionReason && (
-                    <div className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3">
-                        <p className="text-xs font-semibold text-danger mb-1">Причина отклонения</p>
-                        <p className="text-sm text-danger whitespace-pre-wrap">{report.rejectionReason}</p>
+                    <div className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3 flex items-start gap-3">
+                        <TriangleAlert className="size-5 text-danger flex-shrink-0 mt-0.5" />
+                        <div>
+                            <p className="text-xs font-semibold text-danger mb-1">Причина отклонения</p>
+                            <p className="text-sm text-danger whitespace-pre-wrap">{report.rejectionReason}</p>
+                        </div>
                     </div>
                 )}
 
@@ -380,9 +383,14 @@ export default function DashboardDocumentsPage() {
                                                 </span>
                                             )
                                         })}
-                                        {DOCUMENT_REQUIRES_APPROVED_REPORT[type] && report?.status !== 'APPROVED' && (
-                                            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full border bg-warning-bg border-warning-border text-warning">
-                                                нужен одобрен куратором отчёт
+                                        {DOCUMENT_REQUIRES_APPROVED_REPORT[type] && (
+                                            <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border
+                                                ${report?.status === 'APPROVED'
+                                                    ? 'bg-success-bg border-success-border text-success'
+                                                    : report?.status === 'REJECTED'
+                                                        ? 'bg-danger-bg border-danger-border text-danger'
+                                                        : 'bg-warning-bg border-warning-border text-warning'}`}>
+                                                Одобренный отчёт
                                             </span>
                                         )}
                                     </div>

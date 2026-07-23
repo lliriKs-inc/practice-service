@@ -293,7 +293,12 @@ export class TestTaskService {
           },
         },
         testTaskSubmission: {
-          select: { id: true, submitted_at: true },
+          select: {
+            id: true,
+            submitted_at: true,
+            file_url: true,
+            file_name: true,
+          },
         },
       },
     });
@@ -326,6 +331,8 @@ export class TestTaskService {
         ? {
             id: application.testTaskSubmission.id,
             submitted_at: application.testTaskSubmission.submitted_at,
+            file_name: application.testTaskSubmission.file_name,
+            download_path: `/files/${application.testTaskSubmission.file_url}`,
           }
         : null,
     };
