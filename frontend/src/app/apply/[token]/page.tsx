@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { GraduationCap, MoveRight, MailCheck, CircleCheck } from 'lucide-react'
+import { GraduationCap, MoveRight, MailCheck, CircleCheck, TriangleAlert, Ban } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isAuthenticated, getUser } from '@/services/api/auth'
 import { describeApiErrors } from '@/lib/api/error-messages'
@@ -121,7 +121,9 @@ export default function ApplyByInvitationPage() {
         return (
             <div className="min-h-screen flex items-center justify-center bg-surface px-6">
                 <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
-                    <div className="w-14 h-14 rounded-full bg-danger-bg flex items-center justify-center text-2xl mb-5">⚠️</div>
+                    <div className="w-14 h-14 rounded-full bg-danger-bg flex items-center justify-center mb-5">
+                        <TriangleAlert className="size-6 text-danger" />
+                    </div>
                     <h2 className="font-extrabold text-xl text-ink mb-2">Ссылка недействительна</h2>
                     <p className="text-sm text-muted-ink mb-6">{loadError}</p>
                     <a href="/login" className="text-sm font-semibold text-brand-hover hover:underline">
@@ -137,8 +139,8 @@ export default function ApplyByInvitationPage() {
         return (
             <div className="min-h-screen flex items-center justify-center bg-surface px-6">
                 <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md w-full flex flex-col items-center text-center">
-                    <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl mb-5 bg-gradient-to-br from-brand to-brand-light">
-                        🎓
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center mb-5 bg-gradient-to-br from-brand to-brand-light">
+                        <GraduationCap className="size-6 text-white" />
                     </div>
                     <p className="text-xs font-semibold tracking-widest uppercase text-brand-hover mb-2">
                         {form.cohort.title}
@@ -167,7 +169,9 @@ export default function ApplyByInvitationPage() {
         return (
             <div className="min-h-screen flex items-center justify-center bg-surface px-6">
                 <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
-                    <div className="w-14 h-14 rounded-full bg-danger-bg flex items-center justify-center text-2xl mb-5">🚫</div>
+                    <div className="w-14 h-14 rounded-full bg-danger-bg flex items-center justify-center mb-5">
+                        <Ban className="size-6 text-danger" />
+                    </div>
                     <h2 className="font-extrabold text-xl text-ink mb-2">Ссылка не для организаторов</h2>
                     <p className="text-sm text-muted-ink mb-6">
                         Вы вошли под аккаунтом администратора — заявки на практику подают кандидаты.
@@ -320,8 +324,8 @@ export default function ApplyByInvitationPage() {
                             )}
 
                             {submitError && (
-                                <div className="flex items-center gap-2 bg-danger-bg border-[1.5px] border-danger-border rounded-xl px-4 py-3">
-                                    <span className="text-sm">⚠️</span>
+                                <div className="flex items-start gap-3 bg-danger-bg border-[1.5px] border-danger-border rounded-xl px-4 py-3">
+                                    <TriangleAlert className="size-5 text-danger flex-shrink-0 mt-0.5" />
                                     <p className="text-sm text-danger">{submitError}</p>
                                 </div>
                             )}

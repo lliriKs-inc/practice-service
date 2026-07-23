@@ -16,6 +16,7 @@ const { getAdminDocuments, updateAdminDocumentField, updateReportStatus, getAdmi
     getAdminApplicationDocumentDetail: vi.fn(),
 }))
 
+vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams() }))
 vi.mock('@/services/api/admin', () => ({ getAdminDocuments, updateAdminDocumentField, updateReportStatus }))
 vi.mock('@/services/api/documents', async () => {
     const actual = await vi.importActual<typeof import('@/services/api/documents')>('@/services/api/documents')
@@ -106,13 +107,13 @@ describe('AdminDocumentsPage', () => {
         renderWithCohort()
         await screen.findByText('anna@urfu.ru', {}, { timeout: 3000 })
 
-        fireEvent.click(screen.getByText('▼ Показать детали и отзыв'))
+        fireEvent.click(screen.getByText('Детали документов'))
         await waitFor(() => expect(screen.getAllByText('Отзыв руководителя практики').length).toBeGreaterThan(1), { timeout: 3000 })
         const occurrences = screen.getAllByText('Отзыв руководителя практики')
         const reviewCard = occurrences[occurrences.length - 1]
         const card = reviewCard.closest('div.border')! as HTMLElement
 
-        const gradeLabel = within(card).getByText('Оценка')
+        const gradeLabel = within(card).getByText('Оценка', { selector: 'label' })
         const gradeInput = gradeLabel.parentElement!.querySelector('input')!
         fireEvent.change(gradeInput, { target: { value: 'Отлично' } })
         fireEvent.blur(gradeInput)

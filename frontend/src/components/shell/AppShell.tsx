@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { GraduationCap, LogOut, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { GraduationCap, LogOut, ShieldCheck, Menu, X, type LucideIcon } from 'lucide-react'
 import { logout } from '@/services/api/auth'
 
 export interface ShellNavItem {
@@ -42,8 +42,8 @@ export function AppShell({
             <header className="bg-white border-b border-border-soft px-4 md:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-20">
                 <div className="flex items-center gap-3 min-w-0">
                     <button onClick={() => setMobileNavOpen(v => !v)} aria-label="Открыть меню навигации"
-                        className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center text-lg flex-shrink-0 text-ink hover:bg-surface">
-                        {mobileNavOpen ? '✕' : '☰'}
+                        className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-ink hover:bg-surface">
+                        {mobileNavOpen ? <X className="size-5" /> : <Menu className="size-5" />}
                     </button>
                     <Link href="/" className="group flex items-center gap-3 min-w-0">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0 shadow-sm transition-transform group-hover:scale-105 bg-gradient-to-br from-brand to-brand-light"><GraduationCap className="size-4" /></div>
