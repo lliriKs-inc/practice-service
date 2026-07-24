@@ -103,12 +103,12 @@ export default function ApplicationTestTaskPage() {
     if (error || !application) {
         return (
             <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center mx-auto">
-                <div className="w-14 h-14 rounded-full bg-danger-bg flex items-center justify-center mb-5">
+                <div className="w-14 h-14 rounded-xl bg-danger-bg flex items-center justify-center mb-5">
                     <TriangleAlert className="size-6 text-danger" />
                 </div>
                 <h2 className="font-extrabold text-xl text-ink mb-2">Не удалось открыть заявку</h2>
                 <p className="text-sm text-muted-ink mb-6">{error || 'Заявка не найдена'}</p>
-                <a href="/dashboard/applications" className="text-sm font-semibold text-brand-hover hover:underline">← Вернуться в личный кабинет</a>
+                <a href="/dashboard/applications" className="text-sm font-semibold text-brand-hover bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300">← Вернуться в личный кабинет</a>
             </div>
         )
     }

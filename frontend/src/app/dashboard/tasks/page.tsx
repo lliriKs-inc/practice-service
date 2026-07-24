@@ -99,7 +99,11 @@ export default function DashboardTasksPage() {
         ? currentTime >= new Date(approvedApplication.cohort.start_date).getTime()
         : false
 
-    const [weekStart, setWeekStart] = useState<string>(() => toISODate(getMondayOfWeek(new Date())))
+    // Пусто, пока заявка не подгружена — loadWeek() ниже нарочно не фетчит с
+    // пустым weekStart, чтобы не было гонки между "стартовым" фетчем на
+    // сегодняшнюю неделю (почти наверняка вне периода практики) и
+    // "исправленным" фетчем на нужную неделю.
+    const [weekStart, setWeekStart] = useState('')
     const [weekData, setWeekData] = useState<StudentWeekResponse | null>(null)
     const [tasksLoading, setTasksLoading] = useState(false)
     const [tasksError, setTasksError] = useState('')
@@ -118,7 +122,7 @@ export default function DashboardTasksPage() {
     const [popupErrorIsWarning, setPopupErrorIsWarning] = useState(false)
 
     const loadWeek = useCallback(async () => {
-        if (!approvedApplication) return
+        if (!approvedApplication || !weekStart) return
         setTasksLoading(true)
         setTasksError('')
         try {
@@ -152,15 +156,17 @@ export default function DashboardTasksPage() {
         })()
     }, [weekData, weekStart])
 
-    // При появлении одобренной заявки — сразу ставим неделю на начало практики,
-    // а не на "сегодня" (которое почти наверняка вне диапазона)
+    // При появлении одобренной заявки — открываем текущую неделю (если она
+    // внутри периода практики — иначе ближайшую границу периода), а не всегда
+    // начало практики.
     useEffect(() => {
-        (() => {
-            if (!approvedApplication) return
-            const practiceMonday = toISODate(firstPracticeWeekMonday(approvedApplication.cohort.start_date))
-            setWeekStart(prev => (prev === toISODate(getMondayOfWeek(new Date())) ? practiceMonday : prev))
-        })()
-    }, [approvedApplication])
+        if (!approvedApplication) { setWeekStart(''); return }
+        const first = firstPracticeWeekMonday(approvedApplication.cohort.start_date)
+        const last = lastPracticeWeekMonday(approvedApplication.cohort.end_date)
+        const today = getMondayOfWeek(new Date())
+        const clamped = today < first ? first : today > last ? last : today
+        setWeekStart(toISODate(clamped))
+    }, [approvedApplication?.id])
 
     function canGoPrev(): boolean {
         if (!weekData) return true
@@ -289,6 +295,7 @@ export default function DashboardTasksPage() {
               return weekData.days.find(d => d.date === dateStr) ?? { date: dateStr, task: null }
           })
         : []
+    const todayISO = toISODate(new Date(currentTime))
 
     return (
         <div className="flex flex-col gap-6">
@@ -362,7 +369,14 @@ export default function DashboardTasksPage() {
                                             )}
                                         </>
                                     ) : practiceStarted ? (
-                                        <div className="flex flex-col items-center justify-center gap-2 h-full text-xs text-muted-ink group-hover:text-brand-hover">
+                                        <div className="flex flex-col items-center justify-center gap-2 h-full text-xs text-muted-ink group-hover:text-brand-hover relative">
+                                            {date < todayISO && (
+                                                <span className="absolute top-0 left-0 inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-warning-bg text-warning"
+                                                    title="День уже прошёл, но вы всё ещё можете его заполнить.">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-warning-dot" />
+                                                    Опоздание
+                                                </span>
+                                            )}
                                             <span className="w-7 h-7 rounded-full border border-dashed border-border-soft group-hover:border-brand-subtle-border flex items-center justify-center text-sm transition-colors">+</span>
                                             Заполнить день
                                         </div>

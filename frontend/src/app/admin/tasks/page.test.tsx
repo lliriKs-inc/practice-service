@@ -48,9 +48,12 @@ function pastMonday(weeksAgo: number): Date {
     return d
 }
 
+// Практика — ровно одна неделя, целиком в прошлом: дефолтная неделя календаря
+// (текущая, привязанная к границам периода) однозначно попадает на неё же,
+// а дни в ней точно в прошлом — удобно проверять "Пропущено".
 const practiceStart = pastMonday(2)
 const practiceEnd = new Date(practiceStart)
-practiceEnd.setUTCDate(practiceEnd.getUTCDate() + 11)
+practiceEnd.setUTCDate(practiceEnd.getUTCDate() + 4)
 const weekStart = practiceStart.toISOString().split('T')[0]
 const weekEnd = new Date(practiceStart)
 weekEnd.setUTCDate(weekEnd.getUTCDate() + 4)
@@ -142,7 +145,27 @@ describe('AdminTasksPage (прогресс когорты)', () => {
     })
 
     it('ограничивает навигацию первой и последней неделей практики', async () => {
-        renderWithCohort()
+        // Отдельная когорта: практика начинается на текущей неделе и длится
+        // ещё несколько недель вперёд — дефолтная (текущая) неделя совпадает
+        // с первой неделей практики, поэтому "Пред." должна быть недоступна,
+        // а "След." — доступна.
+        const thisWeekMonday = pastMonday(0)
+        const futureEnd = new Date(thisWeekMonday)
+        futureEnd.setUTCDate(futureEnd.getUTCDate() + 28)
+        const value: CohortWorkspaceContextValue = {
+            cohorts: [makeCohort(thisWeekMonday.toISOString(), futureEnd.toISOString())],
+            cohortsLoading: false,
+            cohortsError: '',
+            selectedCohortId: COHORT_ID,
+            selectedCohort: makeCohort(thisWeekMonday.toISOString(), futureEnd.toISOString()),
+            setSelectedCohortId: () => {},
+            refetchCohorts: async () => {},
+        }
+        render(
+            <CohortWorkspaceContext.Provider value={value}>
+                <AdminTasksPage />
+            </CohortWorkspaceContext.Provider>
+        )
 
         const previous = await screen.findByRole('button', { name: 'Предыдущая неделя' })
         const next = screen.getByRole('button', { name: 'Следующая неделя' })
