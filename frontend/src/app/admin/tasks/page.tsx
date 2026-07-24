@@ -103,6 +103,61 @@ function computeDayStatus(day: WeekDay | undefined, todayISO: string): DayStatus
     return 'future'
 }
 
+// Одна ячейка дня — общая и для десктопной сетки, и для мобильного аккордеона,
+// чтобы не дублировать разметку статусов.
+function TaskDayCell({ day, status, dayLabel, onOpen }: {
+    day: WeekDay | undefined
+    status: DayStatus
+    dayLabel?: string
+    onOpen: () => void
+}) {
+    return (
+        <button type="button" disabled={!day || !isDayClickable(status)} onClick={onOpen}
+            className={`rounded-xl border p-3 flex flex-col gap-1.5 text-left min-h-[92px] transition-colors ${
+                status === 'done' || status === 'late' || status === 'today'
+                    ? 'border-border-soft bg-white hover:border-brand-subtle-border'
+                    : status === 'missed'
+                        ? 'border-danger-border bg-danger-bg/40'
+                        : 'border-border-soft bg-surface cursor-default'
+            }`}>
+            {dayLabel && (
+                <span className="text-[10px] font-bold text-muted-ink uppercase tracking-wide">{dayLabel}</span>
+            )}
+            {(status === 'done' || status === 'late') && (
+                <>
+                    <span className={`inline-flex self-start items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full ${status === 'done' ? 'bg-brand-subtle text-brand-hover' : 'bg-warning-bg text-warning'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${status === 'done' ? 'bg-brand' : 'bg-warning-dot'}`} />
+                        {status === 'done' ? 'Готово' : 'Опоздание'}
+                    </span>
+                    {day?.task?.description && (
+                        <p className="text-xs text-ink leading-relaxed line-clamp-2">{day.task.description}</p>
+                    )}
+                    {day?.task && day.task.links.length > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-brand-hover truncate">
+                            {day.task.links.length} {day.task.links.length === 1 ? 'ссылка' : 'ссылки'}
+                        </span>
+                    )}
+                </>
+            )}
+            {status === 'missed' && (
+                <span className="inline-flex self-start items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-danger-bg text-danger">
+                    <span className="w-1.5 h-1.5 rounded-full bg-danger-dot" />
+                    Пропущено
+                </span>
+            )}
+            {status === 'today' && (
+                <span className="inline-flex self-start items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-surface text-muted-ink border border-border-soft">
+                    <span className="w-1.5 h-1.5 rounded-full bg-faint-ink" />
+                    Не заполнено
+                </span>
+            )}
+            {(status === 'future' || status === 'na') && (
+                <span className="text-xs text-faint-ink flex items-center justify-center h-full">—</span>
+            )}
+        </button>
+    )
+}
+
 export default function AdminTasksPage() {
     const { selectedCohort } = useCohortWorkspace()
 
@@ -124,6 +179,8 @@ export default function AdminTasksPage() {
     const selectedTaskModalOverlay = useOverlayClose(() => setSelectedTask(null))
     const [trackFilter, setTrackFilter] = useState('')
     const [search, setSearch] = useState('')
+    // Мобильный вид: дневник студента — аккордеон, открыт только один за раз.
+    const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null)
 
     const load = useCallback(async () => {
         if (!selectedCohort) return
@@ -182,7 +239,7 @@ export default function AdminTasksPage() {
 
     return (
         <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                     <h1 className="font-extrabold text-2xl tracking-tight text-ink">
                         {selectedCohort ? <>Дневник задач по когорте «{selectedCohort.title}»</> : 'Дневник задач'}
@@ -192,19 +249,19 @@ export default function AdminTasksPage() {
                     )}
                 </div>
                 {selectedCohort && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
                         <button onClick={goPrevWeek} disabled={weekStart === firstWeekStart} aria-label="Предыдущая неделя"
-                            className="px-4 py-2 text-sm font-medium border-0 text-white rounded-lg bg-gradient-to-br from-brand to-brand-light hover:brightness-110 active:brightness-90 disabled:opacity-40 disabled:cursor-not-allowed">
+                            className="px-4 py-2 text-sm font-medium border-0 text-white rounded-lg bg-gradient-to-br from-brand to-brand-light hover:brightness-110 active:brightness-90 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">
                             <ChevronLeft className="size-4" />
                         </button>
                         {progress && (
-                            <span className="inline-flex items-center justify-center gap-1.5 h-9 min-w-[210px] text-sm font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-4">
+                            <span className="inline-flex items-center justify-center gap-1.5 h-9 flex-1 sm:flex-initial sm:min-w-[210px] text-sm font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-4">
                                 <Calendar className="size-4" />
                                 {formatWeekLabel(progress.weekStart, progress.weekEnd)}
                             </span>
                         )}
                         <button onClick={goNextWeek} disabled={weekStart === lastWeekStart} aria-label="Следующая неделя"
-                            className="px-4 py-2 text-sm font-medium border-0 text-white rounded-lg bg-gradient-to-br from-brand to-brand-light hover:brightness-110 active:brightness-90 disabled:opacity-40 disabled:cursor-not-allowed">
+                            className="px-4 py-2 text-sm font-medium border-0 text-white rounded-lg bg-gradient-to-br from-brand to-brand-light hover:brightness-110 active:brightness-90 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">
                             <ChevronRight className="size-4" />
                         </button>
                     </div>
@@ -222,7 +279,7 @@ export default function AdminTasksPage() {
 
             {selectedCohort && (
                 <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-wrap items-center gap-3">
-                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white flex-shrink-0 focus-within:border-brand cursor-pointer">
+                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white w-full sm:w-auto sm:flex-shrink-0 focus-within:border-brand cursor-pointer">
                         <Route className="size-3.5 text-muted-ink flex-shrink-0 pointer-events-none" />
                         <span className="text-sm font-medium text-ink truncate pointer-events-none">
                             {selectedCohort.tracks.find(t => t.id === trackFilter)?.title ?? 'Все треки'}
@@ -271,81 +328,83 @@ export default function AdminTasksPage() {
                         <p className="text-sm text-muted-ink">Измените фильтр или поисковый запрос.</p>
                     </div>
                 ) : (
-                    <div className="bg-white rounded-2xl shadow-sm overflow-hidden overflow-x-auto">
-                        <div className="grid gap-3 px-5 py-3 border-b border-border-soft min-w-[860px]" style={{ gridTemplateColumns: '220px repeat(5, 1fr)' }}>
-                            <span className="text-xs font-bold text-muted-ink uppercase tracking-wide">Студент</span>
-                            {displayDates.map((date, i) => {
-                                const d = new Date(date)
+                    <>
+                        {/* ── Десктоп: таблица-сетка (ФИО + 5 дней в ряд) ── */}
+                        <div className="hidden sm:block bg-white rounded-2xl shadow-sm overflow-hidden overflow-x-auto">
+                            <div className="grid gap-3 px-5 py-3 border-b border-border-soft min-w-[860px]" style={{ gridTemplateColumns: '220px repeat(5, 1fr)' }}>
+                                <span className="text-xs font-bold text-muted-ink uppercase tracking-wide">Студент</span>
+                                {displayDates.map((date, i) => {
+                                    const d = new Date(date)
+                                    return (
+                                        <span key={date} className="text-xs font-bold text-muted-ink uppercase tracking-wide text-center">
+                                            {DAYS_RU[i]} {d.getUTCDate()}.{String(d.getUTCMonth() + 1).padStart(2, '0')}
+                                        </span>
+                                    )
+                                })}
+                            </div>
+                            <div className="flex flex-col divide-y divide-border-soft min-w-[860px]">
+                                {filteredStudents.map(student => (
+                                    <div key={student.applicationId} className="grid gap-3 px-5 py-4" style={{ gridTemplateColumns: '220px repeat(5, 1fr)' }}>
+                                        <div className="flex flex-col justify-center gap-1.5">
+                                            <span className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
+                                                <Route className="size-3.5" />{student.track.title}
+                                            </span>
+                                            <p className="font-bold text-lg text-ink leading-tight">{student.student.full_name || student.student.email}</p>
+                                            {student.student.full_name && (
+                                                <span className="text-xs text-muted-ink">{student.student.email}</span>
+                                            )}
+                                        </div>
+                                        {displayDates.map(date => {
+                                            const day = student.tasks.find(t => t.date === date)
+                                            const status = computeDayStatus(day, todayISO)
+                                            return (
+                                                <TaskDayCell key={date} day={day} status={status}
+                                                    onOpen={() => day?.task && setSelectedTask({ task: day.task, date })} />
+                                            )
+                                        })}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* ── Мобильные: аккордеон — дневник одного студента открыт за раз ── */}
+                        <div className="sm:hidden flex flex-col gap-3">
+                            {filteredStudents.map(student => {
+                                const isOpen = expandedStudentId === student.applicationId
                                 return (
-                                    <span key={date} className="text-xs font-bold text-muted-ink uppercase tracking-wide text-center">
-                                        {DAYS_RU[i]} {d.getUTCDate()}.{String(d.getUTCMonth() + 1).padStart(2, '0')}
-                                    </span>
+                                    <div key={student.applicationId} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                                        <button type="button" onClick={() => setExpandedStudentId(isOpen ? null : student.applicationId)}
+                                            className="w-full px-5 py-4 flex items-center justify-between gap-3 text-left">
+                                            <div className="flex flex-col gap-1.5 min-w-0">
+                                                <span className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
+                                                    <Route className="size-3.5" />{student.track.title}
+                                                </span>
+                                                <p className="font-bold text-lg text-ink leading-tight truncate">{student.student.full_name || student.student.email}</p>
+                                                {student.student.full_name && (
+                                                    <span className="text-xs text-muted-ink truncate">{student.student.email}</span>
+                                                )}
+                                            </div>
+                                            <ChevronDown className={`size-5 text-muted-ink flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                                        </button>
+                                        {isOpen && (
+                                            <div className="px-5 pb-5 flex flex-col gap-2 border-t border-border-soft pt-4">
+                                                {displayDates.map((date, i) => {
+                                                    const d = new Date(date)
+                                                    const day = student.tasks.find(t => t.date === date)
+                                                    const status = computeDayStatus(day, todayISO)
+                                                    return (
+                                                        <TaskDayCell key={date} day={day} status={status}
+                                                            dayLabel={`${DAYS_RU[i]} ${d.getUTCDate()}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`}
+                                                            onOpen={() => day?.task && setSelectedTask({ task: day.task, date })} />
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
                                 )
                             })}
                         </div>
-                        <div className="flex flex-col divide-y divide-border-soft min-w-[860px]">
-                            {filteredStudents.map(student => (
-                                <div key={student.applicationId} className="grid gap-3 px-5 py-4" style={{ gridTemplateColumns: '220px repeat(5, 1fr)' }}>
-                                    <div className="flex flex-col justify-center gap-1.5">
-                                        <span className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
-                                            <Route className="size-3.5" />{student.track.title}
-                                        </span>
-                                        <p className="font-bold text-lg text-ink leading-tight">{student.student.full_name || student.student.email}</p>
-                                        {student.student.full_name && (
-                                            <span className="text-xs text-muted-ink">{student.student.email}</span>
-                                        )}
-                                    </div>
-                                    {displayDates.map(date => {
-                                        const day = student.tasks.find(t => t.date === date)
-                                        const status = computeDayStatus(day, todayISO)
-                                        return (
-                                            <button key={date} type="button" disabled={!day || !isDayClickable(status)}
-                                                onClick={() => day?.task && setSelectedTask({ task: day.task, date })}
-                                                className={`rounded-xl border p-3 flex flex-col gap-1.5 text-left min-h-[92px] transition-colors ${
-                                                    status === 'done' || status === 'late' || status === 'today'
-                                                        ? 'border-border-soft bg-white hover:border-brand-subtle-border'
-                                                        : status === 'missed'
-                                                            ? 'border-danger-border bg-danger-bg/40'
-                                                            : 'border-border-soft bg-surface cursor-default'
-                                                }`}>
-                                                {(status === 'done' || status === 'late') && (
-                                                    <>
-                                                        <span className={`inline-flex self-start items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full ${status === 'done' ? 'bg-brand-subtle text-brand-hover' : 'bg-warning-bg text-warning'}`}>
-                                                            <span className={`w-1.5 h-1.5 rounded-full ${status === 'done' ? 'bg-brand' : 'bg-warning-dot'}`} />
-                                                            {status === 'done' ? 'Готово' : 'Опоздание'}
-                                                        </span>
-                                                        {day?.task?.description && (
-                                                            <p className="text-xs text-ink leading-relaxed line-clamp-2">{day.task.description}</p>
-                                                        )}
-                                                        {day?.task && day.task.links.length > 0 && (
-                                                            <span className="inline-flex items-center gap-1 text-[11px] text-brand-hover truncate">
-                                                                {day.task.links.length} {day.task.links.length === 1 ? 'ссылка' : 'ссылки'}
-                                                            </span>
-                                                        )}
-                                                    </>
-                                                )}
-                                                {status === 'missed' && (
-                                                    <span className="inline-flex self-start items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-danger-bg text-danger">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-danger-dot" />
-                                                        Пропущено
-                                                    </span>
-                                                )}
-                                                {status === 'today' && (
-                                                    <span className="inline-flex self-start items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-surface text-muted-ink border border-border-soft">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-faint-ink" />
-                                                        Не заполнено
-                                                    </span>
-                                                )}
-                                                {(status === 'future' || status === 'na') && (
-                                                    <span className="text-xs text-faint-ink flex items-center justify-center h-full">—</span>
-                                                )}
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    </>
                 )
             )}
 
@@ -382,7 +441,7 @@ export default function AdminTasksPage() {
                                         {!hasContent
                                             ? 'Не заполнено'
                                             : late
-                                                ? `Опоздание на ${daysLate} ${pluralizeDays(daysLate)}: сдано ${savedAtLabel}`
+                                                ? <>Опоздание на {daysLate} {pluralizeDays(daysLate)}:<br className="sm:hidden" /> сдано {savedAtLabel}</>
                                                 : `Заполнено: ${savedAtLabel}`}
                                     </span>
                                 </div>

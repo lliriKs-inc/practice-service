@@ -199,7 +199,7 @@ export default function AdminApplicationsPage() {
 
             {selectedCohort && (
                 <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-wrap items-center gap-3">
-                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white flex-shrink-0 focus-within:border-brand cursor-pointer">
+                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white w-full sm:w-auto sm:flex-shrink-0 focus-within:border-brand cursor-pointer">
                         <ListFilter className="size-3.5 text-muted-ink flex-shrink-0 pointer-events-none" />
                         <span className="text-sm font-medium text-ink truncate pointer-events-none">
                             {statusFilter ? STATUS_FILTER_LABELS[statusFilter] : 'Все статусы'}
@@ -215,7 +215,7 @@ export default function AdminApplicationsPage() {
                             <option value="working">Рабочий трек</option>
                         </select>
                     </div>
-                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white flex-shrink-0 focus-within:border-brand cursor-pointer">
+                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white w-full sm:w-auto sm:flex-shrink-0 focus-within:border-brand cursor-pointer">
                         <Route className="size-3.5 text-muted-ink flex-shrink-0 pointer-events-none" />
                         <span className="text-sm font-medium text-ink truncate pointer-events-none">
                             {sourceCohort?.tracks.find(t => t.id === trackFilter)?.title ?? 'Все треки'}
@@ -271,11 +271,11 @@ export default function AdminApplicationsPage() {
 
                         return (
                             <div key={app.applicationId} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                                <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between">
-                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
+                                <div className="px-7 py-5 border-b border-border-soft flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                    <span className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
                                         <Route className="size-3.5" />{app.track.title}
                                     </span>
-                                    <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border
+                                    <div className={`inline-flex w-fit items-center gap-2 px-4 py-1.5 rounded-full border
                                         ${app.status === 'pending' ? 'bg-warning-bg border-warning-border text-warning'
                                             : app.status === 'approved' ? 'bg-success-bg border-success-border text-success'
                                             : 'bg-danger-bg border-danger-border text-danger'}`}>
@@ -285,17 +285,17 @@ export default function AdminApplicationsPage() {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 divide-x divide-border-soft border-b border-border-soft">
-                                    <div className="px-7 py-5 flex items-center gap-2 flex-wrap">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border-soft border-b border-border-soft">
+                                    <div className="px-7 py-5 flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
                                         <h2 className="font-bold text-lg text-ink">{app.student?.full_name || 'Неизвестный кандидат'}</h2>
                                         {applicationsCount > 1 && (
                                             app.isWorkingApplication ? (
-                                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-success-bg border border-success-border text-success"
+                                                <span className="inline-flex w-fit items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-success-bg border border-success-border text-success"
                                                     title="Студент выбрал этот трек рабочим — по нему ведётся дневник задач и отчёт.">
                                                     <CheckCircle2 className="size-3 flex-shrink-0" />{applicationsCount} {pluralizeApplications(applicationsCount)} · рабочий трек
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-dashed border-border-soft text-faint-ink"
+                                                <span className="inline-flex w-fit items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-dashed border-border-soft text-faint-ink"
                                                     title="У этого студента несколько заявок в этой когорте — эта не выбрана рабочей.">
                                                     <Users className="size-3 flex-shrink-0" />{applicationsCount} {pluralizeApplications(applicationsCount)} · не выбрана
                                                 </span>

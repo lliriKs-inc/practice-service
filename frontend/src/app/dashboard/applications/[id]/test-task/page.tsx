@@ -6,6 +6,7 @@ import {
     getMyApplication,
     type Application,
 } from '@/services/api/invitation'
+import { getMe } from '@/services/api/auth'
 import {
     getMyTestTask,
     uploadSubmission,
@@ -15,7 +16,7 @@ import {
     type MyTestTask,
 } from '@/services/api/test-task'
 import { downloadProtectedFile } from '@/lib/api/download'
-import { Route, Clock, CheckCircle2, Upload, RotateCw, Check, X, TriangleAlert, Inbox, Download } from 'lucide-react'
+import { Route, Clock, CheckCircle2, Upload, RotateCw, Check, X, TriangleAlert, Inbox, Download, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 const STATUS_CONFIG: Record<Application['status'], { label: string; className: string; dot: string }> = {
@@ -31,6 +32,7 @@ export default function ApplicationTestTaskPage() {
 
     const [application, setApplication] = useState<Application | null>(null)
     const [testTask, setTestTask] = useState<MyTestTask | null>(null)
+    const [activeApplicationId, setActiveApplicationId] = useState<string | null>(null)
     const [pageLoading, setPageLoading] = useState(true)
     const [error, setError] = useState('')
 
@@ -45,8 +47,9 @@ export default function ApplicationTestTaskPage() {
     useEffect(() => {
         (async () => {
             try {
-                const app = await getMyApplication(applicationId)
+                const [app, user] = await Promise.all([getMyApplication(applicationId), getMe()])
                 setApplication(app)
+                setActiveApplicationId(user.active_application_id ?? null)
                 await loadTestTask()
             } catch (err: unknown) {
                 setError(err instanceof Error ? err.message : 'Не удалось загрузить заявку')
@@ -111,6 +114,7 @@ export default function ApplicationTestTaskPage() {
     }
 
     const status = STATUS_CONFIG[application.status]
+    const isSelectedTrack = activeApplicationId === application.id && application.status === 'approved'
     const hasSubmission = Boolean(testTask?.available && testTask.submission)
     const progressSteps = [
         {
@@ -167,7 +171,7 @@ export default function ApplicationTestTaskPage() {
             <div className="grid lg:grid-cols-2 gap-6 items-start">
                     {/* Карточка заявки */}
                     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                        <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between gap-4">
+                        <div className="px-7 py-5 border-b border-border-soft flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div>
                                 <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Практика</span>
                                 <div className="flex items-center gap-3 flex-wrap mt-0.5">
@@ -175,9 +179,14 @@ export default function ApplicationTestTaskPage() {
                                     <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
                                         <Route className="size-3.5" />{application.track.title}
                                     </span>
+                                    {isSelectedTrack && (
+                                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-warning bg-warning-bg border border-warning-border rounded-full px-2.5 py-1">
+                                            <Star className="size-3.5 fill-warning-dot text-warning-dot" />Текущая практика
+                                        </span>
+                                    )}
                                 </div>
                             </div>
-                            <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border flex-shrink-0 ${status.className}`}>
+                            <div className={`inline-flex self-start sm:self-auto items-center gap-2 px-4 py-1.5 rounded-full border flex-shrink-0 ${status.className}`}>
                                 <div className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
                                 <span className="text-xs font-semibold">{status.label}</span>
                             </div>
@@ -229,14 +238,14 @@ export default function ApplicationTestTaskPage() {
 
                     {/* Тестовое задание */}
                     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                        <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between gap-4">
+                        <div className="px-7 py-5 border-b border-border-soft flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                             <div>
                                 <p className="text-[10px] font-bold tracking-widest uppercase text-muted-ink mb-1">Тестовое задание</p>
                                 <h2 className="font-bold text-lg text-ink">{application.track.title}</h2>
                             </div>
                             {testTask?.available && testTask.hasFile && testTask.downloadPath && (
                                 <button onClick={() => handleDownload(testTask.downloadPath!, testTask.title || 'Тестовое задание')}
-                                    className="inline-flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle transition-colors flex-shrink-0">
+                                    className="inline-flex items-center justify-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle transition-colors flex-shrink-0 w-full sm:w-auto">
                                     <Download className="size-4" />Скачать файл задания
                                 </button>
                             )}
@@ -244,10 +253,10 @@ export default function ApplicationTestTaskPage() {
 
                         <div className="px-7 py-6">
                             {!testTask || !testTask.available ? (
-                                <div className="flex items-start gap-3 p-4 bg-brand-subtle rounded-xl border-l-4 border-brand">
+                                <div className="flex items-start gap-3 p-4 bg-brand-subtle rounded-xl border border-brand-subtle-border">
                                     <Inbox className="size-5 text-brand-hover flex-shrink-0 mt-0.5" />
                                     <p className="text-sm text-muted-ink leading-relaxed">
-                                        {testTask?.message ?? 'Пока задание не опубликовано, оно будет вам направлено на e-mail позже. Ожидайте...'}
+                                        Тестовое задание пока не опубликовано.
                                     </p>
                                 </div>
                             ) : (
@@ -263,7 +272,7 @@ export default function ApplicationTestTaskPage() {
                                     <div className="border-t border-border-soft pt-5 flex flex-col gap-3">
                                         <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Твоё решение</span>
 
-                                        <div className="flex items-stretch gap-3">
+                                        <div className="flex flex-col sm:flex-row sm:items-stretch gap-3">
                                             {testTask.submission ? (
                                                 <div className="flex-1 flex items-center gap-3 bg-success-bg border border-success-border rounded-xl px-4 py-3">
                                                     <CheckCircle2 className="size-5 text-success flex-shrink-0" />
@@ -290,7 +299,7 @@ export default function ApplicationTestTaskPage() {
                                                 onChange={handleFileSelected} />
 
                                             <Button variant="brand" onClick={openFilePicker} disabled={uploading}
-                                                className="px-5 rounded-lg h-auto flex-shrink-0">
+                                                className="px-5 py-3 rounded-lg h-auto flex-shrink-0 justify-center w-full sm:w-auto">
                                                 {uploading
                                                     ? 'Загружаем…'
                                                     : testTask.submission
