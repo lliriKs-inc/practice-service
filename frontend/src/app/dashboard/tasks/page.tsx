@@ -410,13 +410,13 @@ export default function DashboardTasksPage() {
 
             {/* ── ПОПАП ДНЯ ── */}
             {popup && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
                     onMouseDown={e => { backdropMouseDownRef.current = e.target === e.currentTarget }}
                     onMouseUp={e => {
                         if (backdropMouseDownRef.current && e.target === e.currentTarget) closePopup()
                         backdropMouseDownRef.current = false
                     }}>
-                    <div className="bg-white rounded-2xl shadow-xl p-7 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white rounded-2xl shadow-xl p-7 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                         <div className="relative mb-5">
                             <button onClick={closePopup} className="absolute right-0 top-0 text-muted-ink hover:text-ink text-xl leading-none transition-colors">×</button>
                             <div className="flex flex-col items-center gap-1.5 text-center">
