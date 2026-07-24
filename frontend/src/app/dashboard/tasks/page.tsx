@@ -292,21 +292,21 @@ export default function DashboardTasksPage() {
 
     return (
         <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <h1 className="font-extrabold text-2xl tracking-tight text-ink">Дневник задач</h1>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                     <button onClick={goPrevWeek} disabled={!canGoPrev() || tasksLoading} aria-label="Предыдущая неделя"
-                        className="px-4 py-2 text-sm font-medium border-0 text-white rounded-lg bg-gradient-to-br from-brand to-brand-light hover:brightness-110 active:brightness-90 disabled:opacity-40 disabled:cursor-not-allowed">
+                        className="px-4 py-2 text-sm font-medium border-0 text-white rounded-lg bg-gradient-to-br from-brand to-brand-light hover:brightness-110 active:brightness-90 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">
                         <ChevronLeft className="size-4" />
                     </button>
                     {weekData && (
-                        <span className="inline-flex items-center justify-center gap-1.5 h-9 min-w-[210px] text-sm font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-4">
+                        <span className="inline-flex items-center justify-center gap-1.5 h-9 flex-1 sm:flex-initial sm:min-w-[210px] text-sm font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-4">
                             <Calendar className="size-4" />
                             {formatWeekLabel(weekData.weekStart, weekData.weekEnd)}
                         </span>
                     )}
                     <button onClick={goNextWeek} disabled={!canGoNext() || tasksLoading} aria-label="Следующая неделя"
-                        className="px-4 py-2 text-sm font-medium border-0 text-white rounded-lg bg-gradient-to-br from-brand to-brand-light hover:brightness-110 active:brightness-90 disabled:opacity-40 disabled:cursor-not-allowed">
+                        className="px-4 py-2 text-sm font-medium border-0 text-white rounded-lg bg-gradient-to-br from-brand to-brand-light hover:brightness-110 active:brightness-90 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">
                         <ChevronRight className="size-4" />
                     </button>
                 </div>
@@ -332,23 +332,18 @@ export default function DashboardTasksPage() {
                 </div>
             )}
 
-            <div className={`bg-white rounded-2xl shadow-sm overflow-hidden transition-opacity ${tasksLoading ? 'opacity-50' : ''}`}>
-                <div className="grid grid-cols-5 border-b border-border-soft">
-                    {displayDays.map(({ date }, i) => {
+            <div className={`flex flex-col gap-3 sm:gap-0 sm:bg-white sm:rounded-2xl sm:shadow-sm sm:overflow-hidden transition-opacity ${tasksLoading ? 'opacity-50' : ''}`}>
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 sm:gap-0 sm:divide-x divide-border-soft">
+                    {displayDays.map(({ date, task }) => {
                         const d = new Date(date)
                         return (
-                            <div key={i} className="px-5 py-3 border-r border-border-soft last:border-r-0">
+                        <div key={date} className="flex flex-col bg-white rounded-2xl shadow-sm sm:bg-transparent sm:rounded-none sm:shadow-none overflow-hidden">
+                            <div className="px-5 py-3 border-b border-border-soft">
                                 <span className="text-xs font-bold text-muted-ink uppercase tracking-wide">
                                     {DAYS_RU[(d.getUTCDay() + 6) % 7]} {d.getUTCDate()}.{String(d.getUTCMonth() + 1).padStart(2, '0')}
                                 </span>
                             </div>
-                        )
-                    })}
-                </div>
-
-                <div className="grid grid-cols-5 divide-x divide-border-soft min-h-[240px]">
-                    {displayDays.map(({ date, task }) => (
-                        <div key={date} className="p-4 flex flex-col gap-3 relative group">
+                        <div className="p-4 flex flex-col gap-3 relative group min-h-[160px] sm:min-h-[240px]">
                             {task ? (
                                 <button onClick={() => openCell(date, task)} disabled={!practiceStarted}
                                     className={`flex flex-col gap-2 text-left w-full h-full ${!practiceStarted ? 'cursor-default' : ''}`}>
@@ -379,7 +374,9 @@ export default function DashboardTasksPage() {
                                 <span className="text-xs text-faint-ink">—</span>
                             )}
                         </div>
-                    ))}
+                        </div>
+                        )
+                    })}
                 </div>
             </div>
 
@@ -458,17 +455,17 @@ export default function DashboardTasksPage() {
                                 </div>
                             )}
 
-                            <div className="flex justify-between items-center mt-2">
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mt-2">
                                 <Button variant="danger" onClick={handleClear} disabled={popupSaving}
-                                    className="px-4 py-2 rounded-lg h-auto">
+                                    className="px-4 py-2 rounded-lg h-auto w-full sm:w-auto order-3 sm:order-none">
                                     Очистить день
                                 </Button>
-                                <div className="flex items-center gap-4">
+                                <div className="flex flex-col-reverse sm:flex-row items-center gap-3 sm:gap-4 order-1 sm:order-none w-full sm:w-auto">
                                     <button onClick={closePopup} className="text-sm font-semibold text-muted-ink hover:text-ink transition-colors">
                                         Отмена
                                     </button>
                                     <Button variant="brand" onClick={handleSave} disabled={popupSaving}
-                                        className="px-5 py-2 rounded-lg h-auto">
+                                        className="px-5 py-2 rounded-lg h-auto w-full sm:w-auto">
                                         {popupSaving ? 'Сохраняем…' : 'Сохранить'}
                                     </Button>
                                 </div>

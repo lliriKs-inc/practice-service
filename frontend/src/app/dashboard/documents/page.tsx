@@ -304,7 +304,7 @@ export default function DashboardDocumentsPage() {
                 <input ref={reportFileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx"
                     onChange={handleReportUpload} disabled={reportUploading} />
 
-                <div className="flex items-stretch gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-stretch gap-3">
                     {report ? (
                         <div className={`flex-1 flex items-center gap-3 rounded-xl px-4 py-3 border ${REPORT_STATUS_CONFIG[report.status].className}`}>
                             {(() => { const StatusIcon = REPORT_STATUS_CONFIG[report.status].icon; return <StatusIcon className="size-5 flex-shrink-0" /> })()}
@@ -321,7 +321,7 @@ export default function DashboardDocumentsPage() {
                     )}
 
                     <Button variant="brand" onClick={openReportFilePicker} disabled={reportUploading}
-                        className="px-5 rounded-lg h-auto flex-shrink-0">
+                        className="px-5 py-3 rounded-lg h-auto flex-shrink-0 justify-center w-full sm:w-auto">
                         {reportUploading
                             ? 'Загружаем…'
                             : report
@@ -368,7 +368,7 @@ export default function DashboardDocumentsPage() {
 
                     return (
                         <div key={type} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                            <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between gap-4">
+                            <div className="px-7 py-5 border-b border-border-soft flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                 <div className="flex flex-col gap-2">
                                     <h2 className="font-bold text-lg text-ink">{DOCUMENT_TYPE_LABELS[type]}</h2>
                                     <div className="flex flex-wrap items-center gap-2">
@@ -395,10 +395,10 @@ export default function DashboardDocumentsPage() {
                                         )}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 flex-shrink-0">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-shrink-0">
                                     <Button variant={itemReadiness?.generated ? 'brand-outline' : 'brand'} disabled={!itemReadiness?.ready || generatingType === type}
                                         onClick={() => handleGenerate(type)}
-                                        className={`px-5 py-2 rounded-lg h-auto flex-shrink-0 ${!itemReadiness?.ready && !itemReadiness?.generated ? 'bg-gradient-to-br from-border-soft to-surface text-muted-ink shadow-none' : ''}`}>
+                                        className={`px-5 py-2 rounded-lg h-auto flex-shrink-0 justify-center ${!itemReadiness?.ready && !itemReadiness?.generated ? 'bg-gradient-to-br from-border-soft to-surface text-muted-ink shadow-none' : ''}`}>
                                         {generatingType === type
                                             ? 'Формируем…'
                                             : itemReadiness?.generated
@@ -407,7 +407,7 @@ export default function DashboardDocumentsPage() {
                                     </Button>
                                     {itemReadiness?.generated && itemReadiness.downloadPath && (
                                         <Button variant="brand" onClick={() => handleDownload(itemReadiness.downloadPath!, DOCUMENT_TYPE_LABELS[type])}
-                                            className="px-5 py-2 rounded-lg h-auto flex-shrink-0">
+                                            className="px-5 py-2 rounded-lg h-auto flex-shrink-0 justify-center">
                                             <Download className="size-4" />Скачать
                                         </Button>
                                     )}
@@ -421,20 +421,20 @@ export default function DashboardDocumentsPage() {
                                 </div>
                             )}
 
-                            <div className="px-7 py-5 grid grid-cols-2 gap-4">
+                            <div className="px-7 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {fields.map(field => {
                                     const key = draftKey(type, field.key)
                                     const canEdit = field.owner === 'STUDENT'
                                     const value = fieldDrafts[key] ?? ''
                                     return (
-                                        <div key={field.key} className={`flex flex-col gap-1.5 ${field.multiline ? 'col-span-2' : ''}`}>
-                                            <label htmlFor={canEdit ? key : undefined} className="text-xs font-medium text-muted-ink flex items-center justify-between gap-2">
+                                        <div key={field.key} className={`flex flex-col gap-1.5 ${field.multiline ? 'sm:col-span-2' : ''}`}>
+                                            <label htmlFor={canEdit ? key : undefined} className="text-xs font-medium text-muted-ink flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
                                                 <span className="inline-flex items-center gap-2">
                                                     {field.label}
                                                     {savingKey === key && <span className="text-[10px] text-muted-ink">сохраняем…</span>}
                                                 </span>
                                                 {!canEdit && (
-                                                    <span className="text-[10px] font-medium text-muted-ink bg-surface border border-border-soft rounded-full px-2 py-0.5">
+                                                    <span className="self-start text-[10px] font-medium text-muted-ink bg-surface border border-border-soft rounded-full px-2 py-0.5">
                                                         заполняет куратор
                                                     </span>
                                                 )}

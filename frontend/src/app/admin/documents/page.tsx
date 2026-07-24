@@ -241,7 +241,7 @@ export default function AdminDocumentsPage() {
 
             {selectedCohort && (
                 <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-wrap items-center gap-3">
-                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white flex-shrink-0 focus-within:border-brand cursor-pointer">
+                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white w-full sm:w-auto sm:flex-shrink-0 focus-within:border-brand cursor-pointer">
                         <Route className="size-3.5 text-muted-ink flex-shrink-0 pointer-events-none" />
                         <span className="text-sm font-medium text-ink truncate pointer-events-none">
                             {sourceCohort?.tracks.find(t => t.id === trackFilter)?.title ?? 'Все треки'}
@@ -253,7 +253,7 @@ export default function AdminDocumentsPage() {
                             {sourceCohort?.tracks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
                         </select>
                     </div>
-                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white flex-shrink-0 focus-within:border-brand cursor-pointer">
+                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white w-full sm:w-auto sm:flex-shrink-0 focus-within:border-brand cursor-pointer">
                         <ListFilter className="size-3.5 text-muted-ink flex-shrink-0 pointer-events-none" />
                         <span className="text-sm font-medium text-ink truncate pointer-events-none">
                             {reportStatusFilter ? REPORT_STATUS_LABELS[reportStatusFilter].label : 'Любой статус отчёта'}
@@ -269,7 +269,7 @@ export default function AdminDocumentsPage() {
                             <option value="REJECTED">Отклонён</option>
                         </select>
                     </div>
-                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white flex-shrink-0 focus-within:border-brand cursor-pointer">
+                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white w-full sm:w-auto sm:flex-shrink-0 focus-within:border-brand cursor-pointer">
                         <ListFilter className="size-3.5 text-muted-ink flex-shrink-0 pointer-events-none" />
                         <span className="text-sm font-medium text-ink truncate pointer-events-none">
                             {readinessFilter === 'READY' ? 'Все документы готовы' : readinessFilter === 'INCOMPLETE' ? 'Есть незаполненные' : 'Любая готовность'}
@@ -326,11 +326,11 @@ export default function AdminDocumentsPage() {
 
                         return (
                             <div key={doc.applicationId} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                                <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between gap-2 whitespace-nowrap">
-                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1 flex-shrink-0">
+                                <div className="px-7 py-5 border-b border-border-soft flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:whitespace-nowrap">
+                                    <span className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1 flex-shrink-0">
                                         <Route className="size-3.5" />{doc.track.title}
                                     </span>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                     <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border flex-shrink-0 ${REPORT_STATUS_LABELS[reportStatus].className}`}>
                                         <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${REPORT_STATUS_LABELS[reportStatus].dot}`} />
                                         <span className="text-xs font-semibold">Отчёт: {REPORT_STATUS_LABELS[reportStatus].label}</span>
@@ -358,11 +358,11 @@ export default function AdminDocumentsPage() {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 divide-x divide-border-soft border-b border-border-soft">
-                                    <div className="px-7 py-5 flex items-center gap-2 flex-wrap">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border-soft border-b border-border-soft">
+                                    <div className="px-7 py-5 flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
                                         <h2 className="font-bold text-lg text-ink">{doc.student?.full_name || 'Неизвестный кандидат'}</h2>
                                         {applicationsCount > 1 && (
-                                            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-border-soft bg-surface text-muted-ink"
+                                            <span className="inline-flex w-fit items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-border-soft bg-surface text-muted-ink"
                                                 title="У этого студента несколько одобренных заявок в этой когорте — рабочий трек ещё не выбран.">
                                                 <Users className="size-3 flex-shrink-0" />{applicationsCount} {pluralizeApplications(applicationsCount)}
                                             </span>
@@ -373,7 +373,7 @@ export default function AdminDocumentsPage() {
                                     </div>
                                 </div>
 
-                                <div className="px-7 py-4 grid grid-cols-2 md:grid-cols-4 gap-3 border-b border-border-soft">
+                                <div className="px-7 py-4 grid grid-cols-1 md:grid-cols-4 gap-3 border-b border-border-soft">
                                     {doc.documents.map(d => (
                                         <div key={d.type} className="rounded-xl border border-border-soft p-4 flex flex-col gap-2.5">
                                             <div className="flex items-center justify-between gap-2">
@@ -454,13 +454,13 @@ export default function AdminDocumentsPage() {
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                            <div className="px-4 pt-3 pb-4 grid grid-cols-2 gap-3">
+                                                            <div className="px-4 pt-3 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                                 {fields.map(field => {
                                                                     const value = values.find(v => v.key === field.key)?.value ?? ''
                                                                     const key = reviewKey(doc.applicationId, field.key)
                                                                     if (isReview && field.owner === 'ADMIN') {
                                                                         return (
-                                                                            <div key={field.key} className={`flex flex-col gap-1.5 ${field.multiline ? 'col-span-2' : ''}`}>
+                                                                            <div key={field.key} className={`flex flex-col gap-1.5 ${field.multiline ? 'sm:col-span-2' : ''}`}>
                                                                                 <label htmlFor={key} className="text-xs font-medium text-muted-ink flex items-center gap-2">
                                                                                     {field.label}
                                                                                     {savingKey === key && <span className="text-[10px] text-muted-ink">сохраняем…</span>}
@@ -480,10 +480,10 @@ export default function AdminDocumentsPage() {
                                                                         )
                                                                     }
                                                                     return (
-                                                                        <div key={field.key} className={`flex flex-col gap-1.5 ${field.multiline ? 'col-span-2' : ''}`}>
-                                                                            <span className="text-xs font-medium text-muted-ink flex items-center justify-between gap-2">
+                                                                        <div key={field.key} className={`flex flex-col gap-1.5 ${field.multiline ? 'sm:col-span-2' : ''}`}>
+                                                                            <span className="text-xs font-medium text-muted-ink flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
                                                                                 {field.label}
-                                                                                <span className="text-[10px] font-medium text-muted-ink bg-surface border border-border-soft rounded-full px-2 py-0.5">
+                                                                                <span className="self-start text-[10px] font-medium text-muted-ink bg-surface border border-border-soft rounded-full px-2 py-0.5">
                                                                                     заполняет студент
                                                                                 </span>
                                                                             </span>

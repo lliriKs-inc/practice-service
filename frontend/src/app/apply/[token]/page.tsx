@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { GraduationCap, MoveRight, MailCheck, CircleCheck, TriangleAlert, Ban } from 'lucide-react'
+import { GraduationCap, MoveRight, MailCheck, CircleCheck, TriangleAlert, Ban, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isAuthenticated, getUser } from '@/services/api/auth'
 import { describeApiErrors } from '@/lib/api/error-messages'
@@ -19,6 +19,18 @@ import {
 } from '@/services/api/invitation'
 
 type PageState = 'loading' | 'invalid' | 'need-auth' | 'admin-blocked' | 'form' | 'submitted' | 'submit-error'
+
+// Тот же переливающийся фон, что на входе/регистрации — общий для всех
+// полноэкранных состояний этой страницы (загрузка, ошибка, успех и т.д.).
+function AuroraBackground() {
+    return (
+        <>
+            <div className="absolute pointer-events-none" style={{ width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,99,255,0.13) 0%, transparent 70%)', top: -140, left: -140 }} />
+            <div className="absolute pointer-events-none" style={{ width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,99,255,0.10) 0%, transparent 70%)', bottom: -100, right: -80 }} />
+            <div className="absolute pointer-events-none" style={{ width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(184,240,224,0.35) 0%, transparent 70%)', top: '40%', right: '10%' }} />
+        </>
+    )
+}
 
 export default function ApplyByInvitationPage() {
     const params = useParams()
@@ -48,9 +60,19 @@ export default function ApplyByInvitationPage() {
                 // [FIX] Ссылка-приглашение предназначена кандидатам, а не
                 // организаторам — раньше залогиненный админ мог заполнить
                 // и отправить анкету от своего имени.
-                if (getUser()?.role === 'ADMIN') {
+                const user = getUser()
+                if (user?.role === 'ADMIN') {
                     setState('admin-blocked')
                     return
+                }
+
+                // Автоподстановка ФИО из аккаунта — так студенту не нужно
+                // руками перепечатывать то, что уже указано при регистрации.
+                if (user?.full_name) {
+                    const fioQuestion = data.questions.find(q => q.label.trim().toLowerCase() === 'фио')
+                    if (fioQuestion) {
+                        setAnswers(prev => ({ ...prev, [fioQuestion.id]: prev[fioQuestion.id] || user.full_name! }))
+                    }
                 }
 
                 setState('form')
@@ -107,8 +129,9 @@ export default function ApplyByInvitationPage() {
     // ── Загрузка ──────────────────────────────────────────────────
     if (state === 'loading') {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-surface">
-                <div className="flex items-center gap-3">
+            <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#EEEAFF] via-surface to-[#E8F4FF]">
+                <AuroraBackground />
+                <div className="relative z-10 flex items-center gap-3">
                     <div className="w-5 h-5 rounded-full border-2 border-brand border-t-transparent animate-spin" />
                     <p className="text-sm text-muted-ink">Загружаем анкету…</p>
                 </div>
@@ -119,8 +142,9 @@ export default function ApplyByInvitationPage() {
     // ── Невалидный токен ──────────────────────────────────────────
     if (state === 'invalid') {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-surface px-6">
-                <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
+            <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#EEEAFF] via-surface to-[#E8F4FF] px-6">
+                <AuroraBackground />
+                <div className="relative z-10 bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
                     <div className="w-14 h-14 rounded-full bg-danger-bg flex items-center justify-center mb-5">
                         <TriangleAlert className="size-6 text-danger" />
                     </div>
@@ -137,21 +161,23 @@ export default function ApplyByInvitationPage() {
     // ── Нужна авторизация ──────────────────────────────────────────
     if (state === 'need-auth' && form) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-surface px-6">
-                <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md w-full flex flex-col items-center text-center">
-                    <div className="w-14 h-14 rounded-full flex items-center justify-center mb-5 bg-gradient-to-br from-brand to-brand-light">
+            <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#EEEAFF] via-surface to-[#E8F4FF] px-6">
+                <AuroraBackground />
+
+                <div className="relative z-10 bg-white rounded-2xl shadow-lg p-10 max-w-md w-full flex flex-col items-center text-center">
+                    <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-5 bg-gradient-to-br from-brand to-brand-light">
                         <GraduationCap className="size-6 text-white" />
                     </div>
                     <p className="text-xs font-semibold tracking-widest uppercase text-brand-hover mb-2">
-                        {form.cohort.title}
+                        Приглашение на практику
                     </p>
-                    <h2 className="font-extrabold text-xl text-ink mb-2">Приглашение на практику</h2>
+                    <h2 className="font-extrabold text-2xl text-ink mb-2">{form.cohort.title}</h2>
                     <p className="text-sm text-muted-ink mb-7 leading-relaxed">
                         Чтобы заполнить анкету и подать заявку, сначала войди в аккаунт или зарегистрируйся.
                     </p>
                     <div className="flex flex-col gap-3 w-full">
                         <Button onClick={() => goAuth('login')} variant="brand"
-                            className="w-full py-5 rounded-lg">
+                            className="w-full py-3 h-auto rounded-lg">
                             Войти →
                         </Button>
                         <button onClick={() => goAuth('register')}
@@ -167,8 +193,9 @@ export default function ApplyByInvitationPage() {
     // ── Залогинен админ — ссылка не для него ────────────────────────
     if (state === 'admin-blocked') {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-surface px-6">
-                <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
+            <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#EEEAFF] via-surface to-[#E8F4FF] px-6">
+                <AuroraBackground />
+                <div className="relative z-10 bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
                     <div className="w-14 h-14 rounded-full bg-danger-bg flex items-center justify-center mb-5">
                         <Ban className="size-6 text-danger" />
                     </div>
@@ -188,8 +215,9 @@ export default function ApplyByInvitationPage() {
     // ── Успешно отправлено ──────────────────────────────────────────
     if (state === 'submitted') {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-surface px-6">
-                <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
+            <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#EEEAFF] via-surface to-[#E8F4FF] px-6">
+                <AuroraBackground />
+                <div className="relative z-10 bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
                     <div className="w-16 h-16 rounded-xl bg-success-bg text-success flex items-center justify-center mb-5">
                         <CircleCheck className="size-8" />
                     </div>
@@ -211,9 +239,42 @@ export default function ApplyByInvitationPage() {
     if (!form) return null
 
     return (
-        <div className="flex min-h-screen">
+        <div className="flex flex-col lg:flex-row min-h-screen">
 
-            {/* LEFT */}
+            {/* LEFT — мобильная версия: компактный баннер сверху страницы */}
+            <div className="lg:hidden text-white p-8"
+                style={{ background: 'linear-gradient(155deg, #6C63FF 0%, #9B8FFF 55%, #C4BEFF 100%)' }}>
+                <Link href="/" className="group flex items-center gap-3 mb-6">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105"
+                        style={{ background: 'rgba(255,255,255,0.22)' }}><GraduationCap className="size-5" /></div>
+                    <span className="font-bold text-base transition-opacity group-hover:opacity-80">Практика УрФУ</span>
+                </Link>
+                <p className="text-xs font-semibold tracking-widest uppercase opacity-60 mb-2">Практика</p>
+                <h2 className="font-extrabold text-4xl leading-tight tracking-tight mb-5">{form.cohort.title}</h2>
+                <p className="text-sm leading-relaxed opacity-80 mb-7 max-w-xs">
+                    Заполните анкету — далее в личном кабинете появятся статус заявки и тестовое задание.
+                </p>
+                <div className="flex flex-col gap-3">
+                    {[
+                        { n: '1', label: 'Анкета', sub: 'Сейчас, на этой странице', active: true },
+                        { n: '2', label: 'Тестовое задание', sub: 'В личном кабинете' },
+                        { n: '3', label: 'Результат', sub: 'В личном кабинете' },
+                    ].map(step => (
+                        <div key={step.n} className={`flex items-center gap-3 ${step.active ? 'opacity-100' : 'opacity-50'}`}>
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold border-2 flex-shrink-0
+                                ${step.active ? 'bg-white text-brand-hover border-white' : 'border-white/40 bg-white/10'}`}>
+                                {step.n}
+                            </div>
+                            <div>
+                                <div className="text-sm font-medium">{step.label}</div>
+                                <div className="text-xs opacity-60">{step.sub}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* LEFT — десктоп: закреплённый сайдбар слева */}
             <aside className="hidden lg:flex w-[30%] flex-col sticky top-0 h-screen overflow-hidden text-white p-14"
                 style={{ background: 'linear-gradient(155deg, #6C63FF 0%, #9B8FFF 55%, #C4BEFF 100%)' }}>
                 <Link href="/" className="group flex items-center gap-3 mb-auto">
@@ -254,14 +315,14 @@ export default function ApplyByInvitationPage() {
             </aside>
 
             {/* RIGHT */}
-            <main className="flex-1 flex justify-center overflow-y-auto bg-surface">
-                <div className="w-[75%] py-14 flex flex-col">
+            <main className="flex-1 flex justify-center overflow-y-auto bg-white lg:bg-surface">
+                <div className="w-full px-5 py-8 lg:w-[75%] lg:px-0 lg:py-14 flex flex-col">
 
                     <div className="mb-7">
-                        <h1 className="font-extrabold text-3xl tracking-tight text-ink">Заявка на практику</h1>
+                        <h1 className="font-extrabold text-2xl lg:text-3xl tracking-tight text-ink">Заявка на практику</h1>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm p-9">
+                    <div className="bg-white rounded-none shadow-none p-0 lg:rounded-2xl lg:shadow-sm lg:p-9">
                         <form onSubmit={handleSubmit} autoComplete="off" className="flex flex-col gap-6">
 
                             {/* ВЫБОР ТРЕКА */}
@@ -315,8 +376,8 @@ export default function ApplyByInvitationPage() {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="flex items-start gap-3 p-4 bg-brand-subtle rounded-xl border-l-4 border-brand">
-                                    <span className="text-lg">ℹ️</span>
+                                <div className="flex items-start gap-3 p-4 bg-brand-subtle rounded-xl border border-brand-subtle-border">
+                                    <Info className="size-5 text-brand-hover flex-shrink-0" />
                                     <p className="text-sm text-muted-ink leading-relaxed">
                                         Дополнительных вопросов в анкете нет — просто выберите направление и отправьте заявку.
                                     </p>
@@ -330,16 +391,16 @@ export default function ApplyByInvitationPage() {
                                 </div>
                             )}
 
-                            <div className="flex justify-end items-center pt-2">
+                            <div className="flex justify-center lg:justify-end items-center pt-2">
                                 <Button type="submit" variant="brand" disabled={submitting}
-                                    className="px-8 py-5 rounded-lg">
+                                    className="w-full lg:w-auto justify-center px-8 py-5 rounded-lg">
                                     {submitting ? 'Отправляем…' : <>Отправить заявку<MoveRight className="size-4" /></>}
                                 </Button>
                             </div>
                         </form>
                     </div>
 
-                    <div className="flex items-start gap-3 mt-5 p-4 bg-brand-subtle rounded-xl border-l-4 border-brand">
+                    <div className="flex items-start gap-3 mt-5 p-4 bg-brand-subtle rounded-xl border border-brand-subtle-border">
                         <MailCheck className="size-5 text-brand-hover flex-shrink-0" />
                         <p className="text-sm text-muted-ink leading-relaxed">
                             <strong className="text-ink">После отправки</strong> статус заявки и тестовое задание
@@ -401,10 +462,10 @@ function QuestionInput({
 
     if (question.type === 'radio') {
         return (
-            <div className={cn('flex flex-col gap-1.5', className)}>
-                <div className="flex items-center gap-2 flex-wrap">
+            <div className={cn('flex flex-col gap-2.5', className)}>
+                <div className="flex flex-col gap-1">
                     {label}
-                    {showHint && <span className="text-xs text-muted-ink">выберите один вариант из списка</span>}
+                    {showHint && <span className="text-xs text-muted-ink">выберите один вариант</span>}
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {question.options.map(opt => (
@@ -414,8 +475,14 @@ function QuestionInput({
                                 ${value === opt
                                     ? 'border-brand bg-brand-subtle text-brand-hover'
                                     : 'border-border-soft bg-surface text-muted-ink'}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full transition-colors
-                                ${value === opt ? 'bg-brand' : 'bg-faint-ink'}`} />
+                            <div className={`w-[14px] h-[14px] min-w-[14px] rounded-full border-[1.5px] flex items-center justify-center transition-colors
+                                ${value === opt ? 'bg-brand border-brand' : 'border-border-soft bg-surface'}`}>
+                                {value === opt && (
+                                    <svg width="8" height="7" viewBox="0 0 10 8" fill="none">
+                                        <path d="M1 4L3.8 7L9 1" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                )}
+                            </div>
                             {opt}
                         </button>
                     ))}
@@ -431,8 +498,8 @@ function QuestionInput({
             onChange(next.join(', '))
         }
         return (
-            <div className={cn('flex flex-col gap-1.5', className)}>
-                <div className="flex items-center gap-2 flex-wrap">
+            <div className={cn('flex flex-col gap-2.5', className)}>
+                <div className="flex flex-col gap-1">
                     {label}
                     {showHint && <span className="text-xs text-muted-ink">можно выбрать несколько вариантов</span>}
                 </div>

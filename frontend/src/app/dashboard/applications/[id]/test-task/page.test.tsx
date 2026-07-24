@@ -50,6 +50,7 @@ function setupTask(config: {
 }) {
     currentSubmission = config.submission ?? null
     apiFetch.mockImplementation(async (path: string) => {
+        if (path === '/auth/me') return { id: 'student-1', email: 'student@urfu.ru', role: 'STUDENT', created_at: '2026-01-01', active_application_id: null }
         if (path === `/me/applications/${APPLICATION_ID}`) return rawApplication(config.status)
         if (path === `/me/applications/${APPLICATION_ID}/test-task`) {
             if (!config.publishedAt) {

@@ -141,7 +141,7 @@ export default function DashboardApplicationsPage() {
                         const isSelectedTrack = activeApplicationId === app.id && app.status === 'approved'
                         return (
                             <div key={app.id} className={`bg-white rounded-2xl overflow-hidden ${isSelectedTrack ? 'border-t-[3px] border-brand-hover shadow-md' : 'shadow-sm'}`}>
-                                <div className="px-7 py-5 border-b border-border-soft flex items-center justify-between gap-4">
+                                <div className="px-7 py-5 border-b border-border-soft flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                     <div>
                                         <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Практика</span>
                                         <div className="flex items-center gap-3 flex-wrap mt-0.5">
@@ -156,7 +156,7 @@ export default function DashboardApplicationsPage() {
                                             )}
                                         </div>
                                     </div>
-                                    <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border flex-shrink-0 ${status.className} ${isSelectedTrack ? '' : 'opacity-70'}`}>
+                                    <div className={`inline-flex self-start sm:self-auto items-center gap-2 px-4 py-1.5 rounded-full border flex-shrink-0 ${status.className} ${isSelectedTrack ? '' : 'opacity-70'}`}>
                                         <div className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
                                         <span className="text-xs font-semibold">{status.label}</span>
                                     </div>
