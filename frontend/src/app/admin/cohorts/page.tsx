@@ -814,9 +814,9 @@ export default function AdminCohortsPage() {
             </div>
 
             {cohortToDelete && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
                     {...deleteModalOverlay}>
-                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md mx-4 text-center"
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md max-h-[90vh] overflow-y-auto text-center"
                         onClick={e => e.stopPropagation()}>
                         <h3 className="font-bold text-xl text-ink mb-3">Удалить когорту?</h3>
                         <span className="inline-flex items-center gap-2 text-sm font-semibold text-danger bg-danger-bg border border-danger-border rounded-full px-3 py-1.5 mb-6">
@@ -841,9 +841,9 @@ export default function AdminCohortsPage() {
             )}
 
             {showCopySurveyModal && editDraft?.survey && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
                     {...copySurveyModalOverlay}>
-                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md mx-4 text-center"
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md max-h-[90vh] overflow-y-auto text-center"
                         onClick={e => e.stopPropagation()}>
                         <h3 className="font-bold text-xl text-ink mb-3">Скопировать анкету?</h3>
                         <span className="inline-flex items-center gap-2 text-sm font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-3 py-1.5 mb-6">
@@ -908,9 +908,9 @@ export default function AdminCohortsPage() {
 
             {/* ── МОДАЛКА: СОЗДАТЬ КОГОРТУ ── */}
             {showCreateModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
                     {...createModalOverlay}>
-                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg mx-4"
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto"
                         onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="font-extrabold text-2xl text-ink tracking-tight">Новая когорта</h3>
@@ -1515,12 +1515,17 @@ function QuestionEditor({
                             ))}
                         </select>
                     </div>
-                    <label className="flex items-center gap-1.5 text-xs text-muted-ink cursor-pointer select-none px-3 h-8 rounded-lg border border-border-soft sm:rounded-none sm:border-0 sm:border-l sm:border-border-soft flex-shrink-0 whitespace-nowrap w-full sm:w-auto">
-                        <input type="checkbox" checked={question.required}
-                            onChange={e => onSave({ required: e.target.checked })}
-                            className="accent-brand size-3.5 flex-shrink-0" />
+                    <button type="button" onClick={() => onSave({ required: !question.required })}
+                        className="flex items-center gap-1.5 text-xs text-muted-ink cursor-pointer select-none px-3 h-8 rounded-lg border border-border-soft sm:rounded-none sm:border-0 sm:border-l sm:border-border-soft flex-shrink-0 whitespace-nowrap w-full sm:w-auto">
+                        <span className={`w-3.5 h-3.5 min-w-[14px] rounded-[4px] border-[1.5px] flex items-center justify-center transition-colors flex-shrink-0 ${question.required ? 'bg-brand border-brand' : 'border-border-soft bg-surface'}`}>
+                            {question.required && (
+                                <svg width="8" height="7" viewBox="0 0 10 8" fill="none">
+                                    <path d="M1 4L3.8 7L9 1" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            )}
+                        </span>
                         Обязательный
-                    </label>
+                    </button>
                 </div>
 
                 {['select', 'radio', 'checkbox'].includes(question.type) && (
