@@ -161,17 +161,23 @@ function TaskDayCell({ day, status, dayLabel, onOpen }: {
 export default function AdminTasksPage() {
     const { selectedCohort } = useCohortWorkspace()
 
-    const [weekStart, setWeekStart] = useState<string>(() => toISODate(getMondayOfWeek(new Date())))
+    // Пусто, пока не выбрана когорта — load() ниже нарочно не фетчит с пустым
+    // weekStart, чтобы не было гонки между "стартовым" фетчем на сегодняшнюю
+    // неделю (почти наверняка вне периода практики) и "исправленным" фетчем
+    // на нужную неделю: раньше оба запроса улетали, и если ответ на первый
+    // приходил ПОСЛЕ второго, он затирал корректные данные привязками/статусами.
+    const [weekStart, setWeekStart] = useState('')
 
-    // При выборе рабочей когорты сразу открываем первую рабочую неделю практики,
-    // а не "сегодня" (которое почти наверняка вне диапазона практики)
+    // Открываем текущую неделю (если она внутри периода практики — иначе
+    // ближайшую границу периода), а не всегда первую неделю практики.
     useEffect(() => {
-        (() => {
-            if (!selectedCohort) return
-            const practiceMonday = toISODate(firstPracticeWeekMonday(selectedCohort.start_date))
-            setWeekStart(() => practiceMonday)
-        })()
-    }, [selectedCohort])
+        if (!selectedCohort) { setWeekStart(''); return }
+        const first = firstPracticeWeekMonday(selectedCohort.start_date)
+        const last = lastPracticeWeekMonday(selectedCohort.end_date)
+        const today = getMondayOfWeek(new Date())
+        const clamped = today < first ? first : today > last ? last : today
+        setWeekStart(toISODate(clamped))
+    }, [selectedCohort?.id])
     const [progress, setProgress] = useState<CohortWeekProgress | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
@@ -183,7 +189,7 @@ export default function AdminTasksPage() {
     const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null)
 
     const load = useCallback(async () => {
-        if (!selectedCohort) return
+        if (!selectedCohort || !weekStart) return
         setLoading(true)
         setError('')
         try {
@@ -201,7 +207,7 @@ export default function AdminTasksPage() {
     }, [load])
 
     function goPrevWeek() {
-        if (!selectedCohort) return
+        if (!selectedCohort || !weekStart) return
         const firstWeek = firstPracticeWeekMonday(selectedCohort.start_date)
         setWeekStart(prev => {
             const candidate = addDays(new Date(prev), -7)
@@ -210,7 +216,7 @@ export default function AdminTasksPage() {
     }
 
     function goNextWeek() {
-        if (!selectedCohort) return
+        if (!selectedCohort || !weekStart) return
         const lastWeek = lastPracticeWeekMonday(selectedCohort.end_date)
         setWeekStart(prev => {
             const candidate = addDays(new Date(prev), 7)
@@ -235,7 +241,7 @@ export default function AdminTasksPage() {
     const filteredStudents = progress?.students.filter(matchesFilters) ?? []
 
     const todayISO = toISODate(new Date())
-    const displayDates = Array.from({ length: 5 }, (_, i) => toISODate(addDays(new Date(weekStart), i)))
+    const displayDates = weekStart ? Array.from({ length: 5 }, (_, i) => toISODate(addDays(new Date(weekStart), i))) : []
 
     return (
         <div className="flex flex-col gap-6">

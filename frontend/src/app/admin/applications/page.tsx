@@ -338,7 +338,7 @@ export default function AdminApplicationsPage() {
                                                     ))}
                                                 </div>
                                             ) : (
-                                                <p className="text-xs text-muted-ink">Ответов нет.</p>
+                                                <p className="text-xs text-muted-ink">В анкете этой когорты не было вопросов.</p>
                                             )}
                                         </div>
                                     )}
@@ -456,12 +456,13 @@ export default function AdminApplicationsPage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
                     {...approveModalOverlay}>
                     <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md" onClick={e => e.stopPropagation()}>
-                        <div className="w-12 h-12 rounded-full bg-success-bg flex items-center justify-center mb-5">
+                        <div className="w-12 h-12 rounded-xl bg-success-bg flex items-center justify-center mb-5 mx-auto">
                             <CheckCircle2 className="size-6 text-success" />
                         </div>
-                        <h3 className="font-extrabold text-2xl text-ink tracking-tight mb-2">Одобрить заявку?</h3>
+                        <h3 className="font-extrabold text-2xl text-ink tracking-tight mb-4">Одобрить заявку?</h3>
                         <p className="text-sm text-muted-ink leading-relaxed">
-                            Вы одобряете заявку {applicationToApprove.student?.email ?? 'кандидата'} на трек «{applicationToApprove.track.title}».
+                            Вы одобряете заявку студента {applicationToApprove.student?.full_name || 'Неизвестный кандидат'}
+                            {applicationToApprove.student?.email && <> ({applicationToApprove.student.email})</>} на трек «{applicationToApprove.track.title}».
                         </p>
                         <p className="mt-3 text-sm text-muted-ink leading-relaxed">
                             Если студент будет одобрен на нескольких треках, он самостоятельно выберет нужный трек в личном кабинете.
@@ -483,12 +484,13 @@ export default function AdminApplicationsPage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
                     {...rejectModalOverlay}>
                     <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md" onClick={e => e.stopPropagation()}>
-                        <div className="w-12 h-12 rounded-full bg-danger-bg flex items-center justify-center mb-5">
+                        <div className="w-12 h-12 rounded-xl bg-danger-bg flex items-center justify-center mb-5 mx-auto">
                             <TriangleAlert className="size-6 text-danger" />
                         </div>
-                        <h3 className="font-extrabold text-2xl text-ink tracking-tight mb-2">Отклонить заявку?</h3>
+                        <h3 className="font-extrabold text-2xl text-ink tracking-tight mb-4">Отклонить заявку?</h3>
                         <p className="text-sm text-muted-ink leading-relaxed">
-                            Вы отклоняете заявку {applicationToReject.student?.email ?? 'кандидата'} на трек «{applicationToReject.track.title}».
+                            Вы отклоняете заявку студента {applicationToReject.student?.full_name || 'Неизвестный кандидат'}
+                            {applicationToReject.student?.email && <> ({applicationToReject.student.email})</>} на трек «{applicationToReject.track.title}».
                         </p>
                         <p className="mt-3 text-sm text-muted-ink leading-relaxed">
                             После отклонения студент не сможет повторно подать заявку на этот трек.

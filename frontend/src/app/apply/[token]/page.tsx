@@ -145,12 +145,12 @@ export default function ApplyByInvitationPage() {
             <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#EEEAFF] via-surface to-[#E8F4FF] px-6">
                 <AuroraBackground />
                 <div className="relative z-10 bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
-                    <div className="w-14 h-14 rounded-full bg-danger-bg flex items-center justify-center mb-5">
+                    <div className="w-14 h-14 rounded-xl bg-danger-bg flex items-center justify-center mb-5">
                         <TriangleAlert className="size-6 text-danger" />
                     </div>
                     <h2 className="font-extrabold text-xl text-ink mb-2">Ссылка недействительна</h2>
                     <p className="text-sm text-muted-ink mb-6">{loadError}</p>
-                    <a href="/login" className="text-sm font-semibold text-brand-hover hover:underline">
+                    <a href="/login" className="text-sm font-semibold text-brand-hover bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300">
                         Перейти на страницу входа →
                     </a>
                 </div>
@@ -196,7 +196,7 @@ export default function ApplyByInvitationPage() {
             <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#EEEAFF] via-surface to-[#E8F4FF] px-6">
                 <AuroraBackground />
                 <div className="relative z-10 bg-white rounded-2xl shadow-lg p-10 max-w-md flex flex-col items-center text-center">
-                    <div className="w-14 h-14 rounded-full bg-danger-bg flex items-center justify-center mb-5">
+                    <div className="w-14 h-14 rounded-xl bg-danger-bg flex items-center justify-center mb-5">
                         <Ban className="size-6 text-danger" />
                     </div>
                     <h2 className="font-extrabold text-xl text-ink mb-2">Ссылка не для организаторов</h2>
@@ -204,7 +204,7 @@ export default function ApplyByInvitationPage() {
                         Вы вошли под аккаунтом администратора — заявки на практику подают кандидаты.
                         Выйдите и откройте ссылку под аккаунтом практиканта, если нужно проверить анкету.
                     </p>
-                    <a href="/admin/cohorts" className="text-sm font-semibold text-brand-hover hover:underline">
+                    <a href="/admin/cohorts" className="text-sm font-semibold text-brand-hover bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300">
                         Перейти в панель администратора →
                     </a>
                 </div>

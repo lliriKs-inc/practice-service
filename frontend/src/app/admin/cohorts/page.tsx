@@ -927,7 +927,7 @@ export default function AdminCohortsPage() {
                                     className="w-full text-sm rounded-xl" />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-ink">Начало приёма заявок <span className="text-brand-hover">*</span></label>
                                     <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.application_start}
@@ -942,7 +942,7 @@ export default function AdminCohortsPage() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-ink">Начало практики <span className="text-brand-hover">*</span></label>
                                     <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.start_date}
@@ -1125,7 +1125,7 @@ export default function AdminCohortsPage() {
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-sm font-medium text-ink">Начало приёма заявок</label>
                                     <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.application_start ?? '')}
@@ -1142,7 +1142,7 @@ export default function AdminCohortsPage() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-sm font-medium text-ink">Начало практики</label>
                                             <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.start_date)}
@@ -1373,7 +1373,7 @@ function TrackEditor({
             <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-brand-subtle flex items-center justify-center text-brand-hover shrink-0"><Route className="size-4" /></div>
                 <input type="text" value={track.title} onChange={e => onTitleChange(e.target.value)}
-                    className="flex-1 text-sm font-semibold rounded-xl" />
+                    className="flex-1 min-w-0 text-sm font-semibold rounded-xl" />
                 <button onClick={onRemove}
                     className="self-stretch w-11 flex items-center justify-center text-danger bg-danger-bg border border-danger-border rounded-lg hover:bg-danger-border/40 transition-colors flex-shrink-0">
                     <X className="size-4" />
@@ -1518,7 +1518,7 @@ function QuestionEditor({
                     <label className="flex items-center gap-1.5 text-xs text-muted-ink cursor-pointer select-none px-3 h-8 rounded-lg border border-border-soft sm:rounded-none sm:border-0 sm:border-l sm:border-border-soft flex-shrink-0 whitespace-nowrap w-full sm:w-auto">
                         <input type="checkbox" checked={question.required}
                             onChange={e => onSave({ required: e.target.checked })}
-                            className="accent-brand" />
+                            className="accent-brand size-3.5 flex-shrink-0" />
                         Обязательный
                     </label>
                 </div>

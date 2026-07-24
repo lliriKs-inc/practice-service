@@ -60,7 +60,7 @@ function RegisterForm() {
     const loginHref = redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
 
     return (
-        <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#EEEAFF] via-surface to-[#E8F4FF]">
+        <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#EEEAFF] via-surface to-[#E8F4FF] py-10">
             <div style={{ position: 'absolute', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,99,255,0.13) 0%, transparent 70%)', top: -140, left: -140, pointerEvents: 'none' }} />
             <div style={{ position: 'absolute', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,99,255,0.10) 0%, transparent 70%)', bottom: -100, right: -80, pointerEvents: 'none' }} />
             <div style={{ position: 'absolute', width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(184,240,224,0.35) 0%, transparent 70%)', top: '40%', right: '10%', pointerEvents: 'none' }} />
