@@ -1,5 +1,18 @@
 import { z } from "zod";
 
+const reviewGradeSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) => {
+      if (value === "") return true;
+      const grade = Number(value);
+      return Number.isInteger(grade) && grade >= 0 && grade <= 100;
+    },
+    { message: "review_grade must be an integer between 0 and 100" }
+  )
+  .optional();
+
 export const UpdateReviewSchema = z
   .object({
     review_activities: z.string().trim().optional(),
@@ -8,7 +21,7 @@ export const UpdateReviewSchema = z
     review_next_practice: z.string().trim().optional(),
     review_employment_offer: z.string().trim().optional(),
     review_suggestions: z.string().trim().optional(),
-    review_grade: z.string().trim().optional(),
+    review_grade: reviewGradeSchema,
   })
   .strict()
   .refine((data) => Object.keys(data).length > 0, {
@@ -24,7 +37,7 @@ export const UpdateReviewRequestSchema = z
     review_next_practice: z.string().trim().optional(),
     review_employment_offer: z.string().trim().optional(),
     review_suggestions: z.string().trim().optional(),
-    review_grade: z.string().trim().optional(),
+    review_grade: reviewGradeSchema,
   })
   .strict()
   .refine((data) => {

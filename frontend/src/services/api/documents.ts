@@ -28,7 +28,15 @@ export interface DocumentFieldConfig {
     owner: 'STUDENT' | 'ADMIN'
     required: boolean
     multiline?: boolean
+    placeholder?: string
+    options?: string[]
 }
+
+export const PRACTICE_TYPE_OPTIONS = [
+    'Учебная практика, ознакомительная',
+    'Производственная практика, технологическая',
+    'Производственная практика, преддипломная',
+]
 
 // Совпадает с DOCUMENT_CONFIG на бэке (ключи и владелец полей) — лейблы добавлены
 // на фронте, т.к. backend их не отдаёт.
@@ -36,33 +44,38 @@ export const DOCUMENT_FIELD_CONFIG: Record<DocumentType, DocumentFieldConfig[]> 
     INDIVIDUAL_TASK: [
         { key: 'student_fio', label: 'ФИО студента', owner: 'STUDENT', required: true },
         { key: 'group', label: 'Группа', owner: 'STUDENT', required: true },
+        { key: 'institute_abbr', label: 'Наименование института (аббревиатура)', owner: 'STUDENT', required: true, placeholder: 'Аббревиатура (заглавными буквами)' },
         { key: 'direction_code', label: 'Код направления', owner: 'STUDENT', required: true },
         { key: 'direction_name', label: 'Название направления', owner: 'STUDENT', required: true },
         { key: 'program_name', label: 'Образовательная программа', owner: 'STUDENT', required: true },
+        { key: 'practice_type', label: 'Вид/тип практики', owner: 'STUDENT', required: true, options: PRACTICE_TYPE_OPTIONS },
         { key: 'practice_topic', label: 'Тема практики', owner: 'STUDENT', required: true },
         { key: 'main_stage_tasks', label: 'Задачи основного этапа', owner: 'STUDENT', required: true, multiline: true },
     ],
     TITLE_PAGE: [
         { key: 'student_fio', label: 'ФИО студента', owner: 'STUDENT', required: true },
         { key: 'group', label: 'Группа', owner: 'STUDENT', required: true },
+        { key: 'direction_code', label: 'Код направления', owner: 'STUDENT', required: true },
         { key: 'specialty', label: 'Специальность', owner: 'STUDENT', required: true },
+        { key: 'practice_type', label: 'Вид/тип практики', owner: 'STUDENT', required: true, options: PRACTICE_TYPE_OPTIONS },
         { key: 'practice_topic', label: 'Тема практики', owner: 'STUDENT', required: true },
     ],
     REVIEW: [
         { key: 'student_fio', label: 'ФИО студента', owner: 'STUDENT', required: true },
         { key: 'group', label: 'Группа', owner: 'STUDENT', required: true },
+        { key: 'practice_type', label: 'Вид/тип практики', owner: 'STUDENT', required: true, options: PRACTICE_TYPE_OPTIONS },
         { key: 'review_activities', label: 'Виды деятельности', owner: 'ADMIN', required: true, multiline: true },
         { key: 'review_characteristic', label: 'Характеристика', owner: 'ADMIN', required: true, multiline: true },
         { key: 'review_employed', label: 'Трудоустроен', owner: 'ADMIN', required: true },
         { key: 'review_next_practice', label: 'Рекомендация к следующей практике', owner: 'ADMIN', required: true },
         { key: 'review_employment_offer', label: 'Предложение о трудоустройстве', owner: 'ADMIN', required: true },
-        { key: 'review_grade', label: 'Оценка', owner: 'ADMIN', required: true },
+        { key: 'review_grade', label: 'Оценка (0–100)', owner: 'ADMIN', required: true },
         { key: 'review_suggestions', label: 'Пожелания', owner: 'ADMIN', required: true, multiline: true },
     ],
     NOTICE: [
         { key: 'student_fio', label: 'ФИО студента', owner: 'STUDENT', required: true },
+        { key: 'institute_abbr', label: 'Наименование института (аббревиатура)', owner: 'STUDENT', required: true, placeholder: 'Аббревиатура (заглавными буквами)' },
         { key: 'group', label: 'Группа', owner: 'STUDENT', required: true },
-        { key: 'practice_topic', label: 'Тема практики', owner: 'STUDENT', required: true },
     ],
 }
 

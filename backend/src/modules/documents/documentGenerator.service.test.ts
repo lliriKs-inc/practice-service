@@ -11,10 +11,14 @@ describe("DocumentGeneratorService", () => {
   const completeData = {
     student_fio: "Иван Иванов",
     group: "РИ-420001",
+    course: "4",
+    institute_abbr: "ИРИТ-РТФ",
     direction_code: "09.03.01",
     direction_name: "Информатика и вычислительная техника",
     program_name: "Программная инженерия",
     specialty: "09.03.01 Информатика и вычислительная техника",
+    practice_type: "Производственная практика, технологическая",
+    practice_type_short: "Производственная практика",
     practice_topic: "Разработка сервиса практики",
     main_stage_tasks: "Реализация и тестирование API",
     practice_start: "01.07.2026",
@@ -22,6 +26,11 @@ describe("DocumentGeneratorService", () => {
     practice_stage1_finish: "01.07.2026",
     practice_stage2_finish: "30.07.2026",
     practice_stage3_start: "31.07.2026",
+    practice_start_day: "1",
+    practice_start_month: "июля",
+    practice_start_year_short: "26",
+    student_fio_genitive: "Иванова Ивана Ивановича",
+    student_fio_initials: "Иванов И.И.",
     review_activities: "Разрабатывал backend",
     review_characteristic: "Ответственный практикант",
     review_employed: "Нет",
@@ -83,8 +92,20 @@ describe("DocumentGeneratorService", () => {
         "practice_stage1_finish",
         "practice_stage2_finish",
         "practice_stage3_start",
+        "practice_start_day",
+        "practice_start_month",
+        "practice_start_year_short",
+        "student_fio_genitive",
+        "student_fio_initials",
+        "practice_type_short",
+        "course",
         "year",
       ]);
+      // review_grade заполняется куратором в отзыве, но на титульном листе и
+      // извещении это просто подставленное системой значение, а не своё поле.
+      if (type !== DocumentType.REVIEW) {
+        systemFields.add("review_grade");
+      }
       const editablePlaceholders = [...new Set(
         placeholders.filter((field) => !systemFields.has(field))
       )].sort();
