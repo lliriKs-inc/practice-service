@@ -171,10 +171,10 @@ export default function DashboardDocumentsPage() {
         }
     }
 
-    async function handleFieldBlur(type: DocumentType, fieldKey: string) {
+    async function handleFieldBlur(type: DocumentType, fieldKey: string, overrideValue?: string) {
         if (!approvedApplication) return
         const key = draftKey(type, fieldKey)
-        const value = fieldDrafts[key] ?? ''
+        const value = overrideValue ?? fieldDrafts[key] ?? ''
 
         const doc = documents.find(d => d.type === type)
         const original = doc?.fieldValues.find(f => f.key === fieldKey)?.value ?? ''
@@ -449,6 +449,21 @@ export default function DashboardDocumentsPage() {
                                                     className="w-full text-sm rounded-lg"
                                                     style={{ resize: 'vertical' }}
                                                 />
+                                            ) : field.options ? (
+                                                <select
+                                                    id={key}
+                                                    value={value}
+                                                    onChange={e => {
+                                                        handleFieldChange(type, field.key, e.target.value)
+                                                        handleFieldBlur(type, field.key, e.target.value)
+                                                    }}
+                                                    className="w-full text-sm rounded-lg"
+                                                >
+                                                    <option value="" disabled>Выберите вариант</option>
+                                                    {field.options.map(option => (
+                                                        <option key={option} value={option}>{option}</option>
+                                                    ))}
+                                                </select>
                                             ) : (
                                                 <input
                                                     id={key}
@@ -456,6 +471,7 @@ export default function DashboardDocumentsPage() {
                                                     value={value}
                                                     onChange={e => handleFieldChange(type, field.key, e.target.value)}
                                                     onBlur={() => handleFieldBlur(type, field.key)}
+                                                    placeholder={field.placeholder}
                                                     className="w-full text-sm rounded-lg"
                                                 />
                                             )) : (

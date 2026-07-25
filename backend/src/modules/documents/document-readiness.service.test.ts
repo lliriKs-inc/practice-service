@@ -151,8 +151,16 @@ describe("DocumentReadinessService", () => {
               value: "G-101",
             },
             {
+              field_key: "direction_code",
+              value: "09.03.04",
+            },
+            {
               field_key: "specialty",
               value: "Backend",
+            },
+            {
+              field_key: "practice_type",
+              value: "Производственная практика, технологическая",
             },
             {
               field_key: "practice_topic",

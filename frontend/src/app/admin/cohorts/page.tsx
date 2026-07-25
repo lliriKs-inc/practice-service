@@ -919,7 +919,7 @@ export default function AdminCohortsPage() {
                         </div>
 
                         <div className="flex flex-col gap-5">
-                            <div className="flex flex-col gap-1.5">
+                            <div className="flex flex-col gap-1.5 min-w-0">
                                 <label className="text-sm font-medium text-ink">Название потока <span className="text-brand-hover">*</span></label>
                                 <input type="text" placeholder="Практика 2027" required
                                     value={newCohort.title}
@@ -928,13 +928,13 @@ export default function AdminCohortsPage() {
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1.5">
+                                <div className="flex flex-col gap-1.5 min-w-0">
                                     <label className="text-sm font-medium text-ink">Начало приёма заявок <span className="text-brand-hover">*</span></label>
                                     <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.application_start}
                                         onChange={e => setNewCohort(prev => ({ ...prev, application_start: e.target.value }))}
                                         className="w-full text-sm rounded-xl" />
                                 </div>
-                                <div className="flex flex-col gap-1.5">
+                                <div className="flex flex-col gap-1.5 min-w-0">
                                     <label className="text-sm font-medium text-ink">Конец приёма заявок <span className="text-brand-hover">*</span></label>
                                     <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.application_end}
                                         onChange={e => setNewCohort(prev => ({ ...prev, application_end: e.target.value }))}
@@ -943,13 +943,13 @@ export default function AdminCohortsPage() {
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1.5">
+                                <div className="flex flex-col gap-1.5 min-w-0">
                                     <label className="text-sm font-medium text-ink">Начало практики <span className="text-brand-hover">*</span></label>
                                     <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.start_date}
                                         onChange={e => setNewCohort(prev => ({ ...prev, start_date: e.target.value }))}
                                         className="w-full text-sm rounded-xl" />
                                 </div>
-                                <div className="flex flex-col gap-1.5">
+                                <div className="flex flex-col gap-1.5 min-w-0">
                                     <label className="text-sm font-medium text-ink">Конец практики <span className="text-brand-hover">*</span></label>
                                     <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.end_date}
                                         onChange={e => setNewCohort(prev => ({ ...prev, end_date: e.target.value }))}
@@ -1111,7 +1111,7 @@ export default function AdminCohortsPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col gap-1.5">
+                                    <div className="flex flex-col gap-1.5 min-w-0">
                                         <label className="text-sm font-medium text-ink">Название потока</label>
                                         <input type="text" value={editDraft.title}
                                             onChange={e => patchDraft({ title: e.target.value })}
@@ -1126,14 +1126,14 @@ export default function AdminCohortsPage() {
                             )}
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1.5">
+                                <div className="flex flex-col gap-1.5 min-w-0">
                                     <label className="text-sm font-medium text-ink">Начало приёма заявок</label>
                                     <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.application_start ?? '')}
                                         onChange={e => patchDraft({ application_start: e.target.value })}
                                         disabled={editDraft.status !== 'draft'}
                                         className="w-full text-sm rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" />
                                 </div>
-                                <div className="flex flex-col gap-1.5">
+                                <div className="flex flex-col gap-1.5 min-w-0">
                                     <label className="text-sm font-medium text-ink">Конец приёма заявок</label>
                                     <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.application_end ?? '')}
                                         onChange={e => patchDraft({ application_end: e.target.value })}
@@ -1143,14 +1143,14 @@ export default function AdminCohortsPage() {
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="flex flex-col gap-1.5">
+                                        <div className="flex flex-col gap-1.5 min-w-0">
                                             <label className="text-sm font-medium text-ink">Начало практики</label>
                                             <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.start_date)}
                                                 onChange={e => patchDraft({ start_date: e.target.value })}
                                                 disabled={editDraft.status !== 'draft'}
                                                 className="w-full text-sm rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" />
                                         </div>
-                                        <div className="flex flex-col gap-1.5">
+                                        <div className="flex flex-col gap-1.5 min-w-0">
                                             <label className="text-sm font-medium text-ink">Конец практики</label>
                                             <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.end_date)}
                                                 onChange={e => patchDraft({ end_date: e.target.value })}
@@ -1230,7 +1230,7 @@ export default function AdminCohortsPage() {
 
                                     {editDraft.invitation ? (
                                         <div className="flex flex-col gap-4">
-                                            <div className="flex flex-col gap-1.5">
+                                            <div className="flex flex-col gap-1.5 min-w-0">
                                                 <label className="text-sm font-medium text-ink">Ссылка для кандидатов</label>
                                                 <div className="flex flex-col sm:flex-row gap-2">
                                                     <input type="text" readOnly

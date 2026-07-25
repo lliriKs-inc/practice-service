@@ -21,9 +21,11 @@ export const DOCUMENT_CONFIG: Record<
     fields: [
       "student_fio",
       "group",
+      "institute_abbr",
       "direction_code",
       "direction_name",
       "program_name",
+      "practice_type",
       "practice_topic",
       "main_stage_tasks",
     ].map((key) => ({
@@ -39,7 +41,9 @@ export const DOCUMENT_CONFIG: Record<
     fields: [
       "student_fio",
       "group",
+      "direction_code",
       "specialty",
+      "practice_type",
       "practice_topic",
     ].map((key) => ({
       key,
@@ -53,6 +57,7 @@ export const DOCUMENT_CONFIG: Record<
     fields: [
       "student_fio",
       "group",
+      "practice_type",
       "review_activities",
       "review_characteristic",
       "review_employed",
@@ -62,7 +67,7 @@ export const DOCUMENT_CONFIG: Record<
       "review_grade",
     ].map((key) => ({
       key,
-      owner: ["student_fio", "group"].includes(key)
+      owner: ["student_fio", "group", "practice_type"].includes(key)
         ? UserRole.STUDENT
         : UserRole.ADMIN,
       required: true,
@@ -73,8 +78,8 @@ export const DOCUMENT_CONFIG: Record<
     type: DocumentType.NOTICE,
     fields: [
       "student_fio",
+      "institute_abbr",
       "group",
-      "practice_topic",
     ].map((key) => ({
       key,
       owner: UserRole.STUDENT,

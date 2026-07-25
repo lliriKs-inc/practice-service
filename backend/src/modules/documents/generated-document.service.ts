@@ -6,6 +6,7 @@ import { AppError } from "../../middlewares/error.middleware";
 import { prisma } from "../../shared/prisma";
 import type { StorageService } from "../../shared/storage";
 import { buildDocumentReadiness } from "./document-readiness.service";
+import { toGenitive, toInitials } from "../../shared/name-declension";
 import {
   DocumentGeneratorService,
   documentTemplateByType,
@@ -23,27 +24,60 @@ function formatDate(value: Date): string {
   }).format(value);
 }
 
+const MONTHS_RU_GENITIVE = [
+  "января", "февраля", "марта", "апреля", "мая", "июня",
+  "июля", "августа", "сентября", "октября", "ноября", "декабря",
+];
+
+// Для бланков вида «29 июня 20 26» — день/месяц/последние 2 цифры года
+// отдельными тегами, чтобы в шаблоне можно было подчеркнуть только их.
+function formatDateParts(value: Date) {
+  return {
+    day: String(value.getUTCDate()),
+    month: MONTHS_RU_GENITIVE[value.getUTCMonth()],
+    year_short: String(value.getUTCFullYear()).slice(-2),
+  };
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function addDays(value: Date, days: number): Date {
+  const result = new Date(value);
+  result.setUTCDate(result.getUTCDate() + days);
+  return result;
+}
+
+// Границы организационного/заключительного этапов зависят от того, сколько
+// длится практика целиком — чем длиннее практика, тем шире эти этапы.
+function stageOffsetDays(durationDays: number): number {
+  if (durationDays <= 7) return 0;
+  if (durationDays <= 14) return 2;
+  if (durationDays <= 21) return 4;
+  return 7;
+}
+
 function practiceStageDates(start: Date, end: Date) {
-  const weekdays: Date[] = [];
-  const cursor = new Date(start);
+  const durationDays =
+    Math.round((end.getTime() - start.getTime()) / MS_PER_DAY) + 1;
+  const offset = stageOffsetDays(durationDays);
 
-  while (cursor.getTime() <= end.getTime()) {
-    const day = cursor.getUTCDay();
-    if (day !== 0 && day !== 6) {
-      weekdays.push(new Date(cursor));
-    }
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-
-  const first = weekdays[0] ?? start;
-  const last = weekdays.at(-1) ?? end;
-  const beforeLast = weekdays.at(-2) ?? first;
+  const organizationalEnd = addDays(start, offset);
+  const finalStart = addDays(end, -offset);
+  const mainEnd = addDays(finalStart, -1);
 
   return {
-    practice_stage1_finish: formatDate(first),
-    practice_stage2_finish: formatDate(beforeLast),
-    practice_stage3_start: formatDate(last),
+    practice_stage1_finish: formatDate(organizationalEnd),
+    practice_stage2_finish: formatDate(mainEnd),
+    practice_stage3_start: formatDate(finalStart),
   };
+}
+
+// Курс — первая цифра после дефиса в номере группы, например «РИ-330948» → 3.
+function courseFromGroup(group: string | undefined): string {
+  if (!group) return "";
+  const afterDash = group.split("-")[1] ?? "";
+  const digit = afterDash.match(/\d/);
+  return digit ? digit[0] : "";
 }
 
 export class GeneratedDocumentService {
@@ -126,19 +160,51 @@ export class GeneratedDocumentService {
     const current = application.documents.find(
       (document) => document.type === type
     );
+    const fieldValues = Object.fromEntries(
+      (current?.fieldValues ?? []).map((field) => [
+        field.field_key,
+        field.value,
+      ])
+    );
+    // Оценка ставится куратором в отзыве, но нужна и на титульном листе —
+    // если куратор её ещё не выставил, лист всё равно можно сформировать без неё.
+    const reviewDocument = application.documents.find(
+      (document) => document.type === DocumentType.REVIEW
+    );
+    const reviewGrade = reviewDocument?.fieldValues.find(
+      (field) => field.field_key === "review_grade"
+    )?.value;
     const values = {
-      ...Object.fromEntries(
-        (current?.fieldValues ?? []).map((field) => [
-          field.field_key,
-          field.value,
-        ])
+      ...fieldValues,
+      student_fio_genitive: toGenitive(
+        fieldValues.student_fio || application.user.full_name
       ),
+      student_fio_initials: toInitials(
+        fieldValues.student_fio || application.user.full_name
+      ),
+      review_grade: reviewGrade ?? "",
+      course: courseFromGroup(fieldValues.group),
+      ...(fieldValues.institute_abbr && {
+        institute_abbr: fieldValues.institute_abbr.toUpperCase(),
+      }),
+      ...(fieldValues.practice_type && {
+        practice_type_short: fieldValues.practice_type.split(",")[0].trim(),
+      }),
       practice_start: formatDate(
         application.track.cohort.practice_start
       ),
       practice_end: formatDate(
         application.track.cohort.practice_end
       ),
+      practice_start_day: formatDateParts(
+        application.track.cohort.practice_start
+      ).day,
+      practice_start_month: formatDateParts(
+        application.track.cohort.practice_start
+      ).month,
+      practice_start_year_short: formatDateParts(
+        application.track.cohort.practice_start
+      ).year_short,
       ...practiceStageDates(
         application.track.cohort.practice_start,
         application.track.cohort.practice_end
