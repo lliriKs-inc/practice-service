@@ -406,7 +406,8 @@ export default function AdminApplicationsPage() {
                                     </div>
                                 )}
 
-                                {app.status === 'approved' && app.isWorkingApplication && selectedCohort && (
+                                {app.status === 'approved' && app.isWorkingApplication && selectedCohort
+                                    && new Date(selectedCohort.start_date) <= new Date() && (
                                     <div className="grid grid-cols-2 divide-x divide-border-soft border-b border-border-soft">
                                         <div className="px-7 py-4 flex flex-col gap-0.5">
                                             <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">Документы студента</span>

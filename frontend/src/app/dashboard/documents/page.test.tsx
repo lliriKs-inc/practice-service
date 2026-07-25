@@ -206,9 +206,9 @@ describe('DashboardDocumentsPage', () => {
         fireEvent.blur(groupInput)
         await waitFor(() => expect(screen.queryByText('сохраняем…')).not.toBeInTheDocument(), { timeout: 3000 })
 
-        const topicInput = getFieldInput(noticeCard, /Тема практики/)
-        fireEvent.change(topicInput, { target: { value: 'Тема практики' } })
-        fireEvent.blur(topicInput)
+        const instituteInput = getFieldInput(noticeCard, /Наименование института/)
+        fireEvent.change(instituteInput, { target: { value: 'ИРИТ-РТФ' } })
+        fireEvent.blur(instituteInput)
 
         await waitFor(() => {
             const generateButton = within(noticeCard).getByRole('button', { name: /Сформировать/ })
