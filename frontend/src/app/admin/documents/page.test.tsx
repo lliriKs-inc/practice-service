@@ -113,12 +113,12 @@ describe('AdminDocumentsPage', () => {
         const reviewCard = occurrences[occurrences.length - 1]
         const card = reviewCard.closest('div.border')! as HTMLElement
 
-        const gradeLabel = within(card).getByText('Оценка', { selector: 'label' })
+        const gradeLabel = within(card).getByText(/Оценка/, { selector: 'label' })
         const gradeInput = gradeLabel.parentElement!.querySelector('input')!
-        fireEvent.change(gradeInput, { target: { value: 'Отлично' } })
+        fireEvent.change(gradeInput, { target: { value: '95' } })
         fireEvent.blur(gradeInput)
 
-        await waitFor(() => expect(updateAdminDocumentField).toHaveBeenCalledWith(COHORT_ID, APP_ID, 'REVIEW', 'review_grade', 'Отлично'))
+        await waitFor(() => expect(updateAdminDocumentField).toHaveBeenCalledWith(COHORT_ID, APP_ID, 'REVIEW', 'review_grade', '95'))
     })
 
     it('одобряет загруженный отчёт', async () => {

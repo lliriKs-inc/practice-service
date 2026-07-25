@@ -203,13 +203,30 @@ export default function AdminCohortsPage() {
         prevQuestionsLen.current = questionsLen
     }, [editDraft])
 
-    // Пока открыта любая модалка — блокируем скролл страницы позади неё,
-    // иначе движение мыши за пределы модалки листает фон.
+    // Пока открыта любая модалка — блокируем скролл страницы позади неё.
+    // На мобильном Safari одного overflow:hidden на body не хватает (там
+    // всё равно можно тащить фон пальцем) — фиксируем body позицией и
+    // сдвигаем на текущий scrollY, а при закрытии возвращаем скролл на место.
     useEffect(() => {
         if (showCreateModal || editDraft || cohortToDelete || showCopySurveyModal) {
-            const previousOverflow = document.body.style.overflow
+            const scrollY = window.scrollY
+            const previous = {
+                overflow: document.body.style.overflow,
+                position: document.body.style.position,
+                top: document.body.style.top,
+                width: document.body.style.width,
+            }
             document.body.style.overflow = 'hidden'
-            return () => { document.body.style.overflow = previousOverflow }
+            document.body.style.position = 'fixed'
+            document.body.style.top = `-${scrollY}px`
+            document.body.style.width = '100%'
+            return () => {
+                document.body.style.overflow = previous.overflow
+                document.body.style.position = previous.position
+                document.body.style.top = previous.top
+                document.body.style.width = previous.width
+                window.scrollTo(0, scrollY)
+            }
         }
     }, [showCreateModal, editDraft, cohortToDelete, showCopySurveyModal])
 
@@ -908,79 +925,81 @@ export default function AdminCohortsPage() {
 
             {/* ── МОДАЛКА: СОЗДАТЬ КОГОРТУ ── */}
             {showCreateModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
+                <div className="fixed inset-0 z-50 flex items-center justify-center sm:bg-black/30 sm:backdrop-blur-sm"
                     {...createModalOverlay}>
-                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+                    <div className="bg-white sm:rounded-2xl shadow-xl w-full h-full sm:h-auto sm:max-w-lg sm:mx-4 sm:max-h-[90vh] flex flex-col"
                         onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-6">
+                        <div className="px-8 pt-7 pb-5 border-b border-border-soft shrink-0 flex items-center justify-between">
                             <h3 className="font-extrabold text-2xl text-ink tracking-tight">Новая когорта</h3>
                             <button onClick={closeCreateModal}
                                 className="text-muted-ink hover:text-ink text-2xl leading-none">×</button>
                         </div>
 
-                        <div className="flex flex-col gap-5">
-                            <div className="flex flex-col gap-1.5 min-w-0">
-                                <label className="text-sm font-medium text-ink">Название потока <span className="text-brand-hover">*</span></label>
-                                <input type="text" placeholder="Практика 2027" required
-                                    value={newCohort.title}
-                                    onChange={e => setNewCohort(prev => ({ ...prev, title: e.target.value }))}
-                                    className="w-full text-sm rounded-xl" />
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="flex-1 overflow-y-auto px-8 py-6">
+                            <div className="flex flex-col gap-5">
                                 <div className="flex flex-col gap-1.5 min-w-0">
-                                    <label className="text-sm font-medium text-ink">Начало приёма заявок <span className="text-brand-hover">*</span></label>
-                                    <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.application_start}
-                                        onChange={e => setNewCohort(prev => ({ ...prev, application_start: e.target.value }))}
+                                    <label className="text-sm font-medium text-ink">Название потока <span className="text-brand-hover">*</span></label>
+                                    <input type="text" placeholder="Практика 2027" required
+                                        value={newCohort.title}
+                                        onChange={e => setNewCohort(prev => ({ ...prev, title: e.target.value }))}
                                         className="w-full text-sm rounded-xl" />
                                 </div>
-                                <div className="flex flex-col gap-1.5 min-w-0">
-                                    <label className="text-sm font-medium text-ink">Конец приёма заявок <span className="text-brand-hover">*</span></label>
-                                    <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.application_end}
-                                        onChange={e => setNewCohort(prev => ({ ...prev, application_end: e.target.value }))}
-                                        className="w-full text-sm rounded-xl" />
-                                </div>
-                            </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1.5 min-w-0">
-                                    <label className="text-sm font-medium text-ink">Начало практики <span className="text-brand-hover">*</span></label>
-                                    <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.start_date}
-                                        onChange={e => setNewCohort(prev => ({ ...prev, start_date: e.target.value }))}
-                                        className="w-full text-sm rounded-xl" />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="flex flex-col gap-1.5 min-w-0">
+                                        <label className="text-sm font-medium text-ink">Начало приёма заявок <span className="text-brand-hover">*</span></label>
+                                        <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.application_start}
+                                            onChange={e => setNewCohort(prev => ({ ...prev, application_start: e.target.value }))}
+                                            className="w-full min-w-0 text-sm rounded-xl" />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5 min-w-0">
+                                        <label className="text-sm font-medium text-ink">Конец приёма заявок <span className="text-brand-hover">*</span></label>
+                                        <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.application_end}
+                                            onChange={e => setNewCohort(prev => ({ ...prev, application_end: e.target.value }))}
+                                            className="w-full min-w-0 text-sm rounded-xl" />
+                                    </div>
                                 </div>
-                                <div className="flex flex-col gap-1.5 min-w-0">
-                                    <label className="text-sm font-medium text-ink">Конец практики <span className="text-brand-hover">*</span></label>
-                                    <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.end_date}
-                                        onChange={e => setNewCohort(prev => ({ ...prev, end_date: e.target.value }))}
-                                        className="w-full text-sm rounded-xl" />
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="flex flex-col gap-1.5 min-w-0">
+                                        <label className="text-sm font-medium text-ink">Начало практики <span className="text-brand-hover">*</span></label>
+                                        <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.start_date}
+                                            onChange={e => setNewCohort(prev => ({ ...prev, start_date: e.target.value }))}
+                                            className="w-full min-w-0 text-sm rounded-xl" />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5 min-w-0">
+                                        <label className="text-sm font-medium text-ink">Конец практики <span className="text-brand-hover">*</span></label>
+                                        <input type="date" required min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={newCohort.end_date}
+                                            onChange={e => setNewCohort(prev => ({ ...prev, end_date: e.target.value }))}
+                                            className="w-full min-w-0 text-sm rounded-xl" />
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="bg-surface border border-border-soft rounded-xl px-4 py-2.5">
-                                <p className="text-xs text-muted-ink">
-                                    После создания когорта будет в статусе «Черновик». Треки, анкету и тестовое задание
-                                    можно добавить через кнопку «Редактировать».
-                                </p>
-                            </div>
-
-                            {createErrors.map((message, i) => (
-                                <div key={i} className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3 flex items-start gap-3">
-                                    <TriangleAlert className="size-5 text-danger flex-shrink-0 mt-0.5" />
-                                    <p className="text-sm text-danger">{message}</p>
+                                <div className="bg-surface border border-border-soft rounded-xl px-4 py-2.5">
+                                    <p className="text-xs text-muted-ink">
+                                        После создания когорта будет в статусе «Черновик». Треки, анкету и тестовое задание
+                                        можно добавить через кнопку «Редактировать».
+                                    </p>
                                 </div>
-                            ))}
 
-                            <div className="flex justify-end gap-3 mt-2">
-                                <Button variant="ghost" onClick={closeCreateModal}
-                                    className="px-5 py-2.5 rounded-xl h-auto text-sm text-muted-ink hover:bg-surface hover:text-ink">
-                                    Отмена
-                                </Button>
-                                <Button variant="brand" disabled={createLoading || !isCreateFormComplete()} onClick={handleCreateCohort}
-                                    className="px-5 py-2.5 rounded-xl h-auto text-sm">
-                                    {createLoading ? 'Создаём…' : 'Создать'}
-                                </Button>
+                                {createErrors.map((message, i) => (
+                                    <div key={i} className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3 flex items-start gap-3">
+                                        <TriangleAlert className="size-5 text-danger flex-shrink-0 mt-0.5" />
+                                        <p className="text-sm text-danger">{message}</p>
+                                    </div>
+                                ))}
                             </div>
+                        </div>
+
+                        <div className="px-8 py-5 border-t border-border-soft flex justify-end gap-3 shrink-0">
+                            <Button variant="ghost" onClick={closeCreateModal}
+                                className="px-5 py-2.5 rounded-xl h-auto text-sm text-muted-ink hover:bg-surface hover:text-ink">
+                                Отмена
+                            </Button>
+                            <Button variant="brand" disabled={createLoading || !isCreateFormComplete()} onClick={handleCreateCohort}
+                                className="px-5 py-2.5 rounded-xl h-auto text-sm">
+                                {createLoading ? 'Создаём…' : 'Создать'}
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -1131,14 +1150,14 @@ export default function AdminCohortsPage() {
                                     <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.application_start ?? '')}
                                         onChange={e => patchDraft({ application_start: e.target.value })}
                                         disabled={editDraft.status !== 'draft'}
-                                        className="w-full text-sm rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" />
+                                        className="w-full min-w-0 text-sm rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" />
                                 </div>
                                 <div className="flex flex-col gap-1.5 min-w-0">
                                     <label className="text-sm font-medium text-ink">Конец приёма заявок</label>
                                     <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.application_end ?? '')}
                                         onChange={e => patchDraft({ application_end: e.target.value })}
                                         disabled={editDraft.status !== 'draft'}
-                                        className="w-full text-sm rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" />
+                                        className="w-full min-w-0 text-sm rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" />
                                 </div>
                             </div>
 
@@ -1148,14 +1167,14 @@ export default function AdminCohortsPage() {
                                             <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.start_date)}
                                                 onChange={e => patchDraft({ start_date: e.target.value })}
                                                 disabled={editDraft.status !== 'draft'}
-                                                className="w-full text-sm rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" />
+                                                className="w-full min-w-0 text-sm rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" />
                                         </div>
                                         <div className="flex flex-col gap-1.5 min-w-0">
                                             <label className="text-sm font-medium text-ink">Конец практики</label>
                                             <input type="date" min={COHORT_DATE_MIN} max={COHORT_DATE_MAX} value={toDateInput(editDraft.end_date)}
                                                 onChange={e => patchDraft({ end_date: e.target.value })}
                                                 disabled={editDraft.status !== 'draft'}
-                                                className="w-full text-sm rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" />
+                                                className="w-full min-w-0 text-sm rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" />
                                         </div>
                                     </div>
                                 </div>
