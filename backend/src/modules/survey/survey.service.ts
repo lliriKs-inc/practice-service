@@ -96,7 +96,7 @@ export class SurveyService {
     if (!invitation) throw new AppError("Invalid invitation token", 400, "INVALID_TOKEN");
     const now = new Date();
     if (invitation.expires_at <= now) throw new AppError("Invitation has expired", 400, "TOKEN_EXPIRED");
-    if (invitation.cohort.status === CohortStatus.CLOSED || !invitation.cohort.application_start || !invitation.cohort.application_end || now < invitation.cohort.application_start || now > invitation.cohort.application_end) {
+    if (invitation.cohort.status === CohortStatus.CLOSED || invitation.cohort.status === CohortStatus.DRAFT || !invitation.cohort.application_start || !invitation.cohort.application_end || now < invitation.cohort.application_start || now > invitation.cohort.application_end) {
       throw new AppError("Application window is closed", 400, "APPLICATION_WINDOW_CLOSED");
     }
     if (!invitation.cohort.survey) throw new AppError("Survey not found", 404, "SURVEY_NOT_FOUND");

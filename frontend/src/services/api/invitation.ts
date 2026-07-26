@@ -51,6 +51,7 @@ export interface Application {
         // нужны дневнику задач, чтобы знать границы практики этой когорты.
         start_date: string
         end_date: string
+        status: 'draft' | 'active' | 'closed'
     }
     // Есть только в админских ответах (listForCohort/getForCohort) — сервер
     // подставляет из JWT/route, в собственном /me/applications его нет.
@@ -85,6 +86,7 @@ function mapApplication(raw: any): Application {
             title: raw.track.cohort.title,
             start_date: raw.track.cohort.practice_start,
             end_date: raw.track.cohort.practice_end,
+            status: String(raw.track.cohort.status).toLowerCase() as Application['cohort']['status'],
         },
         student: raw.user ? { id: raw.user.id, email: raw.user.email } : undefined,
         answers: Array.isArray(raw.answers)

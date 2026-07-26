@@ -13,14 +13,17 @@ import {
     saveCohortDraft,
     updateTrackTestTask,
     uploadTestTaskFile,
+    ALLOWED_TEST_TASK_FILE_EXTENSIONS,
+    MAX_TEST_TASK_FILE_SIZE_BYTES,
     type Cohort,
     type CohortStatus,
     type Track,
     type Question,
     type TestTask,
 } from '@/services/api/cohorts'
-import { Info, Star, Route, Link as LinkIcon, ClipboardCheck, ClipboardX, Plus, Pencil, TriangleAlert, Settings, FileText, X, RotateCw, Paperclip, Download, Copy, ChevronDown, Type, Layers, Trash2, FolderKanban } from 'lucide-react'
+import { Info, Star, Route, Link as LinkIcon, ClipboardCheck, ClipboardX, Plus, Pencil, TriangleAlert, Settings, FileText, X, RotateCw, Paperclip, Download, Copy, ChevronDown, Type, Layers, Trash2, FolderKanban, ListFilter, Archive, CalendarRange } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { FilterSelect } from '@/components/ui/filter-select'
 import { useCohortWorkspace } from '../cohort-context'
 import { describeApiErrors } from '@/lib/api/error-messages'
 import { downloadProtectedFile } from '@/lib/api/download'
@@ -61,6 +64,40 @@ const STATUS_STYLES: Record<CohortStatus, string> = {
     closed: 'bg-danger-bg border-danger-border text-danger',
 }
 
+// Бэкенд не различает "закрыта админом" и "просто закончилась по дате" —
+// когорта остаётся ACTIVE в БД, пока её явно не закроют. Для отображения
+// вычисляем это на фронте: активна, но дата конца практики уже прошла —
+// показываем отдельным нейтральным статусом "Завершена", не трогая сам
+// cohort.status (он по-прежнему используется бизнес-логикой как ACTIVE).
+function isCohortNaturallyFinished(cohort: Cohort): boolean {
+    return cohort.status === 'active' && isAllowedCohortDate(cohort.end_date) && Date.now() > new Date(cohort.end_date!).getTime()
+}
+
+function getDisplayStatusLabel(cohort: Cohort): string {
+    return isCohortNaturallyFinished(cohort) ? 'Завершена' : STATUS_LABELS[cohort.status]
+}
+
+function getDisplayStatusDot(cohort: Cohort): string {
+    return isCohortNaturallyFinished(cohort) ? 'bg-muted-ink' : STATUS_DOTS[cohort.status]
+}
+
+function getDisplayStatusStyle(cohort: Cohort): string {
+    return isCohortNaturallyFinished(cohort) ? 'bg-surface border-border-soft text-muted-ink' : STATUS_STYLES[cohort.status]
+}
+
+// В архив попадают когорты, закрытые админом явно, и когорты, у которых
+// практика просто закончилась по дате — это две разные причины архивации.
+type CohortArchiveReason = 'closed' | 'completed'
+
+const COHORT_ARCHIVE_REASON_OPTIONS: { value: CohortArchiveReason; label: string }[] = [
+    { value: 'closed', label: 'Закрыта' },
+    { value: 'completed', label: 'Завершена' },
+]
+
+function getCohortArchiveReason(cohort: Cohort): CohortArchiveReason {
+    return cohort.status === 'closed' ? 'closed' : 'completed'
+}
+
 const QUESTION_TYPES = [
     { value: 'text', label: 'Текст (строка)' },
     { value: 'textarea', label: 'Текст (абзац)' },
@@ -92,6 +129,41 @@ function formatCohortDate(iso: string | null | undefined): string {
     return new Date(iso!).toLocaleDateString('ru')
 }
 
+type CohortDateField = '' | 'application' | 'practice'
+
+function periodOverlapsRange(rangeStart: string | null | undefined, rangeEnd: string | null | undefined, from: string, to: string): boolean {
+    if (!isAllowedCohortDate(rangeStart) || !isAllowedCohortDate(rangeEnd)) return false
+    const start = new Date(rangeStart!).getTime()
+    const end = new Date(rangeEnd!).getTime()
+    const from_ = from ? new Date(from).getTime() : -Infinity
+    const to_ = to ? new Date(to).getTime() : Infinity
+    return start <= to_ && end >= from_
+}
+
+// "Все даты" — фильтр по датам неактивен независимо от значений "от"/"до"
+// (поля дат в этом состоянии заблокированы в самой форме). Иначе — показываем
+// когорту, если выбранный период (приёма заявок или практики) пересекается
+// с указанным диапазоном; незаполненная граница диапазона не ограничивает.
+function cohortMatchesDateRange(cohort: Cohort, field: CohortDateField, from: string, to: string): boolean {
+    if (!field) return true
+    if (!from && !to) return true
+    const rangeStart = field === 'application' ? cohort.application_start : cohort.start_date
+    const rangeEnd = field === 'application' ? cohort.application_end : cohort.end_date
+    return periodOverlapsRange(rangeStart, rangeEnd, from, to)
+}
+
+interface CohortFilterState {
+    search: string
+    dateField: CohortDateField
+    dateFrom: string
+    dateTo: string
+}
+
+function cohortMatchesFilters(cohort: Cohort, filters: CohortFilterState): boolean {
+    if (filters.search.trim() && !cohort.title.toLocaleLowerCase('ru-RU').includes(filters.search.trim().toLocaleLowerCase('ru-RU'))) return false
+    return cohortMatchesDateRange(cohort, filters.dateField, filters.dateFrom, filters.dateTo)
+}
+
 function uid() {
     if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
     return Math.random().toString(36).slice(2, 11)
@@ -113,6 +185,21 @@ function getDuplicateTrackTitle(tracks: Track[]): string | null {
 
 export default function AdminCohortsPage() {
     const { cohorts, cohortsLoading, cohortsError, refetchCohorts, selectedCohortId, setSelectedCohortId } = useCohortWorkspace()
+
+    // Фильтры основного списка (черновики + активные — закрытые уходят в архив)
+    const [statusFilter, setStatusFilter] = useState<'' | 'draft' | 'active'>('')
+    const [search, setSearch] = useState('')
+    const [dateField, setDateField] = useState<CohortDateField>('')
+    const [dateFrom, setDateFrom] = useState('')
+    const [dateTo, setDateTo] = useState('')
+
+    // Архив (закрытые когорты) — свёрнут по умолчанию, свои независимые фильтры
+    const [archiveOpen, setArchiveOpen] = useState(false)
+    const [archiveReasonFilter, setArchiveReasonFilter] = useState<'' | CohortArchiveReason>('')
+    const [archiveSearch, setArchiveSearch] = useState('')
+    const [archiveDateField, setArchiveDateField] = useState<CohortDateField>('')
+    const [archiveDateFrom, setArchiveDateFrom] = useState('')
+    const [archiveDateTo, setArchiveDateTo] = useState('')
 
     const EMPTY_NEW_COHORT = { title: '', application_start: '', application_end: '', start_date: '', end_date: '' }
 
@@ -506,16 +593,28 @@ export default function AdminCohortsPage() {
         })
     }
 
-    // Backend поддерживает только одностороннюю публикацию (POST .../publish
-    // кидает "already published", если уже опубликовано) — ручки "снять с
-    // публикации" не существует вообще, поэтому кнопка тоже должна быть
-    // односторонней, а не тоглом.
+    // Публикация и снятие с публикации — два разных бэкенд-эндпоинта
+    // (POST .../publish и PUT .../test-task с published_at: null), поэтому
+    // тут только правим локальный черновик; saveCohortDraft при сохранении
+    // сам решит, какую ручку вызвать, по направлению изменения.
     function publishTrack(trackId: string) {
         if (!editDraft) return
         patchDraft({
             tracks: editDraft.tracks.map(t => {
                 if (t.id !== trackId || !t.testTask || t.testTask.publishedAt) return t
                 return { ...t, testTask: { ...t.testTask, publishedAt: new Date().toISOString() } }
+            }),
+        })
+    }
+
+    // Снять с публикации нельзя, если по треку уже есть сданные работы —
+    // это провалидирует бэкенд при сохранении (TEST_TASK_HAS_SUBMISSIONS).
+    function unpublishTrack(trackId: string) {
+        if (!editDraft) return
+        patchDraft({
+            tracks: editDraft.tracks.map(t => {
+                if (t.id !== trackId || !t.testTask || !t.testTask.publishedAt) return t
+                return { ...t, testTask: { ...t.testTask, publishedAt: null } }
             }),
         })
     }
@@ -663,6 +762,148 @@ export default function AdminCohortsPage() {
         }
     }
 
+    function renderCohortCard(cohort: Cohort) {
+        const isWorking = cohort.id === selectedCohortId
+        return (
+        <div key={cohort.id} className={`bg-white rounded-2xl overflow-hidden ${isWorking ? 'border-t-[3px] border-brand-hover shadow-md' : 'shadow-sm'}`}>
+            <div className="px-7 py-5 border-b border-border-soft flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 sm:flex-wrap">
+                    <h2 className="font-extrabold text-xl text-ink tracking-tight uppercase">{cohort.title}</h2>
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border ${getDisplayStatusStyle(cohort)}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${getDisplayStatusDot(cohort)}`} />
+                            {getDisplayStatusLabel(cohort)}
+                        </span>
+                        {isWorking && (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-warning bg-warning-bg border border-warning-border rounded-full px-2.5 py-1">
+                                <Star className="size-3.5 fill-warning-dot text-warning-dot" />Рабочая когорта
+                            </span>
+                        )}
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+                    {!isWorking && (
+                        <button onClick={() => setSelectedCohortId(cohort.id)}
+                            className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle transition-colors duration-300">
+                            Сделать рабочей
+                        </button>
+                    )}
+                    <Button variant="brand" onClick={() => openEdit(cohort)} className="px-4 py-1.5 rounded-lg h-auto text-xs">
+                        <Pencil className="size-3.5" /> Редактировать
+                    </Button>
+                    {cohort.status === 'draft' && (
+                        <Button
+                            variant="danger"
+                            type="button"
+                            onClick={() => openDeleteModal(cohort)}
+                            disabled={deletingCohortId === cohort.id}
+                            className="px-4 py-1.5 rounded-lg h-auto text-xs">
+                            {deletingCohortId === cohort.id ? 'Удаляем…' : 'Удалить'}
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 divide-x divide-border-soft">
+                {[
+                    {
+                        label: 'Период приёма заявок',
+                        value: cohort.application_start && cohort.application_end
+                            ? `${formatCohortDate(cohort.application_start)} — ${formatCohortDate(cohort.application_end)}`
+                            : 'Не задан',
+                    },
+                    {
+                        label: 'Период практики',
+                        value: `${formatCohortDate(cohort.start_date)} — ${formatCohortDate(cohort.end_date)}`,
+                    },
+                ].map((item, i) => (
+                    <div key={i} className="px-6 py-4 flex flex-col gap-1">
+                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">{item.label}</span>
+                        <span className="text-sm text-ink">{item.value}</span>
+                    </div>
+                ))}
+            </div>
+
+            {cohort.tracks.length > 0 && (
+                <div className="px-7 py-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:flex-wrap border-t border-border-soft">
+                    <span className="text-sm font-semibold text-ink sm:mr-1">Треки:</span>
+                    {cohort.tracks.map((track, i) => (
+                        <span key={track.id} className="flex sm:inline-flex w-full sm:w-auto min-w-0 items-center justify-start gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
+                            <span className="flex items-center justify-center size-4 rounded-full bg-brand text-white text-[10px] font-bold flex-shrink-0">{i + 1}</span>
+                            <Route className="size-3.5 flex-shrink-0" />
+                            <span className="truncate min-w-0">{track.title}</span>
+                            <span className={`inline-flex items-center gap-1 border-l border-brand-subtle-border pl-1.5 ml-auto flex-shrink-0 ${track.testTask?.publishedAt ? 'text-success' : 'text-muted-ink'}`}
+                                title={track.testTask?.publishedAt ? 'Тестовое задание опубликовано' : 'Тестовое задание не опубликовано'}>
+                                {track.testTask?.publishedAt
+                                    ? <ClipboardCheck className="size-4" strokeWidth={2.75} />
+                                    : <ClipboardX className="size-4" strokeWidth={1.5} />}
+                                <span className={track.testTask?.publishedAt ? 'text-[11px] font-extrabold tracking-wide' : 'text-[11px] font-medium tracking-wide'}>ТЗ</span>
+                            </span>
+                        </span>
+                    ))}
+                </div>
+            )}
+
+            {cohort.invitation && (
+                <div className="px-7 py-3 border-t border-border-soft flex items-center gap-3 bg-surface min-w-0">
+                    <LinkIcon className="size-3.5 text-muted-ink flex-shrink-0" />
+                    <span className="text-xs text-muted-ink flex-shrink-0">Ссылка для кандидатов:</span>
+                    <code className="hidden sm:block text-xs text-brand-hover flex-1 min-w-0 truncate">/apply/{cohort.invitation.token}</code>
+                    <div className="ml-auto sm:ml-0 flex items-center gap-2 flex-shrink-0">
+                        {cohort.status !== 'active' && (
+                            <span className="inline-flex items-center justify-center text-warning cursor-help flex-shrink-0"
+                                title="Кандидаты не увидят анкету, пока когорта не переведена в статус «Активна»">
+                                <TriangleAlert className="size-3.5" />
+                            </span>
+                        )}
+                        <button onClick={() => copyInvitation(cohort.invitation!.token)}
+                            className="text-xs font-semibold text-brand-hover bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300 shrink-0">
+                            Копировать
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+        )
+    }
+
+    const dateRangeInvalid = Boolean(dateField && dateFrom && dateTo && dateFrom > dateTo)
+    const archiveDateRangeInvalid = Boolean(archiveDateField && archiveDateFrom && archiveDateTo && archiveDateFrom > archiveDateTo)
+
+    // Естественно завершённые (активные по статусу, но с прошедшей датой конца
+    // практики) уходят в архив так же, как явно закрытые — в рабочем списке
+    // им уже нечего делать.
+    const liveCohorts = cohorts.filter(c => c.status !== 'closed' && !isCohortNaturallyFinished(c))
+    const filteredLiveCohorts = liveCohorts
+        .filter(c => !statusFilter || c.status === statusFilter)
+        .filter(c => cohortMatchesFilters(c, { search, dateField, dateFrom: dateRangeInvalid ? '' : dateFrom, dateTo: dateRangeInvalid ? '' : dateTo }))
+        .sort((a, b) => {
+            const aSelected = a.id === selectedCohortId
+            const bSelected = b.id === selectedCohortId
+            return aSelected === bSelected ? 0 : aSelected ? -1 : 1
+        })
+
+    const archivedCohorts = cohorts.filter(c => c.status === 'closed' || isCohortNaturallyFinished(c))
+    const filteredArchivedCohorts = archivedCohorts
+        .filter(c => !archiveReasonFilter || getCohortArchiveReason(c) === archiveReasonFilter)
+        .filter(c => cohortMatchesFilters(c, { search: archiveSearch, dateField: archiveDateField, dateFrom: archiveDateRangeInvalid ? '' : archiveDateFrom, dateTo: archiveDateRangeInvalid ? '' : archiveDateTo }))
+
+    function resetFilters() {
+        setStatusFilter('')
+        setSearch('')
+        setDateField('')
+        setDateFrom('')
+        setDateTo('')
+    }
+
+    function resetArchiveFilters() {
+        setArchiveReasonFilter('')
+        setArchiveSearch('')
+        setArchiveDateField('')
+        setArchiveDateFrom('')
+        setArchiveDateTo('')
+    }
+
     return (
         <>
             <div className="flex flex-col gap-6">
@@ -716,118 +957,115 @@ export default function AdminCohortsPage() {
                     </div>
                 )}
 
-                <div className="flex flex-col gap-4">
-                    {[...cohorts]
-                        .sort((a, b) => {
-                            const aSelected = a.id === selectedCohortId
-                            const bSelected = b.id === selectedCohortId
-                            return aSelected === bSelected ? 0 : aSelected ? -1 : 1
-                        })
-                        .map(cohort => {
-                        const isWorking = cohort.id === selectedCohortId
-                        return (
-                        <div key={cohort.id} className={`bg-white rounded-2xl overflow-hidden ${isWorking ? 'border-t-[3px] border-brand-hover shadow-md' : 'shadow-sm'}`}>
-                            <div className="px-7 py-5 border-b border-border-soft flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 sm:flex-wrap">
-                                    <h2 className="font-extrabold text-xl text-ink tracking-tight uppercase">{cohort.title}</h2>
-                                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                                        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border ${STATUS_STYLES[cohort.status]}`}>
-                                            <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOTS[cohort.status]}`} />
-                                            {STATUS_LABELS[cohort.status]}
-                                        </span>
-                                        {isWorking && (
-                                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-warning bg-warning-bg border border-warning-border rounded-full px-2.5 py-1">
-                                                <Star className="size-3.5 fill-warning-dot text-warning-dot" />Рабочая когорта
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-                                    {!isWorking && (
-                                        <button onClick={() => setSelectedCohortId(cohort.id)}
-                                            className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-brand text-brand-hover hover:bg-brand-subtle transition-colors duration-300">
-                                            Сделать рабочей
-                                        </button>
-                                    )}
-                                    <Button variant="brand" onClick={() => openEdit(cohort)} className="px-4 py-1.5 rounded-lg h-auto text-xs">
-                                        <Pencil className="size-3.5" /> Редактировать
-                                    </Button>
-                                    {cohort.status === 'draft' && (
-                                        <Button
-                                            variant="danger"
-                                            type="button"
-                                            onClick={() => openDeleteModal(cohort)}
-                                            disabled={deletingCohortId === cohort.id}
-                                            className="px-4 py-1.5 rounded-lg h-auto text-xs">
-                                            {deletingCohortId === cohort.id ? 'Удаляем…' : 'Удалить'}
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 divide-x divide-border-soft">
-                                {[
-                                    {
-                                        label: 'Период приёма заявок',
-                                        value: cohort.application_start && cohort.application_end
-                                            ? `${formatCohortDate(cohort.application_start)} — ${formatCohortDate(cohort.application_end)}`
-                                            : 'Не задан',
-                                    },
-                                    {
-                                        label: 'Период практики',
-                                        value: `${formatCohortDate(cohort.start_date)} — ${formatCohortDate(cohort.end_date)}`,
-                                    },
-                                ].map((item, i) => (
-                                    <div key={i} className="px-6 py-4 flex flex-col gap-1">
-                                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-ink">{item.label}</span>
-                                        <span className="text-sm text-ink">{item.value}</span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {cohort.tracks.length > 0 && (
-                                <div className="px-7 py-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:flex-wrap border-t border-border-soft">
-                                    <span className="text-sm font-semibold text-ink sm:mr-1">Треки:</span>
-                                    {cohort.tracks.map((track, i) => (
-                                        <span key={track.id} className="flex sm:inline-flex w-full sm:w-auto min-w-0 items-center justify-start gap-1.5 text-xs font-semibold text-brand-hover bg-brand-subtle border border-brand-subtle-border rounded-full px-2.5 py-1">
-                                            <span className="flex items-center justify-center size-4 rounded-full bg-brand text-white text-[10px] font-bold flex-shrink-0">{i + 1}</span>
-                                            <Route className="size-3.5 flex-shrink-0" />
-                                            <span className="truncate min-w-0">{track.title}</span>
-                                            <span className={`inline-flex items-center gap-1 border-l border-brand-subtle-border pl-1.5 ml-auto flex-shrink-0 ${track.testTask?.publishedAt ? 'text-success' : 'text-muted-ink'}`}
-                                                title={track.testTask?.publishedAt ? 'Тестовое задание опубликовано' : 'Тестовое задание не опубликовано'}>
-                                                {track.testTask?.publishedAt
-                                                    ? <ClipboardCheck className="size-4" strokeWidth={2.75} />
-                                                    : <ClipboardX className="size-4" strokeWidth={1.5} />}
-                                                <span className={track.testTask?.publishedAt ? 'text-[11px] font-extrabold tracking-wide' : 'text-[11px] font-medium tracking-wide'}>ТЗ</span>
-                                            </span>
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-
-                            {cohort.invitation && (
-                                <div className="px-7 py-3 border-t border-border-soft flex items-center gap-3 bg-surface min-w-0">
-                                    <LinkIcon className="size-3.5 text-muted-ink flex-shrink-0" />
-                                    <span className="text-xs text-muted-ink flex-shrink-0">Ссылка для кандидатов:</span>
-                                    <code className="hidden sm:block text-xs text-brand-hover flex-1 min-w-0 truncate">/apply/{cohort.invitation.token}</code>
-                                    <div className="ml-auto sm:ml-0 flex items-center gap-2 flex-shrink-0">
-                                        {cohort.status !== 'active' && (
-                                            <span className="inline-flex items-center justify-center text-warning cursor-help flex-shrink-0"
-                                                title="Кандидаты не увидят анкету, пока когорта не переведена в статус «Активна»">
-                                                <TriangleAlert className="size-3.5" />
-                                            </span>
-                                        )}
-                                        <button onClick={() => copyInvitation(cohort.invitation!.token)}
-                                            className="text-xs font-semibold text-brand-hover bg-gradient-to-r from-brand-hover to-brand-hover bg-no-repeat bg-left-bottom bg-[length:0%_1px] pb-0.5 hover:bg-[length:100%_1px] transition-[background-size] duration-300 shrink-0">
-                                            Копировать
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                {!cohortsLoading && !cohortsError && liveCohorts.length > 0 && (
+                    <div className="flex flex-col gap-3">
+                        <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-wrap items-center gap-3">
+                            <button type="button" onClick={resetFilters}
+                                className="inline-flex items-center gap-2 text-sm font-medium text-ink hover:text-danger whitespace-nowrap px-3 h-9 rounded-lg border border-border-soft bg-white hover:bg-surface transition-colors duration-300 flex-shrink-0 w-full sm:w-auto">
+                                <Trash2 className="size-3.5" />Сбросить
+                            </button>
+                            <FilterSelect icon={ListFilter} ariaLabel="Фильтр по статусу когорты" placeholder="Все статусы"
+                                value={statusFilter} onChange={v => setStatusFilter(v as '' | 'draft' | 'active')}
+                                options={[
+                                    { value: 'active', label: 'Активна' },
+                                    { value: 'draft', label: 'Черновик' },
+                                ]} />
+                            <FilterSelect icon={CalendarRange} ariaLabel="Фильтровать даты по" placeholder="Все даты"
+                                value={dateField} onChange={v => setDateField(v as CohortDateField)}
+                                options={[
+                                    { value: 'application', label: 'Период приёма заявок' },
+                                    { value: 'practice', label: 'Период практики' },
+                                ]} />
+                            <input type="date" aria-label="Дата от" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                                disabled={!dateField}
+                                className="h-9 text-sm px-3 rounded-lg border border-border-soft w-full sm:w-auto disabled:bg-surface disabled:text-faint-ink disabled:cursor-not-allowed" />
+                            <span className="text-sm text-muted-ink hidden sm:inline">—</span>
+                            <input type="date" aria-label="Дата до" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                                disabled={!dateField}
+                                className="h-9 text-sm px-3 rounded-lg border border-border-soft w-full sm:w-auto disabled:bg-surface disabled:text-faint-ink disabled:cursor-not-allowed" />
+                            <input type="text" aria-label="Поиск по названию когорты" value={search} onChange={e => setSearch(e.target.value)}
+                                placeholder="Поиск по названию…" className="h-9 text-sm px-3 rounded-lg border border-border-soft flex-1 min-w-[180px]" />
                         </div>
-                        )
-                    })}
+                        {dateRangeInvalid && (
+                            <div className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3 flex items-start gap-3">
+                                <TriangleAlert className="size-4 text-danger flex-shrink-0 mt-0.5" />
+                                <p className="text-sm text-danger">Конечная дата периода не может быть раньше начальной</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {!cohortsLoading && !cohortsError && liveCohorts.length > 0 && filteredLiveCohorts.length === 0 && (
+                    <div className="bg-white rounded-2xl shadow-sm p-12 flex flex-col items-center text-center">
+                        <div className="w-12 h-12 rounded-xl bg-brand-subtle text-brand-hover flex items-center justify-center mb-4">
+                            <FolderKanban className="size-5" />
+                        </div>
+                        <p className="font-semibold text-ink mb-1">Ничего не найдено</p>
+                        <p className="text-sm text-muted-ink">Попробуйте изменить фильтры или поиск</p>
+                    </div>
+                )}
+
+                <div className="flex flex-col gap-4">
+                    {filteredLiveCohorts.map(renderCohortCard)}
                 </div>
+
+                {archivedCohorts.length > 0 && (
+                    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                        <button type="button" onClick={() => setArchiveOpen(v => !v)}
+                            className="w-full px-6 py-4 flex items-center justify-between gap-3 text-left hover:bg-surface transition-colors duration-300">
+                            <span className="flex items-center gap-2.5">
+                                <Archive className="size-4 text-muted-ink" />
+                                <span className="font-bold text-ink">Архив</span>
+                                <span className="text-xs font-semibold text-muted-ink bg-surface border border-border-soft rounded-full px-2 py-0.5">{archivedCohorts.length}</span>
+                            </span>
+                            <ChevronDown className={`size-4 text-muted-ink transition-transform duration-300 ${archiveOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {archiveOpen && (
+                            <div className="border-t border-border-soft px-6 py-5 flex flex-col gap-4">
+                                <div className="bg-white border border-border-soft rounded-2xl p-4 flex flex-wrap items-center gap-3">
+                                    <button type="button" onClick={resetArchiveFilters}
+                                        className="inline-flex items-center gap-2 text-sm font-medium text-ink hover:text-danger whitespace-nowrap px-3 h-9 rounded-lg border border-border-soft bg-white hover:bg-surface transition-colors duration-300 flex-shrink-0 w-full sm:w-auto">
+                                        <Trash2 className="size-3.5" />Сбросить
+                                    </button>
+                                    <FilterSelect icon={ListFilter} ariaLabel="Фильтр по причине архивации" placeholder="Все причины"
+                                        value={archiveReasonFilter} onChange={v => setArchiveReasonFilter(v as '' | CohortArchiveReason)}
+                                        options={COHORT_ARCHIVE_REASON_OPTIONS} />
+                                    <FilterSelect icon={CalendarRange} ariaLabel="Фильтровать даты архива по" placeholder="Все даты"
+                                        value={archiveDateField} onChange={v => setArchiveDateField(v as CohortDateField)}
+                                        options={[
+                                            { value: 'application', label: 'Период приёма заявок' },
+                                            { value: 'practice', label: 'Период практики' },
+                                        ]} />
+                                    <input type="date" aria-label="Дата от (архив)" value={archiveDateFrom} onChange={e => setArchiveDateFrom(e.target.value)}
+                                        disabled={!archiveDateField}
+                                        className="h-9 text-sm px-3 rounded-lg border border-border-soft w-full sm:w-auto disabled:bg-surface disabled:text-faint-ink disabled:cursor-not-allowed" />
+                                    <span className="text-sm text-muted-ink hidden sm:inline">—</span>
+                                    <input type="date" aria-label="Дата до (архив)" value={archiveDateTo} onChange={e => setArchiveDateTo(e.target.value)}
+                                        disabled={!archiveDateField}
+                                        className="h-9 text-sm px-3 rounded-lg border border-border-soft w-full sm:w-auto disabled:bg-surface disabled:text-faint-ink disabled:cursor-not-allowed" />
+                                    <input type="text" aria-label="Поиск по названию когорты в архиве" value={archiveSearch} onChange={e => setArchiveSearch(e.target.value)}
+                                        placeholder="Поиск по названию…" className="h-9 text-sm px-3 rounded-lg border border-border-soft flex-1 min-w-[180px]" />
+                                </div>
+
+                                {archiveDateRangeInvalid && (
+                                    <div className="bg-danger-bg border border-danger-border rounded-xl px-4 py-3 flex items-start gap-3">
+                                        <TriangleAlert className="size-4 text-danger flex-shrink-0 mt-0.5" />
+                                        <p className="text-sm text-danger">Конечная дата периода не может быть раньше начальной</p>
+                                    </div>
+                                )}
+
+                                {filteredArchivedCohorts.length === 0 ? (
+                                    <p className="text-sm text-muted-ink text-center py-6">Ничего не найдено</p>
+                                ) : (
+                                    <div className="flex flex-col gap-4">
+                                        {filteredArchivedCohorts.map(renderCohortCard)}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {cohortToDelete && (
@@ -1215,6 +1453,7 @@ export default function AdminCohortsPage() {
                                                     onTitleChange={title => updateTrackTitle(track.id, title)}
                                                     onSaveTestTask={patch => saveTrackTestTask(track.id, patch)}
                                                     onPublish={() => publishTrack(track.id)}
+                                                    onUnpublish={() => unpublishTrack(track.id)}
                                                     onFileUploaded={task => saveTrackTestTask(track.id, task)}
                                                     registerRef={el => {
                                                         if (el) trackRefs.current.set(track.id, el)
@@ -1346,6 +1585,7 @@ function TrackEditor({
     onTitleChange,
     onSaveTestTask,
     onPublish,
+    onUnpublish,
     onFileUploaded,
     registerRef,
 }: {
@@ -1356,6 +1596,7 @@ function TrackEditor({
     onTitleChange: (title: string) => void
     onSaveTestTask: (patch: Partial<NonNullable<Track['testTask']>>) => void
     onPublish: () => void
+    onUnpublish: () => void
     onFileUploaded: (task: TestTask) => void
     registerRef?: (el: HTMLDivElement | null) => void
 }) {
@@ -1427,9 +1668,6 @@ function TrackEditor({
                         {track.testTask?.publishedAt ? (
                             <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-success-bg border border-success-border text-success">
                                 Опубликовано
-                                <span className="cursor-help" title="Чтобы снять с публикации, нужно удалить всё задание.">
-                                    <Info className="size-3.5" />
-                                </span>
                             </span>
                         ) : (
                             <span className="text-xs text-muted-ink">Не опубликовано</span>
@@ -1449,7 +1687,7 @@ function TrackEditor({
                             placeholder="Опишите задание для этого трека…"
                             className="w-full text-sm resize-none rounded-xl border border-border-soft bg-white px-3.5 py-2.5 focus:outline-none focus:border-brand" />
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
                             <label className={`text-xs font-semibold px-4 py-2 rounded-lg border transition-colors duration-300 cursor-pointer inline-flex items-center gap-1.5
                                 ${track.testTask?.hasFile
                                     ? 'border-brand text-brand-hover bg-transparent hover:bg-brand-subtle active:bg-brand-subtle-border'
@@ -1460,7 +1698,7 @@ function TrackEditor({
                                     : track.testTask?.hasFile
                                         ? <><RotateCw className="size-3.5" />Заменить файл</>
                                         : <><Paperclip className="size-3.5" />Прикрепить файл</>}
-                                <input type="file" className="hidden" accept=".pdf,.doc,.docx,.zip" onChange={handleFileSelected} disabled={fileUploading} />
+                                <input type="file" className="hidden" accept={ALLOWED_TEST_TASK_FILE_EXTENSIONS.join(',')} onChange={handleFileSelected} disabled={fileUploading} />
                             </label>
                             {track.testTask?.hasFile && track.testTask.downloadPath && (
                                 <button onClick={() => downloadProtectedFile(track.testTask!.downloadPath!, track.testTask!.title || 'Тестовое задание').catch(err => setFileErrors([err instanceof Error ? err.message : 'Не удалось скачать файл']))}
@@ -1468,6 +1706,17 @@ function TrackEditor({
                                     <Download className="size-3.5" />Скачать текущий
                                 </button>
                             )}
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs text-muted-ink">Форматы:</span>
+                                {ALLOWED_TEST_TASK_FILE_EXTENSIONS.map(ext => (
+                                    <span key={ext} className="text-[11px] font-medium px-2 py-0.5 rounded-full border border-border-soft bg-white text-muted-ink">
+                                        {ext}
+                                    </span>
+                                ))}
+                                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full border border-border-soft bg-white text-muted-ink">
+                                    до {MAX_TEST_TASK_FILE_SIZE_BYTES / (1024 * 1024)} МБ
+                                </span>
+                            </div>
                         </div>
 
                         {fileErrors.map((message, i) => (
@@ -1477,10 +1726,15 @@ function TrackEditor({
                             </div>
                         ))}
 
-                        {!track.testTask?.publishedAt && (
+                        {!track.testTask?.publishedAt ? (
                             <button onClick={onPublish} disabled={!title && !description}
                                 className="self-start text-xs font-semibold px-4 py-1.5 rounded-lg border transition-colors duration-300 disabled:opacity-40 border-brand text-brand-hover hover:bg-brand-subtle">
                                 Опубликовать
+                            </button>
+                        ) : (
+                            <button onClick={onUnpublish}
+                                className="self-start text-xs font-semibold px-4 py-1.5 rounded-lg border transition-colors duration-300 border-border-soft text-muted-ink hover:bg-surface hover:text-danger hover:border-danger-border">
+                                Снять с публикации
                             </button>
                         )}
                     </>

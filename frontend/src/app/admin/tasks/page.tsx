@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { getCohortWeekProgress, type CohortWeekProgress, type DailyTask, type WeekDay } from '@/services/api/tasks'
 import { useCohortWorkspace } from '../cohort-context'
-import { FolderKanban, TriangleAlert, ListChecks, Calendar, ChevronLeft, ChevronRight, Route, ChevronDown, Copy } from 'lucide-react'
+import { FolderKanban, TriangleAlert, ListChecks, Calendar, ChevronLeft, ChevronRight, Route, ChevronDown, Copy, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { FilterSelect } from '@/components/ui/filter-select'
 
 // Оверлей модалки закрывается только по клику НАЧАВШЕМУСЯ и ЗАКОНЧИВШЕМУСЯ на
 // самом оверлее — иначе выделение текста мышью, отпущенной за пределами
@@ -285,18 +286,13 @@ export default function AdminTasksPage() {
 
             {selectedCohort && (
                 <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-wrap items-center gap-3">
-                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white w-full sm:w-auto sm:flex-shrink-0 focus-within:border-brand cursor-pointer">
-                        <Route className="size-3.5 text-muted-ink flex-shrink-0 pointer-events-none" />
-                        <span className="text-sm font-medium text-ink truncate pointer-events-none">
-                            {selectedCohort.tracks.find(t => t.id === trackFilter)?.title ?? 'Все треки'}
-                        </span>
-                        <ChevronDown className="size-3.5 text-muted-ink absolute right-2.5 pointer-events-none" />
-                        <select aria-label="Фильтр по треку" value={trackFilter} onChange={e => setTrackFilter(e.target.value)}
-                            className="absolute inset-0 w-full h-full !p-0 !border-0 opacity-0 cursor-pointer text-sm">
-                            <option value="">Все треки</option>
-                            {selectedCohort.tracks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
-                        </select>
-                    </div>
+                    <button type="button" onClick={() => { setTrackFilter(''); setSearch('') }}
+                        className="inline-flex items-center gap-2 text-sm font-medium text-ink hover:text-danger whitespace-nowrap px-3 h-9 rounded-lg border border-border-soft bg-white hover:bg-surface transition-colors duration-300 flex-shrink-0 w-full sm:w-auto">
+                        <Trash2 className="size-3.5" />Сбросить
+                    </button>
+                    <FilterSelect icon={Route} ariaLabel="Фильтр по треку" placeholder="Все треки"
+                        value={trackFilter} onChange={setTrackFilter}
+                        options={selectedCohort.tracks.map(t => ({ value: t.id, label: t.title }))} />
                     <input type="text" aria-label="Поиск по ФИО или email" value={search} onChange={e => setSearch(e.target.value)}
                         placeholder="Поиск по ФИО или email…" className="h-9 text-sm px-3 rounded-lg border border-border-soft flex-1 min-w-[180px]" />
                 </div>

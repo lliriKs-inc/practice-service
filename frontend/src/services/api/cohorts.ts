@@ -255,7 +255,10 @@ export async function saveCohortDraft(id: string, draft: Cohort): Promise<Cohort
         if (JSON.stringify(previous.testTask) !== JSON.stringify(track.testTask) && track.testTask) {
             await updateTrackTestTask(id, previous.id, { title: track.testTask.title, description: track.testTask.description })
         }
-        if (!!previous.testTask?.publishedAt !== !!track.testTask?.publishedAt && track.testTask) await toggleTestTaskPublish(id, previous.id)
+        if (!!previous.testTask?.publishedAt !== !!track.testTask?.publishedAt && track.testTask) {
+            if (track.testTask.publishedAt) await toggleTestTaskPublish(id, previous.id)
+            else await unpublishTestTask(id, previous.id)
+        }
     }
     for (const track of current.tracks) if (!draft.tracks.some(next => next.id === track.id)) await deleteTrack(id, track.id)
 
@@ -463,9 +466,55 @@ export async function toggleTestTaskPublish(cohortId: string, trackId: string): 
     return mapTestTask(await apiRequest<any>(`/cohorts/${cohortId}/tracks/${trackId}/test-task/publish`, { method: 'POST' }))!
 }
 
+// PUT /cohorts/:id/tracks/:trackId/test-task — снять с публикации (published_at -> null).
+// Как и публикация, невозможно, если по треку уже есть сданные работы
+// (backend вернёт TEST_TASK_HAS_SUBMISSIONS).
+export async function unpublishTestTask(cohortId: string, trackId: string): Promise<TestTask> {
+    if (USE_MOCKS) {
+        // [MOCK]
+        await mockDelay()
+        const cohorts = mockLoadCohorts()
+        const cohort = mockFindCohort(cohorts, cohortId)
+        const track = cohort.tracks.find(t => t.id === trackId)
+        if (!track?.testTask) throw new Error('Тестовое задание не найдено')
+        track.testTask.publishedAt = null
+        mockSaveCohorts(cohorts)
+        return track.testTask
+    }
+    return mapTestTask(await apiRequest<any>(`/cohorts/${cohortId}/tracks/${trackId}/test-task`, { method: 'PUT', body: JSON.stringify({ published_at: null }) }))!
+}
+
+// Совпадает с backend/src/shared/upload/upload-policy.ts (категория test-tasks)
+export const ALLOWED_TEST_TASK_FILE_EXTENSIONS = ['.pdf', '.doc', '.docx', '.zip'] as const
+export const MAX_TEST_TASK_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10 МБ, см. UPLOAD_MAX_FILE_SIZE_BYTES в .env.example backend
+
+export class TestTaskFileValidationError extends Error {}
+
+// Проверка на клиенте до отправки — та же логика, что и на бэке
+// (validateUploadCandidate), чтобы админ узнавал об ошибке сразу, а не
+// после ожидания ответа сервера.
+export function validateTestTaskFile(file: File): void {
+    if (file.size <= 0) {
+        throw new TestTaskFileValidationError('Пустой файл не может быть загружен')
+    }
+    if (file.size > MAX_TEST_TASK_FILE_SIZE_BYTES) {
+        throw new TestTaskFileValidationError(
+            `Размер файла превышает допустимый лимит (макс. ${MAX_TEST_TASK_FILE_SIZE_BYTES / (1024 * 1024)} МБ)`
+        )
+    }
+    const dotIndex = file.name.lastIndexOf('.')
+    const extension = dotIndex >= 0 ? file.name.slice(dotIndex).toLowerCase() : ''
+    if (!ALLOWED_TEST_TASK_FILE_EXTENSIONS.includes(extension as (typeof ALLOWED_TEST_TASK_FILE_EXTENSIONS)[number])) {
+        throw new TestTaskFileValidationError(
+            `Тип файла не поддерживается. Разрешены: ${ALLOWED_TEST_TASK_FILE_EXTENSIONS.join(', ')}`
+        )
+    }
+}
+
 // POST /cohorts/:id/tracks/:trackId/test-task/file — прикрепить/заменить файл задания.
 // Тестовое задание должно уже существовать (создаётся через updateTrackTestTask).
 export async function uploadTestTaskFile(cohortId: string, trackId: string, file: File): Promise<TestTask> {
+    validateTestTaskFile(file)
     if (USE_MOCKS) {
         // [MOCK]
         await mockDelay()

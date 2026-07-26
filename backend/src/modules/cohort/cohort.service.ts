@@ -79,8 +79,6 @@ export class CohortService {
     if (!cohort) throw new AppError("Cohort not found", 404, "COHORT_NOT_FOUND");
     if (cohort.status !== CohortStatus.DRAFT) throw new AppError("Only a draft cohort can be activated", 409, "INVALID_COHORT_STATUS");
     if (!cohort.application_start || !cohort.application_end) throw new AppError("Active cohort requires an application window", 400, "INVALID_COHORT_STATUS");
-    const active = await prisma.cohort.findFirst({ where: { status: CohortStatus.ACTIVE, id: { not: id } }, select: { id: true } });
-    if (active) throw new AppError("Another cohort is already active", 409, "ACTIVE_COHORT_EXISTS");
     return prisma.cohort.update({ where: { id }, data: { status: CohortStatus.ACTIVE }, include: cohortInclude });
   }
 

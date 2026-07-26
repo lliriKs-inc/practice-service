@@ -30,6 +30,7 @@ export class InvitationService {
     if (!invitation) throw new AppError("Invalid invitation token", 400, "INVALID_TOKEN");
     if (invitation.expires_at <= new Date()) throw new AppError("Invitation has expired", 400, "TOKEN_EXPIRED");
     if (invitation.cohort.status === CohortStatus.CLOSED) throw new AppError("Cohort is closed", 400, "COHORT_CLOSED");
+    if (invitation.cohort.status === CohortStatus.DRAFT) throw new AppError("Application window is not open", 400, "APPLICATION_WINDOW_CLOSED");
     const now = new Date();
     if (invitation.cohort.application_start && now < invitation.cohort.application_start) throw new AppError("Application window is not open", 400, "APPLICATION_WINDOW_CLOSED");
     if (invitation.cohort.application_end && now > invitation.cohort.application_end) throw new AppError("Application window is closed", 400, "APPLICATION_WINDOW_CLOSED");

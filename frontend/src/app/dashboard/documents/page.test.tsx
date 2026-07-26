@@ -69,7 +69,7 @@ function makeApplication(status: Application['status']): Application {
         status,
         submitted_at: '2027-07-01T00:00:00.000Z',
         track: { id: 'track-1', title: 'Backend' },
-        cohort: { id: 'cohort-1', title: 'Практика 2027', start_date: '2027-07-19T00:00:00.000Z', end_date: '2027-07-30T00:00:00.000Z' },
+        cohort: { id: 'cohort-1', title: 'Практика 2027', start_date: '2027-07-19T00:00:00.000Z', end_date: '2027-07-30T00:00:00.000Z', status: 'active' },
         student: { id: 'student-1', email: 'student@urfu.ru' },
         answers: [],
     }

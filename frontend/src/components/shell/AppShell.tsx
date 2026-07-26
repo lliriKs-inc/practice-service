@@ -17,6 +17,7 @@ export interface ShellNavItem {
 export function AppShell({
     navItems,
     roleBadge,
+    trackBadge,
     userName,
     userEmail,
     headerRight,
@@ -24,6 +25,7 @@ export function AppShell({
 }: {
     navItems: ShellNavItem[]
     roleBadge?: string
+    trackBadge?: { icon: LucideIcon; label: string }
     userName?: string
     userEmail?: string
     headerRight?: React.ReactNode
@@ -53,6 +55,12 @@ export function AppShell({
                         <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-ink rounded-full ml-2 flex-shrink-0">
                             <ShieldCheck className="size-3.5 text-white" />
                             <span className="text-xs font-semibold text-white">{roleBadge}</span>
+                        </div>
+                    )}
+                    {trackBadge && (
+                        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-ink rounded-full ml-2 flex-shrink-0 min-w-0">
+                            <trackBadge.icon className="size-3.5 text-white flex-shrink-0" />
+                            <span className="text-xs font-semibold text-white truncate">{trackBadge.label}</span>
                         </div>
                     )}
                 </div>
