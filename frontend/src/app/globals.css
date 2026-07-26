@@ -203,7 +203,11 @@
 }
 
 html, body {
-  overflow-x: hidden;
+  /* overflow-x: hidden заставило бы браузер по спеке CSS автоматически
+     считать overflow-y: auto, превращая body в свой скролл-контейнер и
+     ломая position: sticky у сайдбара — overflow-x: clip той же цели
+     (не даёт странице скроллиться вбок) достигает без побочного эффекта. */
+  overflow-x: clip;
 }
 
 body {

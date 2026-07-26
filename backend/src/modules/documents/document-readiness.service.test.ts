@@ -94,7 +94,7 @@ describe("DocumentReadinessService", () => {
               value: "G-101",
             },
             {
-              field_key: "specialty",
+              field_key: "direction_name",
               value: "Backend",
             },
             {
@@ -155,7 +155,7 @@ describe("DocumentReadinessService", () => {
               value: "09.03.04",
             },
             {
-              field_key: "specialty",
+              field_key: "direction_name",
               value: "Backend",
             },
             {

@@ -384,7 +384,7 @@ export default function AdminDocumentsPage() {
                                                             <CheckCircle2 className="size-3" />Готов
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-success bg-success-bg border border-success-border rounded-full px-2 py-0.5 flex-shrink-0">
+                                                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-warning bg-warning-bg border border-warning-border rounded-full px-2 py-0.5 flex-shrink-0">
                                                             <span className="cursor-help inline-flex" title="Студент ещё не сформировал документ.">
                                                                 <Info className="size-3" />
                                                             </span>
@@ -468,16 +468,19 @@ export default function AdminDocumentsPage() {
                                                                                 {field.multiline ? (
                                                                                     <textarea id={key} rows={2} className="w-full text-sm rounded-lg"
                                                                                         value={reviewDrafts[key] ?? value}
+                                                                                        placeholder={field.placeholder}
                                                                                         onChange={e => setReviewDrafts(prev => ({ ...prev, [key]: e.target.value }))}
                                                                                         onBlur={() => handleReviewFieldBlur(doc.applicationId, field.key)} />
                                                                                 ) : field.key === 'review_grade' ? (
                                                                                     <input id={key} type="number" min={0} max={100} step={1} className="w-full text-sm rounded-lg"
                                                                                         value={reviewDrafts[key] ?? value}
+                                                                                        placeholder={field.placeholder}
                                                                                         onChange={e => setReviewDrafts(prev => ({ ...prev, [key]: e.target.value }))}
                                                                                         onBlur={() => handleReviewFieldBlur(doc.applicationId, field.key)} />
                                                                                 ) : (
                                                                                     <input id={key} type="text" className="w-full text-sm rounded-lg"
                                                                                         value={reviewDrafts[key] ?? value}
+                                                                                        placeholder={field.placeholder}
                                                                                         onChange={e => setReviewDrafts(prev => ({ ...prev, [key]: e.target.value }))}
                                                                                         onBlur={() => handleReviewFieldBlur(doc.applicationId, field.key)} />
                                                                                 )}

@@ -39,6 +39,15 @@ function formatDateParts(value: Date) {
   };
 }
 
+// Для бланков вида «24» июля 2026 г. — те же части, но с полным годом.
+function formatDateStylized(value: Date) {
+  return {
+    day: String(value.getUTCDate()),
+    month: MONTHS_RU_GENITIVE[value.getUTCMonth()],
+    year: String(value.getUTCFullYear()),
+  };
+}
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function addDays(value: Date, days: number): Date {
@@ -205,6 +214,15 @@ export class GeneratedDocumentService {
       practice_start_year_short: formatDateParts(
         application.track.cohort.practice_start
       ).year_short,
+      practice_end_day: formatDateStylized(
+        application.track.cohort.practice_end
+      ).day,
+      practice_end_month: formatDateStylized(
+        application.track.cohort.practice_end
+      ).month,
+      practice_end_year: formatDateStylized(
+        application.track.cohort.practice_end
+      ).year,
       ...practiceStageDates(
         application.track.cohort.practice_start,
         application.track.cohort.practice_end

@@ -182,7 +182,7 @@ export default function DashboardApplicationsPage() {
                                 </div>
 
                                 {app.status === 'rejected' && (
-                                    <div className="px-7 py-4 border-b border-danger-border bg-danger-bg">
+                                    <div className="px-7 py-4 border-y border-danger-border bg-danger-bg">
                                         <p className="text-[10px] font-bold tracking-widest uppercase text-danger mb-1">
                                             Причина отклонения
                                         </p>

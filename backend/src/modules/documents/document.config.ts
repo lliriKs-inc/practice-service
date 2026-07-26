@@ -42,7 +42,7 @@ export const DOCUMENT_CONFIG: Record<
       "student_fio",
       "group",
       "direction_code",
-      "specialty",
+      "direction_name",
       "practice_type",
       "practice_topic",
     ].map((key) => ({

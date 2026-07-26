@@ -249,12 +249,12 @@ describeIntegration("B-06 production API candidate and practice flow", () => {
 
     const studentFields: Record<string, string[]> = {
       INDIVIDUAL_TASK: [
-        "student_fio", "group", "direction_code", "direction_name",
-        "program_name", "practice_topic", "main_stage_tasks",
+        "student_fio", "group", "institute_abbr", "direction_code", "direction_name",
+        "program_name", "practice_type", "practice_topic", "main_stage_tasks",
       ],
-      TITLE_PAGE: ["student_fio", "group", "specialty", "practice_topic"],
-      REVIEW: ["student_fio", "group"],
-      NOTICE: ["student_fio", "group", "practice_topic"],
+      TITLE_PAGE: ["student_fio", "group", "direction_code", "direction_name", "practice_type", "practice_topic"],
+      REVIEW: ["student_fio", "group", "practice_type"],
+      NOTICE: ["student_fio", "institute_abbr", "group"],
     };
     for (const [type, fields] of Object.entries(studentFields)) {
       for (const field of fields) {

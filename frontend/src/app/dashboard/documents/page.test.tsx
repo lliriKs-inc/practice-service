@@ -201,7 +201,7 @@ describe('DashboardDocumentsPage', () => {
         fireEvent.blur(fioInput)
         await waitFor(() => expect(screen.queryByText('сохраняем…')).not.toBeInTheDocument(), { timeout: 3000 })
 
-        const groupInput = getFieldInput(noticeCard, /Группа/)
+        const groupInput = getFieldInput(noticeCard, /группа/i)
         fireEvent.change(groupInput, { target: { value: 'РИ-123' } })
         fireEvent.blur(groupInput)
         await waitFor(() => expect(screen.queryByText('сохраняем…')).not.toBeInTheDocument(), { timeout: 3000 })
@@ -225,8 +225,8 @@ describe('DashboardDocumentsPage', () => {
 
         for (const [label, value] of [
             [/ФИО студента/, 'Иванов Иван'],
-            [/Группа/, 'РИ-123'],
-            [/Специальность/, 'ПИ'],
+            [/группа/i, 'РИ-123'],
+            [/Название направления/, 'ПИ'],
             [/Тема практики/, 'Тема практики'],
         ] as const) {
             const input = getFieldInput(card, label)
