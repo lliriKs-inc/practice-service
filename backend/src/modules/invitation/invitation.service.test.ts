@@ -54,6 +54,11 @@ describe("InvitationService", () => {
     await expect(new InvitationService().validateToken("closed")).rejects.toMatchObject({ code: "COHORT_CLOSED" });
   });
 
+  it("rejects tokens for a cohort still in draft, even if the application window is open", async () => {
+    vi.spyOn(prisma.invitation, "findUnique").mockResolvedValue({ token: "draft", expires_at: new Date(Date.now() + 1000), cohort: { ...cohort, status: CohortStatus.DRAFT } } as any);
+    await expect(new InvitationService().validateToken("draft")).rejects.toMatchObject({ code: "APPLICATION_WINDOW_CLOSED" });
+  });
+
   it("returns only public cohort data for a valid token", async () => {
     vi.spyOn(prisma.invitation, "findUnique").mockResolvedValue({ token: "valid", cohort_id: "cohort-1", expires_at: new Date(Date.now() + 1000), cohort } as any);
     await expect(new InvitationService().validateToken("valid")).resolves.toEqual({ valid: true, cohort_id: "cohort-1", cohort_title: "Cohort" });

@@ -21,6 +21,7 @@ describe("ApplicationService", () => {
     vi.spyOn(prisma.invitation, "findUnique").mockResolvedValue(invitation as any);
     vi.spyOn(prisma.track, "findUnique").mockResolvedValue({ id: "track-1", cohort_id: "cohort-1" } as any);
     vi.spyOn(prisma.user, "findUnique").mockResolvedValue({ id: "user-1" } as any);
+    vi.spyOn(prisma.application, "findFirst").mockResolvedValue(null);
     const tx = {
       application: {
         create: vi.fn().mockResolvedValue(application),
@@ -60,6 +61,49 @@ describe("ApplicationService", () => {
     vi.spyOn(prisma.invitation, "findUnique").mockResolvedValue(invitation as any);
     vi.spyOn(prisma.track, "findUnique").mockResolvedValue({ id: "track-2", cohort_id: "other-cohort" } as any);
     await expect(new ApplicationService().submitByInvitation("user-1", "token", { track_id: "track-2", answers: [] })).rejects.toMatchObject({ code: "TRACK_COHORT_MISMATCH" });
+  });
+
+  it("rejects a submission to a cohort still in draft, even if the application window is open", async () => {
+    const draftInvitation = { ...invitation, cohort: { ...cohort, status: CohortStatus.DRAFT } };
+    vi.spyOn(prisma.invitation, "findUnique").mockResolvedValue(draftInvitation as any);
+    await expect(
+      new ApplicationService().submitByInvitation("user-1", "token", { track_id: "track-1", answers: [] })
+    ).rejects.toMatchObject({ code: "APPLICATION_WINDOW_CLOSED" });
+  });
+
+  it("rejects a submission to a different cohort while a pending/approved application already exists elsewhere", async () => {
+    vi.spyOn(prisma.invitation, "findUnique").mockResolvedValue(invitation as any);
+    vi.spyOn(prisma.track, "findUnique").mockResolvedValue({ id: "track-1", cohort_id: "cohort-1" } as any);
+    vi.spyOn(prisma.user, "findUnique").mockResolvedValue({ id: "user-1" } as any);
+    const findFirst = vi.spyOn(prisma.application, "findFirst").mockResolvedValue({ id: "other-application" } as any);
+    await expect(
+      new ApplicationService().submitByInvitation("user-1", "token", { track_id: "track-1", answers: [{ question_id: "question-1", answer_value: "Alice" }] })
+    ).rejects.toMatchObject({ code: "COHORT_ALREADY_LOCKED" });
+    expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        user_id: "user-1",
+        status: { in: [ApplicationStatus.PENDING, ApplicationStatus.APPROVED] },
+        track: { cohort_id: { not: "cohort-1" } },
+      }),
+    }));
+  });
+
+  it("allows a submission to a different cohort when the only other application was rejected", async () => {
+    vi.spyOn(prisma.invitation, "findUnique").mockResolvedValue(invitation as any);
+    vi.spyOn(prisma.track, "findUnique").mockResolvedValue({ id: "track-1", cohort_id: "cohort-1" } as any);
+    vi.spyOn(prisma.user, "findUnique").mockResolvedValue({ id: "user-1" } as any);
+    vi.spyOn(prisma.application, "findFirst").mockResolvedValue(null);
+    const tx = {
+      application: {
+        create: vi.fn().mockResolvedValue(application),
+        findUnique: vi.fn().mockResolvedValue(application),
+      },
+      applicationAnswer: { createMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    } as any;
+    vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => callback(tx));
+    await expect(
+      new ApplicationService().submitByInvitation("user-1", "token", { track_id: "track-1", answers: [{ question_id: "question-1", answer_value: "Alice" }] })
+    ).resolves.toBeDefined();
   });
 
   it("lists only a student's applications", async () => {

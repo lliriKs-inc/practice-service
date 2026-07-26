@@ -1,7 +1,7 @@
 // lib/api/error-messages.ts
 //
 // Backend возвращает технические message/code (`Request validation failed`,
-// `ACTIVE_COHORT_EXISTS`, Zod issues и т.д.) — этот модуль переводит их в
+// `COHORT_NOT_FOUND`, Zod issues и т.д.) — этот модуль переводит их в
 // понятные пользователю русские сообщения там, где мы уже знаем конкретную
 // причину ошибки. Незнакомые ошибки не подменяются на выдумку — падаем на
 // исходное сообщение бэка либо на fallback, переданный вызывающим кодом.
@@ -16,7 +16,6 @@ interface BackendErrorBody {
 
 // Коды ошибок, у которых ровно один смысл независимо от исходного текста.
 const CODE_MESSAGES: Record<string, string> = {
-    ACTIVE_COHORT_EXISTS: 'Уже есть другая активная когорта — активной может быть только одна одновременно.',
     COHORT_NOT_FOUND: 'Когорта не найдена — возможно, её уже изменили в другой вкладке.',
     COHORT_NOT_DRAFT: 'Удалить можно только когорту в статусе «Черновик».',
     COHORT_HAS_APPLICATIONS: 'Нельзя удалить когорту, пока в ней есть заявки на рассмотрении или одобренные заявки.',
@@ -35,6 +34,7 @@ const CODE_MESSAGES: Record<string, string> = {
     TRACK_ALREADY_EXISTS: 'Трек с таким названием уже есть в этой когорте.',
     COHORT_TRACK_REQUIRED: 'Сначала добавьте хотя бы один трек, затем создайте ссылку-приглашение.',
     APPLICATION_ALREADY_EXISTS: 'Заявка на этот трек уже была подана.',
+    COHORT_ALREADY_LOCKED: 'У вас уже есть заявка на рассмотрении или одобренная в другой когорте — подать заявку можно только в неё.',
     TRACK_HAS_APPLICATIONS: 'Нельзя удалить трек — по нему уже есть заявки.',
     SURVEY_ALREADY_EXISTS: 'У этой когорты уже есть анкета.',
     TARGET_SURVEY_ALREADY_EXISTS: 'У целевой когорты уже есть анкета.',
@@ -42,6 +42,7 @@ const CODE_MESSAGES: Record<string, string> = {
     INVALID_QUESTION_ORDER: 'Порядок вопросов указан некорректно.',
     TEST_TASK_NOT_FOUND: 'Сначала сохрани заголовок и описание задания кнопкой «Сохранить» внизу окна — только после этого можно прикрепить файл.',
     TEST_TASK_ALREADY_PUBLISHED: 'Задание уже опубликовано.',
+    TEST_TASK_HAS_SUBMISSIONS: 'По этому заданию уже есть сданные работы — менять описание, файл или публикацию больше нельзя.',
     TRACK_NOT_FOUND: 'Сначала сохрани трек кнопкой «Сохранить» внизу окна, потом сможешь прикрепить файл к заданию.',
 }
 
@@ -51,7 +52,6 @@ const MESSAGE_TRANSLATIONS: Record<string, string> = {
     'Only a draft cohort can be activated': 'Активировать можно только когорту в статусе «Черновик».',
     'Only an active cohort can be closed': 'Закрыть можно только активную когорту.',
     'Active cohort requires an application window': 'Перед активацией укажи окно приёма заявок (начало и конец).',
-    'Another cohort is already active': 'Уже есть другая активная когорта — одновременно активной может быть только одна.',
     'Practice dates are invalid': 'Дата окончания практики должна быть не раньше даты начала.',
     'Application dates are invalid': 'Дата окончания приёма заявок должна быть не раньше даты начала.',
     'Application window must end before practice starts': 'Приём заявок должен закончиться до начала практики.',
@@ -61,6 +61,7 @@ const MESSAGE_TRANSLATIONS: Record<string, string> = {
     'Options are required for choice questions': 'Для вопроса с вариантами ответа нужно указать хотя бы один вариант.',
     'Options are only valid for choice questions': 'Варианты ответа можно указывать только для вопросов типа «список»/«один из вариантов»/«несколько вариантов».',
     'Options must be unique': 'Варианты ответа не должны повторяться.',
+    'Option text cannot be empty': 'Вариант ответа не может быть пустым.',
     'The order must contain every question exactly once': 'Порядок должен включать каждый вопрос анкеты ровно один раз.',
 }
 
@@ -73,6 +74,12 @@ const FIELD_LABELS: Record<string, string> = {
     cohort_id: 'когорта',
     question_ids: 'порядок вопросов',
     target_cohort_id: 'целевая когорта',
+}
+
+// Для отдельных полей "обязательно для заполнения" звучит слишком канцелярски —
+// здесь задаём готовую фразу вместо шаблона «Поле «X»: обязательно для заполнения».
+const REQUIRED_FIELD_MESSAGES: Record<string, string> = {
+    label: 'Текст вопроса не может быть пустым.',
 }
 
 // Zod v4 генерирует "Too small: expected string to have >=1 characters" (или
@@ -98,8 +105,9 @@ export function describeApiErrors(err: unknown, fallback: string): string[] {
         if (code === 'VALIDATION_ERROR' && Array.isArray(body?.details) && body.details.length > 0) {
             return body.details.map(issue => {
                 if (MESSAGE_TRANSLATIONS[issue.message]) return MESSAGE_TRANSLATIONS[issue.message]
-                const field = FIELD_LABELS[issue.path] ?? issue.path
                 const generic = translateGenericZodMessage(issue.message)
+                if (generic === 'обязательно для заполнения' && REQUIRED_FIELD_MESSAGES[issue.path]) return REQUIRED_FIELD_MESSAGES[issue.path]
+                const field = FIELD_LABELS[issue.path] ?? issue.path
                 return generic ? `Поле «${field}»: ${generic}` : `Поле «${field}»: ${issue.message}`
             })
         }

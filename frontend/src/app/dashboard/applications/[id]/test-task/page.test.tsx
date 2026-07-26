@@ -34,7 +34,7 @@ function rawApplication(status = 'APPROVED') {
         track: {
             id: 'track-1',
             title: 'Backend',
-            cohort: { id: 'cohort-1', title: 'Практика 2027', practice_start: '2027-08-01', practice_end: '2027-08-31' },
+            cohort: { id: 'cohort-1', title: 'Практика 2027', practice_start: '2027-08-01', practice_end: '2027-08-31', status: 'ACTIVE' },
         },
         answers: [],
     }

@@ -57,4 +57,15 @@ describe("SurveyService", () => {
     vi.spyOn(prisma.invitation, "findUnique").mockResolvedValue({ token: "expired", expires_at: new Date(Date.now() - 1), cohort: {} } as any);
     await expect(new SurveyService().getPublicFormByInvitationToken("expired")).rejects.toMatchObject({ code: "TOKEN_EXPIRED" });
   });
+
+  it("rejects a cohort still in draft, even if the application window is open", async () => {
+    vi.spyOn(prisma.invitation, "findUnique").mockResolvedValue({
+      token: "token", expires_at: new Date(Date.now() + 60_000), cohort: {
+        id: "cohort-1", title: "Cohort", status: CohortStatus.DRAFT,
+        application_start: new Date(Date.now() - 60_000), application_end: new Date(Date.now() + 60_000),
+        survey: { ...survey, questions: [question] }, tracks: [{ id: "track-1", title: "Backend" }],
+      },
+    } as any);
+    await expect(new SurveyService().getPublicFormByInvitationToken("token")).rejects.toMatchObject({ code: "APPLICATION_WINDOW_CLOSED" });
+  });
 });

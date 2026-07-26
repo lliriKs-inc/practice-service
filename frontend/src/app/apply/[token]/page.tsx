@@ -337,11 +337,11 @@ export default function ApplyByInvitationPage() {
                                             {form.tracks.map(track => (
                                                 <button key={track.id} type="button"
                                                     onClick={() => setTrackId(track.id)}
-                                                    className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border-[1.5px] transition-all
+                                                    className={`flex items-start gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border-[1.5px] transition-all text-left max-w-full min-w-0 [overflow-wrap:anywhere]
                                                         ${trackId === track.id
                                                             ? 'border-brand bg-brand-subtle text-brand-hover'
                                                             : 'border-border-soft bg-surface text-muted-ink'}`}>
-                                                    <span className={`w-1.5 h-1.5 rounded-full transition-colors
+                                                    <span className={`w-1.5 h-1.5 mt-1.5 rounded-full transition-colors flex-shrink-0
                                                         ${trackId === track.id ? 'bg-brand' : 'bg-faint-ink'}`} />
                                                     {track.title}
                                                 </button>
@@ -428,7 +428,7 @@ function QuestionInput({
     showHint?: boolean
 }) {
     const label = (
-        <label className="text-sm font-medium text-ink">
+        <label className="text-sm font-medium text-ink min-w-0 [overflow-wrap:anywhere]">
             {question.label}
             {question.required && <span className="text-brand-hover ml-0.5">*</span>}
         </label>
@@ -436,7 +436,7 @@ function QuestionInput({
 
     if (question.type === 'textarea') {
         return (
-            <div className={cn('flex flex-col gap-1.5', className)}>
+            <div className={cn('flex flex-col gap-1.5 min-w-0', className)}>
                 {label}
                 <Textarea value={value} onChange={e => onChange(e.target.value)}
                     placeholder="Ваш ответ" rows={3} autoComplete="off"
@@ -447,7 +447,7 @@ function QuestionInput({
 
     if (question.type === 'select') {
         return (
-            <div className={cn('flex flex-col gap-1.5', className)}>
+            <div className={cn('flex flex-col gap-1.5 min-w-0', className)}>
                 {label}
                 <select value={value} onChange={e => onChange(e.target.value)} required={question.required}
                     className="w-full text-sm rounded-lg border-[1.5px] border-border-soft bg-surface px-3 py-2 text-ink focus:outline-none focus:border-brand">
@@ -462,7 +462,7 @@ function QuestionInput({
 
     if (question.type === 'radio') {
         return (
-            <div className={cn('flex flex-col gap-2.5', className)}>
+            <div className={cn('flex flex-col gap-2.5 min-w-0', className)}>
                 <div className="flex flex-col gap-1">
                     {label}
                     {showHint && <span className="text-xs text-muted-ink">выберите один вариант</span>}
@@ -471,11 +471,11 @@ function QuestionInput({
                     {question.options.map(opt => (
                         <button key={opt} type="button"
                             onClick={() => onChange(value === opt ? '' : opt)}
-                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border-[1.5px] transition-all
+                            className={`flex items-start gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border-[1.5px] transition-all text-left max-w-full min-w-0 [overflow-wrap:anywhere]
                                 ${value === opt
                                     ? 'border-brand bg-brand-subtle text-brand-hover'
                                     : 'border-border-soft bg-surface text-muted-ink'}`}>
-                            <div className={`w-[14px] h-[14px] min-w-[14px] rounded-full border-[1.5px] flex items-center justify-center transition-colors
+                            <div className={`w-[14px] h-[14px] min-w-[14px] mt-0.5 rounded-full border-[1.5px] flex items-center justify-center transition-colors
                                 ${value === opt ? 'bg-brand border-brand' : 'border-border-soft bg-surface'}`}>
                                 {value === opt && (
                                     <svg width="8" height="7" viewBox="0 0 10 8" fill="none">
@@ -498,7 +498,7 @@ function QuestionInput({
             onChange(next.join(', '))
         }
         return (
-            <div className={cn('flex flex-col gap-2.5', className)}>
+            <div className={cn('flex flex-col gap-2.5 min-w-0', className)}>
                 <div className="flex flex-col gap-1">
                     {label}
                     {showHint && <span className="text-xs text-muted-ink">можно выбрать несколько вариантов</span>}
@@ -506,11 +506,11 @@ function QuestionInput({
                 <div className="flex flex-wrap gap-2">
                     {question.options.map(opt => (
                         <button key={opt} type="button" onClick={() => toggle(opt)}
-                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border-[1.5px] transition-all
+                            className={`flex items-start gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium border-[1.5px] transition-all text-left max-w-full min-w-0 [overflow-wrap:anywhere]
                                 ${selected.includes(opt)
                                     ? 'border-brand bg-brand-subtle text-brand-hover'
                                     : 'border-border-soft bg-surface text-muted-ink'}`}>
-                            <div className={`w-[14px] h-[14px] min-w-[14px] rounded-[4px] border-[1.5px] flex items-center justify-center transition-colors
+                            <div className={`w-[14px] h-[14px] min-w-[14px] mt-0.5 rounded-[4px] border-[1.5px] flex items-center justify-center transition-colors
                                 ${selected.includes(opt) ? 'bg-brand border-brand' : 'border-border-soft bg-surface'}`}>
                                 {selected.includes(opt) && (
                                     <svg width="8" height="7" viewBox="0 0 10 8" fill="none">
@@ -528,7 +528,7 @@ function QuestionInput({
 
     // text (default)
     return (
-        <div className={cn('flex flex-col gap-1.5', className)}>
+        <div className={cn('flex flex-col gap-1.5 min-w-0', className)}>
             {label}
             <Input type="text" value={value} onChange={e => onChange(e.target.value)}
                 placeholder="Ваш ответ" autoComplete="off" required={question.required} />

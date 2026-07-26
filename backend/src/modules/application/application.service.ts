@@ -38,6 +38,26 @@ export class ApplicationService {
         "AUTH_SESSION_INVALID"
       );
     }
+    // Студент не может одновременно проходить практику в двух разных
+    // когортах (например, за 1 и 2 курс параллельно) — раз он уже подал
+    // заявку (на рассмотрении или одобренную) в другую когорту, новые
+    // заявки принимаются только в неё же. Отклонённая заявка не считается —
+    // она не блокирует подачу в другую когорту.
+    const conflictingApplication = await prisma.application.findFirst({
+      where: {
+        user_id: userId,
+        status: { in: [ApplicationStatus.PENDING, ApplicationStatus.APPROVED] },
+        track: { cohort_id: { not: invitation!.cohort_id } },
+      },
+      select: { id: true },
+    });
+    if (conflictingApplication) {
+      throw new AppError(
+        "Student already has an active application in a different cohort",
+        409,
+        "COHORT_ALREADY_LOCKED"
+      );
+    }
     try {
       return await prisma.$transaction(async (tx) => {
         const application = await tx.application.create({ data: { user_id: userId, track_id: dto.track_id, status: ApplicationStatus.PENDING } });
@@ -106,6 +126,7 @@ export class ApplicationService {
     if (invitation.expires_at <= now) throw new AppError("Invitation has expired", 400, "INVITATION_EXPIRED");
     const { cohort } = invitation;
     if (cohort.status === "CLOSED") throw new AppError("Cohort is closed", 400, "COHORT_CLOSED");
+    if (cohort.status === "DRAFT") throw new AppError("Application window is not open", 400, "APPLICATION_WINDOW_CLOSED");
     if (!cohort.application_start || !cohort.application_end || now < cohort.application_start || now > cohort.application_end) throw new AppError("Application window is closed", 400, "APPLICATION_WINDOW_CLOSED");
   }
 

@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { FolderKanban, FileText, TriangleAlert, Download, CheckCircle2, ChevronDown, Route, ListFilter, Users, Info } from 'lucide-react'
+import { FolderKanban, FileText, TriangleAlert, Download, CheckCircle2, ChevronDown, Route, ListFilter, Users, Info, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { FilterSelect } from '@/components/ui/filter-select'
 
 // Оверлей модалки закрывается только по клику НАЧАВШЕМУСЯ и ЗАКОНЧИВШЕМУСЯ на
 // самом оверлее — иначе выделение текста мышью, отпущенной за пределами
@@ -241,48 +242,27 @@ export default function AdminDocumentsPage() {
 
             {selectedCohort && (
                 <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-wrap items-center gap-3">
-                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white w-full sm:w-auto sm:flex-shrink-0 focus-within:border-brand cursor-pointer">
-                        <Route className="size-3.5 text-muted-ink flex-shrink-0 pointer-events-none" />
-                        <span className="text-sm font-medium text-ink truncate pointer-events-none">
-                            {sourceCohort?.tracks.find(t => t.id === trackFilter)?.title ?? 'Все треки'}
-                        </span>
-                        <ChevronDown className="size-3.5 text-muted-ink absolute right-2.5 pointer-events-none" />
-                        <select aria-label="Фильтр по треку" value={trackFilter} onChange={e => setTrackFilter(e.target.value)}
-                            className="absolute inset-0 w-full h-full !p-0 !border-0 opacity-0 cursor-pointer text-sm">
-                            <option value="">Все треки</option>
-                            {sourceCohort?.tracks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
-                        </select>
-                    </div>
-                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white w-full sm:w-auto sm:flex-shrink-0 focus-within:border-brand cursor-pointer">
-                        <ListFilter className="size-3.5 text-muted-ink flex-shrink-0 pointer-events-none" />
-                        <span className="text-sm font-medium text-ink truncate pointer-events-none">
-                            {reportStatusFilter ? REPORT_STATUS_LABELS[reportStatusFilter].label : 'Любой статус отчёта'}
-                        </span>
-                        <ChevronDown className="size-3.5 text-muted-ink absolute right-2.5 pointer-events-none" />
-                        <select aria-label="Фильтр по статусу отчёта" value={reportStatusFilter}
-                            onChange={e => setReportStatusFilter(e.target.value as AdminDocumentsFilter['reportStatus'] | '')}
-                            className="absolute inset-0 w-full h-full !p-0 !border-0 opacity-0 cursor-pointer text-sm">
-                            <option value="">Любой статус отчёта</option>
-                            <option value="MISSING">Не загружен</option>
-                            <option value="PENDING">На проверке</option>
-                            <option value="APPROVED">Одобрен</option>
-                            <option value="REJECTED">Отклонён</option>
-                        </select>
-                    </div>
-                    <div className="relative flex items-center h-9 gap-2 pl-3 pr-8 rounded-lg border border-border-soft bg-white w-full sm:w-auto sm:flex-shrink-0 focus-within:border-brand cursor-pointer">
-                        <ListFilter className="size-3.5 text-muted-ink flex-shrink-0 pointer-events-none" />
-                        <span className="text-sm font-medium text-ink truncate pointer-events-none">
-                            {readinessFilter === 'READY' ? 'Все документы готовы' : readinessFilter === 'INCOMPLETE' ? 'Есть незаполненные' : 'Любая готовность'}
-                        </span>
-                        <ChevronDown className="size-3.5 text-muted-ink absolute right-2.5 pointer-events-none" />
-                        <select aria-label="Фильтр по готовности документов" value={readinessFilter}
-                            onChange={e => setReadinessFilter(e.target.value as AdminDocumentsFilter['readiness'] | '')}
-                            className="absolute inset-0 w-full h-full !p-0 !border-0 opacity-0 cursor-pointer text-sm">
-                            <option value="">Любая готовность</option>
-                            <option value="READY">Все документы готовы</option>
-                            <option value="INCOMPLETE">Есть незаполненные</option>
-                        </select>
-                    </div>
+                    <button type="button" onClick={() => { setTrackFilter(''); setReportStatusFilter(''); setReadinessFilter(''); setSearch('') }}
+                        className="inline-flex items-center gap-2 text-sm font-medium text-ink hover:text-danger whitespace-nowrap px-3 h-9 rounded-lg border border-border-soft bg-white hover:bg-surface transition-colors duration-300 flex-shrink-0 w-full sm:w-auto">
+                        <Trash2 className="size-3.5" />Сбросить
+                    </button>
+                    <FilterSelect icon={Route} ariaLabel="Фильтр по треку" placeholder="Все треки"
+                        value={trackFilter} onChange={setTrackFilter}
+                        options={(sourceCohort?.tracks ?? []).map(t => ({ value: t.id, label: t.title }))} />
+                    <FilterSelect icon={ListFilter} ariaLabel="Фильтр по статусу отчёта" placeholder="Любой статус отчёта"
+                        value={reportStatusFilter ?? ''} onChange={v => setReportStatusFilter(v as AdminDocumentsFilter['reportStatus'] | '')}
+                        options={[
+                            { value: 'MISSING', label: 'Не загружен' },
+                            { value: 'PENDING', label: 'На проверке' },
+                            { value: 'APPROVED', label: 'Одобрен' },
+                            { value: 'REJECTED', label: 'Отклонён' },
+                        ]} />
+                    <FilterSelect icon={ListFilter} ariaLabel="Фильтр по готовности документов" placeholder="Любая готовность"
+                        value={readinessFilter ?? ''} onChange={v => setReadinessFilter(v as AdminDocumentsFilter['readiness'] | '')}
+                        options={[
+                            { value: 'READY', label: 'Все документы готовы' },
+                            { value: 'INCOMPLETE', label: 'Есть незаполненные' },
+                        ]} />
                     <input type="text" aria-label="Поиск по ФИО или email" value={search} onChange={e => setSearch(e.target.value)}
                         placeholder="Поиск по ФИО или email…" className="h-9 text-sm px-3 rounded-lg border border-border-soft flex-1 min-w-[180px]" />
                 </div>
@@ -384,7 +364,7 @@ export default function AdminDocumentsPage() {
                                                             <CheckCircle2 className="size-3" />Готов
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-success bg-success-bg border border-success-border rounded-full px-2 py-0.5 flex-shrink-0">
+                                                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-warning bg-warning-bg border border-warning-border rounded-full px-2 py-0.5 flex-shrink-0">
                                                             <span className="cursor-help inline-flex" title="Студент ещё не сформировал документ.">
                                                                 <Info className="size-3" />
                                                             </span>
@@ -468,16 +448,19 @@ export default function AdminDocumentsPage() {
                                                                                 {field.multiline ? (
                                                                                     <textarea id={key} rows={2} className="w-full text-sm rounded-lg"
                                                                                         value={reviewDrafts[key] ?? value}
+                                                                                        placeholder={field.placeholder}
                                                                                         onChange={e => setReviewDrafts(prev => ({ ...prev, [key]: e.target.value }))}
                                                                                         onBlur={() => handleReviewFieldBlur(doc.applicationId, field.key)} />
                                                                                 ) : field.key === 'review_grade' ? (
                                                                                     <input id={key} type="number" min={0} max={100} step={1} className="w-full text-sm rounded-lg"
                                                                                         value={reviewDrafts[key] ?? value}
+                                                                                        placeholder={field.placeholder}
                                                                                         onChange={e => setReviewDrafts(prev => ({ ...prev, [key]: e.target.value }))}
                                                                                         onBlur={() => handleReviewFieldBlur(doc.applicationId, field.key)} />
                                                                                 ) : (
                                                                                     <input id={key} type="text" className="w-full text-sm rounded-lg"
                                                                                         value={reviewDrafts[key] ?? value}
+                                                                                        placeholder={field.placeholder}
                                                                                         onChange={e => setReviewDrafts(prev => ({ ...prev, [key]: e.target.value }))}
                                                                                         onBlur={() => handleReviewFieldBlur(doc.applicationId, field.key)} />
                                                                                 )}

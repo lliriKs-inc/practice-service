@@ -69,7 +69,7 @@ function makeApplication(status: Application['status']): Application {
         status,
         submitted_at: '2027-07-01T00:00:00.000Z',
         track: { id: 'track-1', title: 'Backend' },
-        cohort: { id: 'cohort-1', title: 'Практика 2027', start_date: '2027-07-19T00:00:00.000Z', end_date: '2027-07-30T00:00:00.000Z' },
+        cohort: { id: 'cohort-1', title: 'Практика 2027', start_date: '2027-07-19T00:00:00.000Z', end_date: '2027-07-30T00:00:00.000Z', status: 'active' },
         student: { id: 'student-1', email: 'student@urfu.ru' },
         answers: [],
     }
@@ -201,7 +201,7 @@ describe('DashboardDocumentsPage', () => {
         fireEvent.blur(fioInput)
         await waitFor(() => expect(screen.queryByText('сохраняем…')).not.toBeInTheDocument(), { timeout: 3000 })
 
-        const groupInput = getFieldInput(noticeCard, /Группа/)
+        const groupInput = getFieldInput(noticeCard, /группа/i)
         fireEvent.change(groupInput, { target: { value: 'РИ-123' } })
         fireEvent.blur(groupInput)
         await waitFor(() => expect(screen.queryByText('сохраняем…')).not.toBeInTheDocument(), { timeout: 3000 })
@@ -225,8 +225,8 @@ describe('DashboardDocumentsPage', () => {
 
         for (const [label, value] of [
             [/ФИО студента/, 'Иванов Иван'],
-            [/Группа/, 'РИ-123'],
-            [/Специальность/, 'ПИ'],
+            [/группа/i, 'РИ-123'],
+            [/Название направления/, 'ПИ'],
             [/Тема практики/, 'Тема практики'],
         ] as const) {
             const input = getFieldInput(card, label)

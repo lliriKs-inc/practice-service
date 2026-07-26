@@ -16,7 +16,7 @@ const questionFieldsSchema = z.object({
   type: fieldTypeSchema,
   required: z.boolean().default(false),
   order_index: z.number().int().nonnegative().optional(),
-  options: z.array(z.string().trim().min(1)).optional().nullable(),
+  options: z.array(z.string().trim()).optional().nullable(),
 });
 
 export const createQuestionSchema = questionFieldsSchema.superRefine(validateQuestionOptions);
@@ -44,7 +44,9 @@ function validateQuestionOptions(
   if (!choiceType && value.options && value.options.length > 0) {
     ctx.addIssue({ code: "custom", path: ["options"], message: "Options are only valid for choice questions" });
   }
-  if (value.options && new Set(value.options).size !== value.options.length) {
+  if (value.options && value.options.some((opt) => opt.length === 0)) {
+    ctx.addIssue({ code: "custom", path: ["options"], message: "Option text cannot be empty" });
+  } else if (value.options && new Set(value.options).size !== value.options.length) {
     ctx.addIssue({ code: "custom", path: ["options"], message: "Options must be unique" });
   }
 }
