@@ -103,7 +103,15 @@ export default function DashboardTasksPage() {
     // пустым weekStart, чтобы не было гонки между "стартовым" фетчем на
     // сегодняшнюю неделю (почти наверняка вне периода практики) и
     // "исправленным" фетчем на нужную неделю.
-    const [weekStart, setWeekStart] = useState('')
+    const [weekStart, setWeekStart] = useState(() => {
+        if (!approvedApplication) return ''
+        const first = firstPracticeWeekMonday(approvedApplication.cohort.start_date)
+        const last = lastPracticeWeekMonday(approvedApplication.cohort.end_date)
+        const today = getMondayOfWeek(new Date())
+        const clamped = today < first ? first : today > last ? last : today
+        return toISODate(clamped)
+    })
+    const isInitialWeekStart = useRef(true)
     const [weekData, setWeekData] = useState<StudentWeekResponse | null>(null)
     const [tasksLoading, setTasksLoading] = useState(false)
     const [tasksError, setTasksError] = useState('')
@@ -160,13 +168,23 @@ export default function DashboardTasksPage() {
     // внутри периода практики — иначе ближайшую границу периода), а не всегда
     // начало практики.
     useEffect(() => {
-        if (!approvedApplication) { setWeekStart(''); return }
-        const first = firstPracticeWeekMonday(approvedApplication.cohort.start_date)
-        const last = lastPracticeWeekMonday(approvedApplication.cohort.end_date)
-        const today = getMondayOfWeek(new Date())
-        const clamped = today < first ? first : today > last ? last : today
-        setWeekStart(toISODate(clamped))
-    }, [approvedApplication?.id])
+        const initialWeekStart = approvedApplication
+            ? (() => {
+                const first = firstPracticeWeekMonday(approvedApplication.cohort.start_date)
+                const last = lastPracticeWeekMonday(approvedApplication.cohort.end_date)
+                const today = getMondayOfWeek(new Date())
+                const clamped = today < first ? first : today > last ? last : today
+                return toISODate(clamped)
+            })()
+            : ''
+
+        if (isInitialWeekStart.current) {
+            isInitialWeekStart.current = false
+            return
+        }
+
+        queueMicrotask(() => setWeekStart(initialWeekStart))
+    }, [approvedApplication])
 
     function canGoPrev(): boolean {
         if (!weekData) return true

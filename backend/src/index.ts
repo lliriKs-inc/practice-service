@@ -5,10 +5,32 @@ import {
   appLogger,
 } from "./shared/logger/runtime-logger";
 import { prisma } from "./shared/prisma";
+import { CohortService } from "./modules/cohort/cohort.service";
 
 const app = createApp({
   logger: appLogger,
 });
+
+const cohortService = new CohortService();
+const cohortExpiryCheckIntervalMilliseconds = 12 * 60 * 60 * 1000;
+
+async function closeExpiredCohorts(): Promise<void> {
+  try {
+    const closedCount = await cohortService.closeExpiredCohorts();
+    if (closedCount > 0) {
+      appLogger.info("Expired cohorts closed", { closedCount });
+    }
+  } catch (error) {
+    appLogger.error("Failed to close expired cohorts", { error });
+  }
+}
+
+void closeExpiredCohorts();
+const cohortExpiryCheckTimer = setInterval(
+  () => void closeExpiredCohorts(),
+  cohortExpiryCheckIntervalMilliseconds,
+);
+cohortExpiryCheckTimer.unref();
 
 const server = app.listen(config.port, () => {
   appLogger.info("Server started", {
@@ -60,6 +82,7 @@ async function shutdown(
     await prisma.$disconnect();
 
     clearTimeout(forceShutdownTimer);
+    clearInterval(cohortExpiryCheckTimer);
 
     appLogger.info("Server stopped", {
       signal,

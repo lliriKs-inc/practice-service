@@ -104,6 +104,7 @@ export default function AdminDocumentsPage() {
     const [detailLoading, setDetailLoading] = useState<string | null>(null)
 
     const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({})
+    const [reviewGradeErrors, setReviewGradeErrors] = useState<Record<string, string>>({})
     const [savingKey, setSavingKey] = useState<string | null>(null)
     const [reportActionId, setReportActionId] = useState<string | null>(null)
     const [rejectingReportId, setRejectingReportId] = useState<string | null>(null)
@@ -166,6 +167,20 @@ export default function AdminDocumentsPage() {
         if (!selectedCohort) return
         const key = reviewKey(applicationId, fieldKey)
         const value = reviewDrafts[key] ?? ''
+        if (fieldKey === 'review_grade' && value.trim() !== '') {
+            const grade = Number(value)
+            if (!Number.isInteger(grade) || grade < 0 || grade > 10) {
+                setReviewGradeErrors(prev => ({ ...prev, [key]: 'Оценка должна быть целым числом от 0 до 10' }))
+                return
+            }
+        }
+        if (fieldKey === 'review_grade') {
+            setReviewGradeErrors(prev => {
+                const next = { ...prev }
+                delete next[key]
+                return next
+            })
+        }
         const existing = fieldValuesById[applicationId]?.find(d => d.type === 'REVIEW')?.values.find(f => f.key === fieldKey)?.value ?? ''
         if (value === existing) return
 
@@ -452,11 +467,28 @@ export default function AdminDocumentsPage() {
                                                                                         onChange={e => setReviewDrafts(prev => ({ ...prev, [key]: e.target.value }))}
                                                                                         onBlur={() => handleReviewFieldBlur(doc.applicationId, field.key)} />
                                                                                 ) : field.key === 'review_grade' ? (
-                                                                                    <input id={key} type="number" min={0} max={100} step={1} className="w-full text-sm rounded-lg"
+                                                                                    <>
+                                                                                    <input id={key} type="number" min={0} max={10} step={1}
+                                                                                        aria-invalid={Boolean(reviewGradeErrors[key])}
+                                                                                        className={`w-full text-sm rounded-lg ${reviewGradeErrors[key] ? 'border-danger focus:border-danger' : ''}`}
                                                                                         value={reviewDrafts[key] ?? value}
                                                                                         placeholder={field.placeholder}
-                                                                                        onChange={e => setReviewDrafts(prev => ({ ...prev, [key]: e.target.value }))}
+                                                                                        onChange={e => {
+                                                                                            const nextValue = e.target.value
+                                                                                            setReviewDrafts(prev => ({ ...prev, [key]: nextValue }))
+                                                                                            if (nextValue.trim() === '' || (Number.isInteger(Number(nextValue)) && Number(nextValue) >= 0 && Number(nextValue) <= 10)) {
+                                                                                                setReviewGradeErrors(prev => {
+                                                                                                    const next = { ...prev }
+                                                                                                    delete next[key]
+                                                                                                    return next
+                                                                                                })
+                                                                                            } else {
+                                                                                                setReviewGradeErrors(prev => ({ ...prev, [key]: 'Оценка должна быть целым числом от 0 до 10' }))
+                                                                                            }
+                                                                                        }}
                                                                                         onBlur={() => handleReviewFieldBlur(doc.applicationId, field.key)} />
+                                                                                    {reviewGradeErrors[key] && <span className="text-xs text-danger">{reviewGradeErrors[key]}</span>}
+                                                                                    </>
                                                                                 ) : (
                                                                                     <input id={key} type="text" className="w-full text-sm rounded-lg"
                                                                                         value={reviewDrafts[key] ?? value}

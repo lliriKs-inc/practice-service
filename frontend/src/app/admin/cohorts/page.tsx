@@ -232,6 +232,7 @@ export default function AdminCohortsPage() {
     const editModalOverlay = useOverlayClose(() => closeEdit())
     const deleteModalOverlay = useOverlayClose(() => closeDeleteModal())
     const copySurveyModalOverlay = useOverlayClose(() => closeCopySurveyModal())
+    const statusModalOverlay = useOverlayClose(() => setPendingStatus(null))
 
     // ── Редактирование: локальный черновик ────────────────────────
     // Все правки в модалке применяются только к editDraft. Ничего не
@@ -242,6 +243,7 @@ export default function AdminCohortsPage() {
     // клике по кнопке статуса. Иначе после клика "Закрыта" её уже нельзя
     // вернуть обратно на "Активна" до сохранения — хотя это ещё черновик правок.
     const [originalStatus, setOriginalStatus] = useState<CohortStatus | null>(null)
+    const [pendingStatus, setPendingStatus] = useState<CohortStatus | null>(null)
     const [editTab, setEditTab] = useState<EditTab>('general')
     const [editSaving, setEditSaving] = useState(false)
     const [invitationSaving, setInvitationSaving] = useState(false)
@@ -295,7 +297,7 @@ export default function AdminCohortsPage() {
     // всё равно можно тащить фон пальцем) — фиксируем body позицией и
     // сдвигаем на текущий scrollY, а при закрытии возвращаем скролл на место.
     useEffect(() => {
-        if (showCreateModal || editDraft || cohortToDelete || showCopySurveyModal) {
+        if (showCreateModal || editDraft || cohortToDelete || showCopySurveyModal || pendingStatus) {
             const scrollY = window.scrollY
             const previous = {
                 overflow: document.body.style.overflow,
@@ -315,7 +317,7 @@ export default function AdminCohortsPage() {
                 window.scrollTo(0, scrollY)
             }
         }
-    }, [showCreateModal, editDraft, cohortToDelete, showCopySurveyModal])
+    }, [showCreateModal, editDraft, cohortToDelete, showCopySurveyModal, pendingStatus])
 
     // ── Создание когорты (отдельная модалка, без изменений) ───────
     function isCreateFormComplete() {
@@ -539,7 +541,17 @@ export default function AdminCohortsPage() {
 
     function handleStatusChange(status: CohortStatus) {
         if (!editDraft || !originalStatus || !canSetStatus(originalStatus, status)) return
+        if (status === 'active' || status === 'closed') {
+            setPendingStatus(status)
+            return
+        }
         patchDraft({ status })
+    }
+
+    function confirmStatusChange() {
+        if (!pendingStatus) return
+        patchDraft({ status: pendingStatus })
+        setPendingStatus(null)
     }
 
     // ── Треки (локально, без сети) ─────────────────────────────────
@@ -1089,6 +1101,40 @@ export default function AdminCohortsPage() {
                             <Button variant="danger" type="button" onClick={handleDeleteCohort} disabled={Boolean(deletingCohortId)}
                                 className="px-4 py-2 rounded-lg h-auto">
                                 {deletingCohortId ? 'Удаляем…' : 'Удалить'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {pendingStatus && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
+                    {...statusModalOverlay}>
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md max-h-[90vh] overflow-y-auto"
+                        onClick={e => e.stopPropagation()}>
+                        <div className="flex items-start gap-3">
+                            <div className="mt-0.5 rounded-full bg-warning-bg p-2 text-warning">
+                                <TriangleAlert className="size-5" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-xl text-ink">
+                                    {pendingStatus === 'active' ? 'Активировать когорту?' : 'Закрыть когорту?'}
+                                </h3>
+                                <p className="text-sm text-muted-ink leading-relaxed mt-3">
+                                    {pendingStatus === 'active'
+                                        ? 'После сохранения когорта станет доступна кандидатам для подачи заявок. Вернуть её в статус «Черновик» будет невозможно. Продолжить?'
+                                        : 'После сохранения когорта будет закрыта, новые заявки приниматься не будут. Вернуть её в статус «Активна» будет невозможно. Продолжить?'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="mt-7 flex justify-end items-center gap-5">
+                            <button type="button" onClick={() => setPendingStatus(null)}
+                                className="text-sm font-semibold text-muted-ink hover:text-ink transition-colors">
+                                Отмена
+                            </button>
+                            <Button variant={pendingStatus === 'closed' ? 'danger' : 'brand'} type="button"
+                                onClick={confirmStatusChange} className="px-4 py-2 rounded-lg h-auto">
+                                {pendingStatus === 'active' ? 'Сменить' : 'Закрыть'}
                             </Button>
                         </div>
                     </div>

@@ -69,7 +69,7 @@ export const DOCUMENT_FIELD_CONFIG: Record<DocumentType, DocumentFieldConfig[]> 
         { key: 'review_employed', label: 'Трудоустроен (Да / Нет)', owner: 'ADMIN', required: true, placeholder: 'Студент на время практики был трудоустроен?' },
         { key: 'review_next_practice', label: 'Рекомендация к следующей практике (Да / Нет)', owner: 'ADMIN', required: true, placeholder: 'Студенту предложено пройти следующую практику на предприятии (в организации)?' },
         { key: 'review_employment_offer', label: 'Предложение о трудоустройстве (Да / Нет)', owner: 'ADMIN', required: true, placeholder: 'Студенту предложено трудоустройство после завершения обучения?' },
-        { key: 'review_grade', label: 'Оценка (0 – 100)', owner: 'ADMIN', required: true },
+        { key: 'review_grade', label: 'Оценка (0 – 10)', owner: 'ADMIN', required: true },
         { key: 'review_suggestions', label: 'Пожелания', owner: 'ADMIN', required: true, multiline: true, placeholder: 'Ваши пожелания и рекомендации' },
     ],
     NOTICE: [
