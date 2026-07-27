@@ -172,13 +172,19 @@ export default function AdminTasksPage() {
     // Открываем текущую неделю (если она внутри периода практики — иначе
     // ближайшую границу периода), а не всегда первую неделю практики.
     useEffect(() => {
-        if (!selectedCohort) { setWeekStart(''); return }
-        const first = firstPracticeWeekMonday(selectedCohort.start_date)
-        const last = lastPracticeWeekMonday(selectedCohort.end_date)
-        const today = getMondayOfWeek(new Date())
-        const clamped = today < first ? first : today > last ? last : today
-        setWeekStart(toISODate(clamped))
-    }, [selectedCohort?.id])
+        const initialWeekStart = selectedCohort
+            ? (() => {
+                const first = firstPracticeWeekMonday(selectedCohort.start_date)
+                const last = lastPracticeWeekMonday(selectedCohort.end_date)
+                const today = getMondayOfWeek(new Date())
+                const clamped = today < first ? first : today > last ? last : today
+                return toISODate(clamped)
+            })()
+            : ''
+
+        const timer = setTimeout(() => setWeekStart(initialWeekStart), 0)
+        return () => clearTimeout(timer)
+    }, [selectedCohort])
     const [progress, setProgress] = useState<CohortWeekProgress | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')

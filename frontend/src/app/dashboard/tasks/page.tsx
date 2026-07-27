@@ -160,13 +160,19 @@ export default function DashboardTasksPage() {
     // внутри периода практики — иначе ближайшую границу периода), а не всегда
     // начало практики.
     useEffect(() => {
-        if (!approvedApplication) { setWeekStart(''); return }
-        const first = firstPracticeWeekMonday(approvedApplication.cohort.start_date)
-        const last = lastPracticeWeekMonday(approvedApplication.cohort.end_date)
-        const today = getMondayOfWeek(new Date())
-        const clamped = today < first ? first : today > last ? last : today
-        setWeekStart(toISODate(clamped))
-    }, [approvedApplication?.id])
+        const initialWeekStart = approvedApplication
+            ? (() => {
+                const first = firstPracticeWeekMonday(approvedApplication.cohort.start_date)
+                const last = lastPracticeWeekMonday(approvedApplication.cohort.end_date)
+                const today = getMondayOfWeek(new Date())
+                const clamped = today < first ? first : today > last ? last : today
+                return toISODate(clamped)
+            })()
+            : ''
+
+        const timer = setTimeout(() => setWeekStart(initialWeekStart), 0)
+        return () => clearTimeout(timer)
+    }, [approvedApplication])
 
     function canGoPrev(): boolean {
         if (!weekData) return true
