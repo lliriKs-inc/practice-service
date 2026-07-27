@@ -167,7 +167,15 @@ export default function AdminTasksPage() {
     // неделю (почти наверняка вне периода практики) и "исправленным" фетчем
     // на нужную неделю: раньше оба запроса улетали, и если ответ на первый
     // приходил ПОСЛЕ второго, он затирал корректные данные привязками/статусами.
-    const [weekStart, setWeekStart] = useState('')
+    const [weekStart, setWeekStart] = useState(() => {
+        if (!selectedCohort) return ''
+        const first = firstPracticeWeekMonday(selectedCohort.start_date)
+        const last = lastPracticeWeekMonday(selectedCohort.end_date)
+        const today = getMondayOfWeek(new Date())
+        const clamped = today < first ? first : today > last ? last : today
+        return toISODate(clamped)
+    })
+    const isInitialWeekStart = useRef(true)
 
     // Открываем текущую неделю (если она внутри периода практики — иначе
     // ближайшую границу периода), а не всегда первую неделю практики.
@@ -182,8 +190,12 @@ export default function AdminTasksPage() {
             })()
             : ''
 
-        const timer = setTimeout(() => setWeekStart(initialWeekStart), 0)
-        return () => clearTimeout(timer)
+        if (isInitialWeekStart.current) {
+            isInitialWeekStart.current = false
+            return
+        }
+
+        queueMicrotask(() => setWeekStart(initialWeekStart))
     }, [selectedCohort])
     const [progress, setProgress] = useState<CohortWeekProgress | null>(null)
     const [loading, setLoading] = useState(true)
