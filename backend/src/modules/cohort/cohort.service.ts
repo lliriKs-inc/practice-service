@@ -41,6 +41,7 @@ export class CohortService {
     if (data.application_start && data.application_end && data.application_start > data.application_end) throw new AppError("Application dates are invalid", 400, "INVALID_DATE_RANGE");
     if (data.application_end && data.application_end > data.practice_start) throw new AppError("Application window must end before practice starts", 400, "INVALID_DATE_RANGE");
     if (data.status === CohortStatus.ACTIVE && (!data.application_start || !data.application_end)) throw new AppError("Active cohort requires an application window", 400, "INVALID_COHORT_STATUS");
+    await this.closeExpiredCohorts();
 
     return prisma.cohort.create({ data: { title: data.title.trim(), status: data.status ?? CohortStatus.DRAFT, application_start: data.application_start, application_end: data.application_end, practice_start: data.practice_start, practice_end: data.practice_end, created_by: data.created_by }, include: cohortInclude });
   }
@@ -103,6 +104,40 @@ export class CohortService {
         include: cohortInclude,
       });
     });
+  }
+
+  async closeExpiredCohorts(): Promise<number> {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const expired = await prisma.cohort.findMany({
+      where: {
+        status: CohortStatus.ACTIVE,
+        practice_end: { lt: today },
+      },
+      select: { id: true },
+    });
+
+    for (const cohort of expired) {
+      await prisma.$transaction(async (tx) => {
+        await tx.application.updateMany({
+          where: {
+            status: ApplicationStatus.PENDING,
+            track: { cohort_id: cohort.id },
+          },
+          data: {
+            status: ApplicationStatus.REJECTED,
+            rejection_reason: "Когорта завершена до рассмотрения заявки",
+          },
+        });
+        await tx.cohort.updateMany({
+          where: { id: cohort.id, status: CohortStatus.ACTIVE },
+          data: { status: CohortStatus.CLOSED },
+        });
+      });
+    }
+
+    return expired.length;
   }
 
   async deleteCohort(
