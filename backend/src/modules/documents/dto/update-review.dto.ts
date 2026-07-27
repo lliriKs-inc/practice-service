@@ -7,9 +7,9 @@ const reviewGradeSchema = z
     (value) => {
       if (value === "") return true;
       const grade = Number(value);
-      return Number.isInteger(grade) && grade >= 0 && grade <= 100;
+      return Number.isInteger(grade) && grade >= 0 && grade <= 10;
     },
-    { message: "review_grade must be an integer between 0 and 100" }
+    { message: "review_grade must be an integer between 0 and 10" }
   )
   .optional();
 

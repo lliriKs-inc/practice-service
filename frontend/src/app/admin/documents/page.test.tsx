@@ -115,10 +115,12 @@ describe('AdminDocumentsPage', () => {
 
         const gradeLabel = within(card).getByText(/Оценка/, { selector: 'label' })
         const gradeInput = gradeLabel.parentElement!.querySelector('input')!
-        fireEvent.change(gradeInput, { target: { value: '95' } })
+        expect(gradeInput).toHaveAttribute('min', '0')
+        expect(gradeInput).toHaveAttribute('max', '10')
+        fireEvent.change(gradeInput, { target: { value: '9' } })
         fireEvent.blur(gradeInput)
 
-        await waitFor(() => expect(updateAdminDocumentField).toHaveBeenCalledWith(COHORT_ID, APP_ID, 'REVIEW', 'review_grade', '95'))
+        await waitFor(() => expect(updateAdminDocumentField).toHaveBeenCalledWith(COHORT_ID, APP_ID, 'REVIEW', 'review_grade', '9'))
     })
 
     it('одобряет загруженный отчёт', async () => {

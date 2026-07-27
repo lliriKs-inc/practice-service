@@ -452,7 +452,7 @@ export default function AdminDocumentsPage() {
                                                                                         onChange={e => setReviewDrafts(prev => ({ ...prev, [key]: e.target.value }))}
                                                                                         onBlur={() => handleReviewFieldBlur(doc.applicationId, field.key)} />
                                                                                 ) : field.key === 'review_grade' ? (
-                                                                                    <input id={key} type="number" min={0} max={100} step={1} className="w-full text-sm rounded-lg"
+                                                                                    <input id={key} type="number" min={0} max={10} step={1} className="w-full text-sm rounded-lg"
                                                                                         value={reviewDrafts[key] ?? value}
                                                                                         placeholder={field.placeholder}
                                                                                         onChange={e => setReviewDrafts(prev => ({ ...prev, [key]: e.target.value }))}
