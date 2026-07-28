@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import { ApplicationStatus, CohortStatus, UserRole } from "@prisma/client";
+import { UserRole } from "@prisma/client";
 import { prisma } from "../src/shared/prisma";
 
 async function main() {
@@ -22,59 +22,14 @@ async function main() {
     await tx.cohort.deleteMany();
     await tx.user.deleteMany();
 
-    const passwordHash = await bcrypt.hash("password123", 10);
+    const passwordHash = await bcrypt.hash("mnG-h75-SxP-9LK", 10);
 
-    const admin = await tx.user.create({
+    await tx.user.create({
       data: {
-        email: "admin@academy.com",
+        email: "anton@unocode.ru",
         password_hash: passwordHash,
-        full_name: "Alekseev Aleksei Alekseevich",
+        full_name: "Езуб Антон Сергеевич",
         role: UserRole.ADMIN,
-      },
-    });
-
-    const student = await tx.user.create({
-      data: {
-        email: "student@test.com",
-        password_hash: passwordHash,
-        full_name: "Ivanov Ivan Ivanovich",
-        role: UserRole.STUDENT,
-      },
-    });
-
-    const currentYear = new Date().getFullYear();
-    const cohort = await tx.cohort.create({
-      data: {
-        title: `Summer Practice ${currentYear}`,
-        status: CohortStatus.ACTIVE,
-        application_start: new Date(`${currentYear}-06-01`),
-        application_end: new Date(`${currentYear}-06-30`),
-        practice_start: new Date(`${currentYear}-07-01`),
-        practice_end: new Date(`${currentYear}-08-31`),
-        created_by: admin.id,
-      },
-    });
-
-    const backendTrack = await tx.track.create({
-      data: {
-        title: "Backend Node.js / TypeScript",
-        cohort_id: cohort.id,
-      },
-    });
-
-    await tx.track.create({
-      data: {
-        title: "Frontend React / TypeScript",
-        cohort_id: cohort.id,
-      },
-    });
-
-    await tx.application.create({
-      data: {
-        user_id: student.id,
-        track_id: backendTrack.id,
-        status: ApplicationStatus.PENDING,
-        rejection_reason: null,
       },
     });
 
